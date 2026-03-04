@@ -1,10 +1,21 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ichita",
+  "description": "Ichita document skills with brand templates and assets",
+  "owner": {
+    "name": "ICHITA Technology",
+    "email": "admin@ichita.co.th"
+  },
   "plugins": [
     {
       "name": "ichita-skills",
-      "source": ".",
-      "description": "ICHITA document skills with brand templates and assets"
+      "description": "PPTX, DOCX, PDF creation and editing with Ichita branding",
+      "source": "./",
+      "version": "1.0.0",
+      "author": {
+        "name": "ICHITA Technology",
+        "email": "admin@ichita.co.th"
+      }
     }
   ]
 }
