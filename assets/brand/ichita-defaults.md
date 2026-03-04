@@ -1,62 +1,130 @@
 # ICHITA Brand Defaults
 
-> Source of truth: `Ichita_Brand_Guidelines_V1.0.pdf` (©2022 ICHITA). All hex codes are PptxGenJS format (**NO `#` prefix**).
+> Source of truth: `Ichita_Brand_Guidelines_V1.0.pdf` (2022 ICHITA). All hex codes are PptxGenJS format (**NO `#` prefix**).
 
 ---
 
-## 1. Logo System
+## 1. Brand Essence & Personality
 
-### Two forms — Wordmark + Symbol
+### Brand Personality
+**Innovative. Professional. Precise.**
 
-| Form | Description | When to use |
-|------|-------------|-------------|
-| **Wordmark** | `ICHITA™` custom lettering | Primary identifier — all communications, sign-off, endorsement |
-| **Symbol** | X-mark (two arrow devices from the 'A' angle) | Endorsing mark, sign-off, favicon — ONLY when ICHITA context is already evident |
+Alternative descriptors: Modern, Industrial, Trustworthy, Technical, Clean, Forward-thinking
 
-### Logo Rules
+### Brand Positioning
+- Original Equipment Manufacturer (OEM)
+- Experts in **separation technologies**
+- **Water treatment and process solution provider**
+- "Process design and engineering experts"
+
+### Core Values (expressed through visual identity)
+- **Authority & Expertise** — Wordmark reinforces brand authority
+- **Process-Driven** — Visual language (patterns, symbol) derives from industrial process
+- **Innovation at the Heart** — Betatron font + vibrant Blue support technology positioning
+- **Customer Focus** — People imagery emphasizes relationships
+
+### Emotions to Evoke
+- **Confidence** — in technical expertise
+- **Trust** — in process reliability
+- **Innovation** — forward-looking solutions
+- **Professionalism** — industrial competence
+- **Precision** — attention to detail
+
+### The Balance
+- Professional but **Innovative** (Betatron, vibrant Blue, dynamic patterns)
+- Professional but **Approachable** (people-centric photography, relationships)
+- Professional but **Dynamic** (patterns with movement, flexible system)
+
+### Color Psychology
+- **Ichita Blue** (`2978FF`) — Energy, Innovation, Trust, Vibrancy
+- **Blue Grey 03** (`263338`) — Authority, Stability, Professionalism
+- **Blue Grey 01** (`CFD9DB`) — Cleanliness, Neutrality, Openness
+- The palette creates "a dynamic and recognizable mix"
+
+### Visual Philosophy
+ICHITA's visual identity is built around **process** and **innovation** — the core of what the company does (industrial separation & purification). Every visual element — from the X-mark symbol to the diminishing-bar patterns — communicates movement, precision, and transformation.
+
+**Palette**: "A strong blue supported by a series of neutral colours." The vibrant Blue is the recognizable **accent**; White + Blue Grey 01 form the calm, professional **backdrop**; darker colours (Blue Grey 03, Blue Black) provide **anchor and impact** when used sparingly.
+
+**Typography**: Aeonik provides "a timeless and modern aesthetic... a structural workhorse." Betatron numerals bring "a futuristic ideology... distinctly mechanical and industrial" — reinforcing that innovation is at the heart of operations.
+
+---
+
+## 2. Logo System
+
+### Two Forms
+
+| Form | Description | Origin | When to use |
+|------|-------------|--------|-------------|
+| **Wordmark** | `ICHITA™` custom lettering | Primary identifier | All communications — sign-off, endorsement, authority |
+| **Symbol** (X-mark) | Two arrow devices from the angle of the 'A' | Concept of **Process** & **Innovation** in its most reduced form | Endorsing mark, sign-off, favicon — **ONLY when ICHITA context is already evident** |
+
+### Logo Integrity Rules
 - **NEVER** alter, redraw, or modify the logo in any way
-- Use the provided logo files, never recreate from text
-- **Clearspace**: 50% of the wordmark height (or 50% of one arrow device for Symbol) — nothing inside this zone
+- Always use provided logo files — never recreate from text
+- Maintain fixed format at all times
 
-### Logo Colourways
+### Clearspace
+- **Wordmark**: 50% of the wordmark height on all sides — nothing inside this zone
+- **Symbol**: 50% of one arrow device height on all sides
 
-| Background | Logo Color | Hex |
-|------------|-----------|-----|
-| White / light | Blue Grey 03 | `263338` |
-| Blue Grey 01 (light grey) | Blue Grey 03 | `263338` |
-| Blue (`2978FF`) | Blue Grey 03 | `263338` |
-| Blue Grey 03 (dark) | White | `FFFFFF` |
-| Blue Grey 02 (medium grey) | Blue Grey 03 | `263338` |
+### Logo Colourways (ONLY these combinations)
 
-> **Rule**: Logo uses Blue Grey 03 on most backgrounds. Switch to White ONLY on dark backgrounds (Blue Grey 03, Blue Black).
+| Background | Logo Color | Notes |
+|------------|-----------|-------|
+| White | Blue Grey 03 (`263338`) | Default |
+| Blue Grey 01 (`CFD9DB`) | Blue Grey 03 (`263338`) | Default on light grey |
+| Blue (`2978FF`) | Blue Grey 03 (`263338`) | Dark logo on vibrant bg |
+| Blue Grey 03 (`263338`) | White (`FFFFFF`) | **Only case for white logo** |
+| Blue Grey 02 (`788F9C`) | Blue Grey 03 (`263338`) | Dark logo on medium grey |
+
+> **Rule**: Logo uses Blue Grey 03 on most backgrounds. Switch to White **ONLY** on dark backgrounds (Blue Grey 03, Blue Black). Same rules apply to Symbol.
 
 ### Logo Assets
 
 | Variant | File | Dimensions |
 |---------|------|-----------|
-| Wordmark (black on transparent) | `assets/ichita/logos/ichita-logo-black.png` | 1705x260 |
-| Wordmark (gray/light) | `assets/ichita/logos/ichita-logo-white.png` | 1705x260 |
+| Wordmark (dark on transparent) | `assets/ichita/logos/ichita-logo-black.png` | 1705x260 |
+| Wordmark (light/gray) | `assets/ichita/logos/ichita-logo-white.png` | 1705x260 |
 | X-mark (white on dark blue, square) | `assets/ichita/logos/ichita-xmark-white-on-blue.png` | 2251x2251 |
 | X-mark (dark on transparent, square) | `assets/ichita/logos/ichita-xmark-dark.png` | 2251x2251 |
 | Wordmark on dark bg (JPEG) | `assets/ichita/logos/ichita-logo-white-on-dark.jpeg` | template bg |
 
 ---
 
-## 2. Color Palette
+## 3. Color Palette
 
-### Primary Colors (from Brand Guidelines p.13)
+### Primary Colors (Brand Guidelines p.13)
 
-| Name | Hex | RGB | CMYK | PMS | Usage |
-|------|-----|-----|------|-----|-------|
-| **White** | `FFFFFF` | — | — | — | Light backgrounds, text on dark |
-| **Blue** | `2978FF` | R40 G119 B255 | C80 M56 Y0 K0 | 2132 | **Primary accent** — vibrant, recognizable. Buttons, highlights, links, pattern fills |
-| **Blue Light** | `82B0FF` | R130 G176 B255 | C51 M26 Y0 K0 | 2381 | Secondary accent — subtitles, hover states, lighter pattern |
-| **Blue Grey 01** | `CFD9DB` | R207 G217 B219 | C18 M9 Y10 K0 | 427 C | Main backdrop — light content backgrounds, the brand's "canvas" |
-| **Blue Grey 02** | `788F9C` | R120 G143 B156 | C57 M36 Y31 K0 | 2544 C | Muted text, captions, borders |
-| **Blue Grey 03** | `263338` | R38 G51 B56 | C80 M64 Y58 K56 | 432 C | **Primary text**, dark backgrounds, logo default color |
+| Name | Hex | RGB | CMYK | PMS | Role |
+|------|-----|-----|------|-----|------|
+| **White** | `FFFFFF` | R255 G255 B255 | 0 0 0 0 | — | Light backgrounds, text on dark |
+| **Blue** | `2978FF` | R41 G120 B255 | C80 M56 Y0 K0 | 2132 | **Primary accent** — vibrant, recognizable. Buttons, highlights, links, pattern fills, emphasized keywords |
+| **Blue Light** | `82B0FF` | R130 G176 B255 | C51 M26 Y0 K0 | 2381 | Secondary accent — subtitles, hover states, lighter pattern, secondary bands |
+| **Blue Grey 01** | `CFD9DB` | R207 G217 B219 | C18 M9 Y10 K0 | 427 C | Main backdrop — the brand's "canvas", content backgrounds, light section fills |
+| **Blue Grey 02** | `788F9C` | R120 G143 B156 | C57 M36 Y31 K0 | 2544 C | Muted text, captions, borders, KPI slide backgrounds |
+| **Blue Grey 03** | `263338` | R38 G51 B56 | C80 M64 Y58 K56 | 432 C | **Primary text**, dark backgrounds, logo default color, pattern shapes |
 | **Blue Black** | `171C21` | R23 G28 B33 | C78 M69 Y61 K75 | Black 6 C | Darkest background, deepest anchor |
 
-> **Palette philosophy**: "A strong blue supported by a series of neutral colours." The vibrant Blue is the **accent** — Blue Grey 01 + White form the backdrop. Darker colours (Grey 03, Blue Black) used sparingly for impact.
+> **PDF erratum**: The "White" swatch on p.13 shows HEX `131A35` / PMS 289 C / R19 G27 B55 — this is a dark navy blue, clearly a **design error** in the PDF. The actual White used throughout the brand is `FFFFFF`. CMYK/PMS for all other colors above are read directly from the PDF and are authoritative.
+
+### Color Hierarchy (from Brand Guidelines visual layout p.12)
+```
+DOMINANT (large areas):   White, Blue Grey 01  — calm professional backdrop
+ACCENT (vibrant pop):     Blue, Blue Light     — energy, recognition, emphasis
+ANCHOR (sparse, impact):  Blue Grey 03, Blue Black — depth, authority, grounding
+UTILITY:                  Blue Grey 02         — muted text, secondary info
+```
+
+### Color Usage Matrix (Background → Text → Logo)
+
+| Background | Text Color | Logo Color |
+|------------|------------|------------|
+| Blue Grey 03 (dark) | White + Blue accent | White |
+| Ichita Blue | Blue Grey 03 | Blue Grey 03 |
+| Blue Grey 01 (light) | Blue Grey 03 | Blue Grey 03 |
+| Blue Light | Blue Grey 03 | Blue Grey 03 |
+| White | Blue Grey 03 | Blue Grey 03 |
 
 ### Functional Colors (ICHITA-extended)
 
@@ -76,9 +144,11 @@ const ICHITA_CHART_COLORS = ["2978FF", "263338", "82B0FF", "788F9C", "34A853", "
 
 ---
 
-## 3. Typography
+## 4. Typography
 
 ### Font Family: Aeonik
+
+"A timeless and modern aesthetic... a structural workhorse that was meticulously engineered." Features: ligatures, fractions, case-sensitive punctuation, symbols, forms, arrows.
 
 | Weight | Role | Usage |
 |--------|------|-------|
@@ -86,15 +156,18 @@ const ICHITA_CHART_COLORS = ["2978FF", "263338", "82B0FF", "788F9C", "34A853", "
 | **Aeonik Medium** | Emphasis | Subheadings, card headers, medium-weight labels |
 | **Aeonik Bold** | Heading | Titles, section headers, strong emphasis |
 
-> Aeonik: "timeless and modern aesthetic... a structural workhorse that was meticulously engineered." Features: ligatures, fractions, case-sensitive punctuation, symbols, forms, arrows.
-
 ### Display Numerals: Betatron
 
-| Font | Role | Character |
-|------|------|-----------|
-| **Betatron** | Display numbers ONLY | "Futuristic ideology... distinctly mechanical and industrial aesthetic" |
+"A futuristic ideology... distinctly mechanical and industrial aesthetic" — supports the notion that ICHITA places innovation at the heart of its operations.
 
-> Use Betatron for: KPI stats, large numbers, year displays, capacity figures. NEVER for body text or labels.
+| Use Case | Example from Brand Guidelines |
+|----------|-------------------------------|
+| Section/chapter numbers | `01`, `02`, `03` in Blue on light backgrounds |
+| Large KPI stats | `15-20%` on Blue Grey 02 background |
+| Display percentages | Oversized numbers for impact |
+| Year displays | Capacity figures, year references |
+
+> **NEVER** use Betatron for body text, labels, or sentences. Numbers only.
 
 ### Font Assignment
 
@@ -106,35 +179,56 @@ const ICHITA_CHART_COLORS = ["2978FF", "263338", "82B0FF", "788F9C", "34A853", "
 | **Display/KPI** | Betatron | Georgia | Large numbers only |
 | **Thai** | TH Sarabun New | Tahoma | Thai language text |
 
-> Aeonik fonts are installed at `D:/Doccument/New Identity/Aeonik-font-download/` on OhYeaH!'s machine. Fallbacks are for RENDERING only — never set as primary in code.
+> Fallbacks are for **RENDERING** only — never set as primary in code.
 
 ---
 
-## 4. Pattern System
+## 5. Pattern System
 
-ICHITA has 4 brand patterns based on the concept of "process" — conveying movement, depth, and dynamism.
+ICHITA has 4 brand patterns based on the concept of **"process"** — conveying movement, depth, and dynamism. Built with a graphic language that can evolve through motion and 3D, staying consistent across applications.
 
-### Pattern Types
+### The 4 Pattern Types (Brand Guidelines p.19)
 
-| # | Name | Description | Visual |
-|---|------|-------------|--------|
-| 1 | **Horizontal Bars** | Thick bars at top, diminishing width toward bottom | ████████ → ═══ → ─── |
-| 2 | **Vertical Bars** | Grid of vertical stripes, varying widths + gaps | ▌▌▌▌ ▌▌▌▌ (membrane-like) |
-| 3 | **Wide Blocks** | Wide horizontal blocks, diminishing to thin lines | █████ → ███ → ── |
-| 4 | **Dots** | Circles diminishing in size from top to bottom | ●●● → ●●● → ··· |
+| # | Name | Description | Character |
+|---|------|-------------|-----------|
+| 1 | **Horizontal Bars** | Full-width bars, thick at top, diminishing to thin lines at bottom | Progressive reduction — like filtration stages |
+| 2 | **Vertical Bars** | Grid of vertical stripes in grouped clusters, varying widths + gaps | Membrane-like — evokes separation media |
+| 3 | **Wide Blocks** | Wide horizontal blocks diminishing height, full-width to thin | Bold to subtle transition — scale of process |
+| 4 | **Dots** | Circles arranged in grid, diminishing in size from top to bottom | Particle reduction — purification metaphor |
+
+### Pattern Color Rules
+- **Primary**: Blue Grey 03 (`263338`) shapes on Blue Grey 01 (`CFD9DB`) background
+- **Alternate**: Blue Grey 03 (`263338`) shapes on Blue (`2978FF`) background
+- **NO OTHER** color combinations for patterns
 
 ### Pattern Usage Rules
-- **Color**: Blue Grey 03 (`263338`) shapes on Blue Grey 01 (`CFD9DB`) background — OR — Blue Grey 03 shapes on Blue (`2978FF`) background
-- **Scale**: Patterns work at any scale — full slide background, card accent, strip decoration
-- **Placement**: Top portion of slide/page — pattern fills 40-60% of area, logo/text anchored at bottom
-- **Cover slides**: Pattern at top → wordmark at bottom-left (see Identity Applied examples p.32-34)
-- **DO NOT**: Mix pattern types on one slide, use off-brand colors, rotate patterns
+- Work at **any scale** — full slide background, card accent, strip decoration
+- **Placement**: Top portion of layout — pattern fills 40-60% of area
+- **Logo position**: ALWAYS at bottom when used with pattern (pattern top, logo bottom)
+- **DO NOT**: Mix pattern types on one layout, use off-brand colors, rotate patterns
+
+### Pattern Layout Formula (from Identity Applied p.32-34)
+```
+┌─────────────────────┐
+│  PATTERN (40-60%)   │  ← Pattern fills top portion
+│  (bars/dots/blocks) │
+│                     │
+├─────────────────────┤
+│  WHITE SPACE        │  ← Breathing room
+│                     │
+│  ICHITA™            │  ← Wordmark bottom-left
+│  (or text + symbol) │     OR text + X-mark bottom-right
+└─────────────────────┘
+```
+
+Three proven colorways from brand guidelines:
+1. **Blue bg** + horizontal bars (Blue Grey 03) + Blue Grey 03 wordmark bottom-left
+2. **White bg** + vertical bars (Blue Grey 03) + Blue Grey 03 wordmark bottom-left
+3. **Blue Grey 01 bg** + wide blocks (Blue Grey 03) + text "Separation Technologies" + X-mark bottom-right
 
 ### Pattern in PptxGenJS (Horizontal Bars Example)
 
 ```javascript
-// Horizontal bar pattern — thick bars diminishing
-// Use as decorative element, not full coverage
 function addHorizontalBarPattern(slide, x, y, w, barColor = "263338") {
   const bars = [
     { h: 0.50, gap: 0.06 },  // thick
@@ -154,41 +248,41 @@ function addHorizontalBarPattern(slide, x, y, w, barColor = "263338") {
 
 ---
 
-## 5. Illustration Style
+## 6. Illustration Style
 
-> Section marked "TBC" in brand guidelines — style direction established but details pending.
+> Section marked **"TBC"** in brand guidelines — direction established, details pending.
 
 ### Direction
-- **Technical line drawings** of equipment (vessels, tanks, pumps, piping)
+- **Technical line drawings** of equipment (vessels, tanks, pumps, piping, leaf filters, reactors)
 - Clean outline style, thin consistent stroke weight
 - On Blue Grey 01 (`CFD9DB`) background
 - No fills — just outlines (stroke in Blue Grey 03 `263338`)
-- Purpose: represent and explain ICHITA products, processes, and services
+- Labeled components (e.g., "Reactor", "Leaf Filter")
 
 ### When to Use
 - Process flow diagrams (simplified, not P&ID-level detail)
 - Equipment overview slides (schematic, not photo)
+- Content slides with Blue (`2978FF`) background for technical explanation
 - Decorative technical elements (background watermarks)
 
 ---
 
-## 6. Photography Direction
+## 7. Photography Direction
 
-Two defined image types, each reflecting different aspects of ICHITA.
+Two defined image types reflecting different aspects of ICHITA's offering, process, and values.
 
-### People Photography
+### People Photography (p.24)
 - **Purpose**: Position ICHITA as personal, relatable, reliable, assertive, and confident
-- **Subjects**: Engineers in blue cleanroom suits, operators at control panels, professionals in meeting settings, technicians with face shields
+- **Subjects**: Engineers in **blue cleanroom suits**, operators at control panels, professionals in meeting settings, technicians with face shields, lab workers
 - **Tone**: Natural light, professional settings, candid work moments (not staged poses)
-- **Color treatment**: Cool/neutral — blues from uniforms + stainless steel environments naturally align with brand palette
+- **Color**: Cool/neutral — blues from uniforms + stainless steel environments naturally align with brand palette
 
-### Operational Photography
+### Operational Photography (p.25)
 - **Purpose**: Communicate scale of process + attention to detail + expertise
-- **Subjects**:
-  - **Wide shots**: Factory interiors, stainless steel piping, full system installations
-  - **Close-ups**: Beakers of clear water, membrane samples, microscope work, instrument readings
-- **Tone**: Clean, precise, technical — emphasize the quality of work
-- **Color treatment**: Cool metallics, blue accents from equipment, clear water imagery
+- **Wide shots**: Factory interiors, stainless steel piping, full system installations, chromatography columns
+- **Close-ups**: Beakers of clear water, resin/membrane samples held in gloved hands, microscope work, instrument readings, blue-tubed valve assemblies
+- **Tone**: Clean, precise, technical — emphasize quality of work
+- **Color**: Cool metallics, blue accents from equipment, clear water imagery
 
 ### Photography Rules
 - **DO**: Show real equipment, real people, real facilities
@@ -197,48 +291,70 @@ Two defined image types, each reflecting different aspects of ICHITA.
 
 ---
 
-## 7. Identity Applied (Examples from Brand Guidelines)
+## 8. Identity Applied — Presentation Layouts
 
-These examples from the brand guidelines (p.26-35) show how visual assets combine:
+Key layout patterns from Brand Guidelines p.36-40:
 
-### Hard Hat (p.28)
-- Light grey helmet, Blue Grey 03 wordmark on side, X-mark symbol on front
-- Blue accent on helmet brim — subtle brand touch on safety equipment
+### Title Slide (Dark)
+- **Background**: Blue Grey 03 (`263338`) or Blue (`2978FF`)
+- Section number top-left (small, Aeonik)
+- Title: large, White text (or Blue Grey 03 on Blue bg)
+- Keyword emphasis: Blue (`2978FF`) or Blue Light (`82B0FF`) for one key word (e.g., "Liquid **Separation** Technologies")
+- Subtitle/description: smaller, lower position
+- Footer: `ichitaglobal.com` (or `www.ichita.co.th` for Thai market)
+- Wordmark: bottom-left on Blue bg slides
 
-### Building Signage (p.29-30)
-- Dark facade → White illuminated wordmark (right-justified, lower third)
-- Building corner → White 3D X-mark symbol, Blue Grey 03 facade
+### Section Divider Slide (Light)
+- **Background**: Blue Grey 01 (`CFD9DB`)
+- Section title: top-left, Aeonik Bold, Blue Grey 03
+- Large Betatron number: center/right, Blue (`2978FF`), oversized (e.g., `02`)
+- Clean, minimal — number is the focal point
 
-### Equipment Branding (p.31)
-- White tank/vessel → Blue Grey 03 X-mark symbol above, wordmark below
-- Clean, minimal — no extra graphics, just logo on white
+### Content Slide (White)
+- **Background**: White
+- Topic label: top, small, Aeonik Regular, Blue Grey 02
+- Title: Aeonik Bold, Blue Grey 03
+- Body text + images in grid layout
+- Charts/data visualizations in brand colors
+- Footer: `ichitaglobal.com`
 
-### Printed Materials (p.32-34)
-- **Layout formula**: Pattern fills top 50-60% → white space below → wordmark bottom-left
-- Three colorways:
-  - Blue bg + horizontal bars (Blue Grey 03 bars on Blue) + Blue Grey 03 wordmark
-  - White bg + vertical bars (Blue Grey 03) + Blue Grey 03 wordmark
-  - Blue Grey 01 bg + horizontal bars (Blue Grey 03) + text "Separation Technologies" + X-mark symbol bottom-right
-- **Key pattern**: Logo is ALWAYS at bottom, pattern is ALWAYS at top
+### KPI/Stats Slide (Grey)
+- **Background**: Blue Grey 02 (`788F9C`) or Blue Grey 01
+- ICHITA wordmark: top-right
+- Topic: top-left, small
+- Large Betatron number: center, Blue Grey 03 (e.g., `15-20%`)
+- Minimal text — number speaks
 
-### Packaging (p.35)
-- Acrylic box with diagonal brand pattern visible through clear material
-- Blue spine with oversized wordmark rotated vertically
+### Case Study Cover
+- **Background**: Alternating Blue Grey 01 and Blue Light (`82B0FF`)
+- ICHITA wordmark: top-left
+- Topic: top-right (e.g., "Liquid Sugar Development")
+- "Case Study:" label with horizontal rule
+- Large Betatron number in Blue (e.g., `01`)
+- Photo: bottom half
+
+### Poster/Flyer Layout
+- **Tri-band design**: White top (wordmark + subtitle) → Color middle (Blue Light or Blue Grey 02) → White bottom (footer)
+- Two colorways: warm (Blue + Blue Light) and cool (Blue Grey 01 + Blue Grey 02)
 
 ---
 
-## Slide Structure
+## 9. Slide Structure (Implementation)
 
-### Dark/Light Pattern
+### Dark/Light System
 
-- **Dark slides** (Blue Grey 03 `263338` or Blue Black `171C21`): title, section dividers, closing
-- **Light slides** (White `FFFFFF` or Blue Grey 01 `CFD9DB`): content, data, tables
+| Slide Type | Background | Text Color |
+|------------|-----------|------------|
+| Cover/Title | Blue Grey 03 (`263338`) or Blue (`2978FF`) | White, Blue accent |
+| Section Divider | Blue Grey 01 (`CFD9DB`) | Blue Grey 03, Blue numbers |
+| Content | White (`FFFFFF`) | Blue Grey 03 |
+| KPI/Stats | Blue Grey 02 (`788F9C`) | Blue Grey 03, Betatron numbers |
+| Closing | Blue Grey 03 (`263338`) | White |
 
 ### Content Area Constants
 
 ```javascript
 const ICHITA = {
-  // Colors (NO # prefix)
   colors: {
     white: "FFFFFF",
     blue: "2978FF",
@@ -250,7 +366,6 @@ const ICHITA = {
     green: "34A853",
     red: "E83E3E",
   },
-  // Fonts (with fallbacks)
   fonts: {
     heading: "Aeonik",       // fallback: "Trebuchet MS"
     body: "Aeonik",          // fallback: "Calibri"
@@ -265,12 +380,12 @@ const ICHITA = {
 ### Logo & Footer Placement
 
 - **Logo**: bottom-right corner on light slides, centered bottom on dark slides
-- **Footer text**: `www.ichita.co.th` — right-aligned, 9pt, White on dark / Blue Grey 02 on light
+- **Footer text**: `www.ichita.co.th` (Thai) or `ichitaglobal.com` (global) — right-aligned, 9pt, White on dark / Blue Grey 02 on light
 - **Logo clear zone**: 50% of logo height — no content inside this area
 
 ---
 
-## ICHITA Title Slide Example
+## 10. ICHITA Title Slide Example
 
 ```javascript
 let s = pres.addSlide();
@@ -301,30 +416,25 @@ s.addText("www.ichita.co.th", {
 });
 ```
 
-## ICHITA Content Slide Example (with bg-content.png frame)
+## 11. ICHITA Content Slide Example (with bg-content.png frame)
 
 ```javascript
-// Reusable content slide — title in header, right of ICHITA logo
 function contentSlide(pres, title) {
   const s = pres.addSlide();
-  s.background = { path: "bg-content.png" }; // Frame BG with logo in top-left
+  s.background = { path: "bg-content.png" };
   if (title) s.addText(title, {
     x: 2.7, y: 0.1, w: 6.95, h: 0.45,
     fontSize: 22, fontFace: "Aeonik", color: "263338", bold: true, align: "center", margin: 0,
   });
-  // NO topic label, NO footer — template BG already has ICHITA branding
   return s;
 }
-
 // Content starts at y: 1.2 minimum
 // Use insightBar at y: 4.15 for bottom callouts
 ```
 
 ---
 
-## Presentation Rules (MUST FOLLOW)
-
-Every time you create or edit a presentation, follow these rules:
+## 12. Presentation Rules (MUST FOLLOW)
 
 ### 1. Font Rules — ALWAYS use brand fonts, NEVER fallbacks
 | Role | Use This | NEVER This |
@@ -333,8 +443,6 @@ Every time you create or edit a presentation, follow these rules:
 | Body | `Aeonik` | Calibri, Arial |
 | Display/KPI | `Betatron` | Georgia, Times |
 | Thai text | `TH Sarabun New` | Tahoma, Angsana |
-
-> Fallback fonts are for RENDERING on machines without Aeonik — never set them as the primary font in code.
 
 ### 2. Font Size Minimums
 | Element | Minimum | Recommended |
@@ -347,7 +455,7 @@ Every time you create or edit a presentation, follow these rules:
 | Labels / captions | 10pt | 10-11pt |
 | Footnotes (only) | 9pt | 9pt |
 
-> **Rule: NO text below 9pt.** If it doesn't fit, redesign the layout — don't shrink the font.
+> **Rule: NO text below 9pt.** If it doesn't fit, redesign the layout.
 
 ### 3. Title Position (Content Slides with Frame BG)
 - Title sits in header area, RIGHT of ICHITA logo: `x: 2.7`, `y: 0.1`, `w: 6.95`, `h: 0.45`
@@ -364,7 +472,10 @@ Every time you create or edit a presentation, follow these rules:
 - Accent bar under title: `2978FF`, 0.04" height
 - Every content slide should have an insight box at bottom if space allows
 
-### 5. Pre-Build Checklist
+### 5. Keyword Emphasis Pattern
+From brand guidelines: highlight one key word in a title using Blue (`2978FF`) or Blue Light (`82B0FF`) while rest stays White or Blue Grey 03. Example: "Liquid **Separation** Technologies" where "Separation" is Blue.
+
+### 6. Pre-Build Checklist
 Before generating any PPTX:
 - [ ] Fonts set to `Aeonik` / `Betatron` (NOT fallbacks)
 - [ ] All text >= 9pt minimum
@@ -372,10 +483,11 @@ Before generating any PPTX:
 - [ ] Colors from ICHITA palette only
 - [ ] Content within safe zones
 - [ ] Logo/footer not overlapped
+- [ ] Betatron used ONLY for display numbers
 
 ---
 
-## Related Assets
+## 13. Related Assets
 
 | Asset | Path |
 |-------|------|
