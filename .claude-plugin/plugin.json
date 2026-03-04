@@ -1,7 +1,7 @@
 {
   "name": "ichita-skills",
   "version": "1.0.0",
-  "description": "ICHITA document skills — PPTX, DOCX, PDF with brand templates",
+  "description": "ICHITA brand extension layer — ichita-docx + ichita-pptx (branded documents & presentations). Requires document-skills@anthropic-agent-skills for base OOXML capabilities.",
   "author": {
     "name": "ICHITA Technology",
     "email": "admin@ichita.co.th"

@@ -22,6 +22,19 @@
 |--------|------|
 | Regular | Betatron-Regular.otf |
 
+## Bai Jamjuree (Thai — Body & Headlines)
+
+12 weights in `bai-jamjuree/` (OFL licensed):
+
+| Weight | Regular | Italic |
+|--------|---------|--------|
+| ExtraLight | BaiJamjuree-ExtraLight.ttf | BaiJamjuree-ExtraLightItalic.ttf |
+| Light | BaiJamjuree-Light.ttf | BaiJamjuree-LightItalic.ttf |
+| Regular | BaiJamjuree-Regular.ttf | BaiJamjuree-Italic.ttf |
+| Medium | BaiJamjuree-Medium.ttf | BaiJamjuree-MediumItalic.ttf |
+| SemiBold | BaiJamjuree-SemiBold.ttf | BaiJamjuree-SemiBoldItalic.ttf |
+| Bold | BaiJamjuree-Bold.ttf | BaiJamjuree-BoldItalic.ttf |
+
 ## Installation
 
 ### Windows
@@ -35,6 +48,7 @@
 
 ```bash
 cp assets/fonts/aeonik/*.otf ~/Library/Fonts/
+cp assets/fonts/bai-jamjuree/*.ttf ~/Library/Fonts/
 cp assets/fonts/betatron/*.otf ~/Library/Fonts/
 ```
 
@@ -43,6 +57,7 @@ cp assets/fonts/betatron/*.otf ~/Library/Fonts/
 ```bash
 mkdir -p ~/.local/share/fonts
 cp assets/fonts/aeonik/*.otf ~/.local/share/fonts/
+cp assets/fonts/bai-jamjuree/*.ttf ~/.local/share/fonts/
 cp assets/fonts/betatron/*.otf ~/.local/share/fonts/
 fc-cache -fv
 ```
@@ -54,3 +69,4 @@ Per `ichita-defaults.md`:
 - **Body**: Aeonik Regular
 - **Captions**: Aeonik Light
 - **Display/Logo**: Betatron Regular
+- **Thai text**: Bai Jamjuree (pairs well with Aeonik for Thai/English mixed content)
