@@ -180,6 +180,80 @@ Example for specific range:
 pdftoppm -jpeg -r 150 -f 2 -l 5 document.pdf page  # Converts only pages 2-5
 ```
 
+## Creating an Ichita-branded document from Markdown
+
+Use this when you have content in Markdown and need to produce a professional DOCX with Ichita branding (fonts, colors, logo header).
+
+### Workflow
+1. Prepare content as a `.md` file (headings, tables, lists, code blocks, etc.)
+2. Run the converter:
+   ```bash
+   python .claude/skills/docx/scripts/md_to_docx.py INPUT.md OUTPUT.docx
+   ```
+3. Optional flags:
+   - `--no-logo` — skip the Ichita logo header
+   - `--font NAME` — override font (default: auto-detects Aeonik → Calibri)
+   - `--margin CM` — page margin in cm (default: 2.5)
+
+### What it does
+- Applies Ichita brand colors and typography from `ichita-defaults.md`
+- Auto-detects Aeonik font (checks Linux, macOS, and Windows via WSL)
+- Handles: headings (H1–H4), tables, code blocks, bold/italic, bullet/numbered lists, blockquotes, horizontal rules, links
+- Adds Ichita logo + blue accent line in header
+
+### Font detection
+The script checks for Aeonik across all platforms:
+- **Linux/Ubuntu**: `fc-list`, `~/.local/share/fonts/`, system font dirs
+- **macOS**: `~/Library/Fonts/`, `/Library/Fonts/`
+- **Windows via WSL**: `/mnt/c/Windows/Fonts/`, user AppData font dirs
+
+If Aeonik is found on Windows but not registered in Linux, it will:
+- Use "Aeonik" in the DOCX (renders correctly when opened in Word on Windows/Mac)
+- Warn that LibreOffice preview may substitute the font
+- Suggest: `cp fonts/*.otf ~/.local/share/fonts/ && fc-cache -f`
+
+## Rebranding an existing DOCX to Ichita style
+
+Use this to transform documents from other companies/templates into Ichita brand identity. Handles any DOCX — no source-specific assumptions.
+
+### Workflow
+1. Run the rebranding tool:
+   ```bash
+   python .claude/skills/docx/scripts/rebrand_docx.py INPUT.docx OUTPUT.docx
+   ```
+2. Optional flags:
+   - `--no-title-page` — skip title page redesign (keep original cover)
+   - `--font NAME` — override font
+   - `--logo PATH` — custom logo path (default: Ichita wordmark)
+3. Visual check: convert to images and verify
+   ```bash
+   soffice --headless --convert-to pdf OUTPUT.docx
+   pdftoppm -jpeg -r 150 OUTPUT.pdf page
+   ```
+
+### What it does
+- Deep-copies source document (preserves all content, tables, merged cells, images)
+- Restyles all paragraphs: section headings get left accent bar, body gets brand font
+- Restyles all tables: dark header rows, alternating row shading, brand borders
+- Detects heading levels from text patterns (numbered sections, subsections, captions)
+- Redesigns title page with centered title + blue accent band
+- Sets proper margins (2.5cm portrait, 1.0cm landscape)
+- Squeezes wide tables to fit page width
+- Adds Ichita logo header with blue accent line
+- Removes source header/footer references
+
+### Architecture
+```
+ichita-defaults.md       ← source of truth (human-readable)
+        ↓
+    ICHITA_BRAND dict    ← data only (docx_helpers.py)
+        ↓ passed to
+    docx_helpers.py      ← generic functions, brand-agnostic
+        ↓ used by
+    md_to_docx.py        ← markdown → branded docx
+    rebrand_docx.py      ← transform existing docx → branded
+```
+
 ## Code Style Guidelines
 **IMPORTANT**: When generating code for DOCX operations:
 - Write concise code
@@ -190,8 +264,23 @@ pdftoppm -jpeg -r 150 -f 2 -l 5 document.pdf page  # Converts only pages 2-5
 
 Required dependencies (install if not available):
 
-- **pandoc**: `sudo apt-get install pandoc` (for text extraction)
-- **docx**: `npm install -g docx` (for creating new documents)
-- **LibreOffice**: `sudo apt-get install libreoffice` (for PDF conversion)
-- **Poppler**: `sudo apt-get install poppler-utils` (for pdftoppm to convert PDF to images)
-- **defusedxml**: `pip install defusedxml` (for secure XML parsing)
+**Ubuntu/Linux (PC)**:
+```bash
+sudo apt-get install pandoc libreoffice poppler-utils
+pip install python-docx defusedxml
+npm install -g docx
+```
+
+**macOS (MacBook)**:
+```bash
+brew install pandoc libreoffice poppler
+pip install python-docx defusedxml
+npm install -g docx
+```
+
+- **pandoc**: text extraction from DOCX
+- **python-docx**: python-docx library for branded document creation and rebranding
+- **docx (npm)**: docx-js for creating new documents from scratch
+- **LibreOffice**: PDF conversion (`soffice --headless`)
+- **Poppler**: `pdftoppm` for PDF to images
+- **defusedxml**: secure XML parsing for OOXML editing
