@@ -1,0 +1,252 @@
+{
+  "description": "Layout definitions with slot constraints for presentation outline creation",
+  "source": "Merged from Oracle /slide schema + Anthropic design patterns",
+  "layouts": {
+    "hero_center": {
+      "name": "Hero Center",
+      "description": "Centered title with optional background image",
+      "slots": {
+        "main": { "required": true, "accepts": ["title", "subtitle", "text", "badge"] },
+        "background": { "required": false, "accepts": ["image"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 60, "required": true },
+        "subtitle": { "maxChars": 100 }
+      },
+      "bestFor": ["title", "intro", "cta", "thanks"]
+    },
+    "hero_split": {
+      "name": "Hero Split",
+      "description": "Text on left (60%), image on right (40%)",
+      "slots": {
+        "left": { "required": true, "accepts": ["title", "subtitle", "text", "list", "badge", "quote"] },
+        "right": { "required": true, "accepts": ["image"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 50, "required": true },
+        "subtitle": { "maxChars": 80 },
+        "list": { "maxItems": 4 }
+      },
+      "bestFor": ["title", "intro", "solution"]
+    },
+    "hero_split_reverse": {
+      "name": "Hero Split Reverse",
+      "description": "Image on left (40%), text on right (60%)",
+      "slots": {
+        "left": { "required": true, "accepts": ["image"] },
+        "right": { "required": true, "accepts": ["title", "subtitle", "text", "list", "badge", "quote"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 50, "required": true },
+        "subtitle": { "maxChars": 80 },
+        "list": { "maxItems": 4 }
+      },
+      "bestFor": ["solution", "features"]
+    },
+    "content_left": {
+      "name": "Content Left",
+      "description": "Main content on left with optional image on right",
+      "slots": {
+        "main": { "required": true, "accepts": ["title", "subtitle", "text", "list", "card_group", "quote"] },
+        "right": { "required": false, "accepts": ["image"] },
+        "bottom": { "required": false, "accepts": ["quote", "text"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 50, "required": true },
+        "list": { "maxItems": 5 },
+        "quote": { "maxChars": 150 }
+      },
+      "bestFor": ["intro", "solution", "features"]
+    },
+    "content_right": {
+      "name": "Content Right",
+      "description": "Main content on right with optional image on left",
+      "slots": {
+        "left": { "required": false, "accepts": ["image"] },
+        "main": { "required": true, "accepts": ["title", "subtitle", "text", "list", "card_group", "quote"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 50, "required": true },
+        "list": { "maxItems": 5 }
+      },
+      "bestFor": ["solution", "features"]
+    },
+    "grid_2x2": {
+      "name": "2x2 Grid",
+      "description": "Four equal cards in a grid",
+      "slots": {
+        "header": { "required": true, "accepts": ["title", "subtitle"] },
+        "cell_1": { "required": true, "accepts": ["icon_text", "stat", "card_group"] },
+        "cell_2": { "required": true, "accepts": ["icon_text", "stat", "card_group"] },
+        "cell_3": { "required": true, "accepts": ["icon_text", "stat", "card_group"] },
+        "cell_4": { "required": true, "accepts": ["icon_text", "stat", "card_group"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 50, "required": true },
+        "icon_text.title": { "maxChars": 30 },
+        "icon_text.text": { "maxChars": 100 }
+      },
+      "bestFor": ["features", "problem", "comparison"]
+    },
+    "grid_3col": {
+      "name": "3 Column Grid",
+      "description": "Three equal columns",
+      "slots": {
+        "header": { "required": true, "accepts": ["title", "subtitle"] },
+        "cell_1": { "required": true, "accepts": ["icon_text", "stat"] },
+        "cell_2": { "required": true, "accepts": ["icon_text", "stat"] },
+        "cell_3": { "required": true, "accepts": ["icon_text", "stat"] },
+        "footer": { "required": false, "accepts": ["text", "quote"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 50, "required": true },
+        "icon_text.title": { "maxChars": 25 },
+        "icon_text.text": { "maxChars": 80 }
+      },
+      "bestFor": ["features", "solution", "data"]
+    },
+    "grid_4col": {
+      "name": "4 Column Grid",
+      "description": "Four equal columns for icons or stats",
+      "slots": {
+        "header": { "required": true, "accepts": ["title", "subtitle"] },
+        "cell_1": { "required": true, "accepts": ["stat", "icon_text"] },
+        "cell_2": { "required": true, "accepts": ["stat", "icon_text"] },
+        "cell_3": { "required": true, "accepts": ["stat", "icon_text"] },
+        "cell_4": { "required": true, "accepts": ["stat", "icon_text"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 40 },
+        "stat.label": { "maxChars": 20 },
+        "icon_text.text": { "maxChars": 50 }
+      },
+      "bestFor": ["data", "features"]
+    },
+    "comparison": {
+      "name": "Comparison",
+      "description": "Side-by-side comparison (before/after, current/target)",
+      "slots": {
+        "header": { "required": true, "accepts": ["title", "subtitle"] },
+        "left": { "required": true, "accepts": ["card_group", "list", "stat", "text"] },
+        "right": { "required": true, "accepts": ["card_group", "list", "stat", "text"] },
+        "footer": { "required": false, "accepts": ["text", "quote"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 50, "required": true },
+        "card_group": { "maxCards": 4 },
+        "list": { "maxItems": 4 }
+      },
+      "bestFor": ["comparison", "problem", "solution"]
+    },
+    "timeline": {
+      "name": "Timeline",
+      "description": "Horizontal or vertical timeline with steps",
+      "slots": {
+        "header": { "required": true, "accepts": ["title", "subtitle"] },
+        "main": { "required": true, "accepts": ["timeline"] },
+        "footer": { "required": false, "accepts": ["text"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 40, "required": true },
+        "timeline": { "minSteps": 2, "maxSteps": 5 },
+        "timeline.step.title": { "maxChars": 25 },
+        "timeline.step.description": { "maxChars": 80 }
+      },
+      "bestFor": ["timeline", "solution"]
+    },
+    "quote_center": {
+      "name": "Quote Center",
+      "description": "Large centered quote with attribution",
+      "slots": {
+        "main": { "required": true, "accepts": ["quote"] },
+        "background": { "required": false, "accepts": ["image"] }
+      },
+      "constraints": {
+        "quote": { "maxChars": 200, "required": true }
+      },
+      "bestFor": ["quote", "intro"]
+    },
+    "quote_side": {
+      "name": "Quote Side",
+      "description": "Quote with image on the side",
+      "slots": {
+        "left": { "required": true, "accepts": ["quote"] },
+        "right": { "required": true, "accepts": ["image"] }
+      },
+      "constraints": {
+        "quote": { "maxChars": 250, "required": true }
+      },
+      "bestFor": ["quote"]
+    },
+    "data_highlight": {
+      "name": "Data Highlight",
+      "description": "Big number/stat with supporting context",
+      "slots": {
+        "main": { "required": true, "accepts": ["stat"] },
+        "footer": { "required": false, "accepts": ["text", "list"] }
+      },
+      "constraints": {
+        "stat.value": { "maxChars": 10 },
+        "stat.label": { "maxChars": 40 },
+        "text": { "maxChars": 150 }
+      },
+      "bestFor": ["data"]
+    },
+    "feature_list": {
+      "name": "Feature List",
+      "description": "Vertical list of features with icons",
+      "slots": {
+        "header": { "required": true, "accepts": ["title", "subtitle"] },
+        "main": { "required": true, "accepts": ["list", "card_group"] },
+        "right": { "required": false, "accepts": ["image"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 40, "required": true },
+        "list": { "maxItems": 6 },
+        "card_group": { "maxCards": 4 }
+      },
+      "bestFor": ["features", "solution"]
+    },
+    "image_full": {
+      "name": "Full Image",
+      "description": "Full-bleed image with optional overlay text",
+      "slots": {
+        "background": { "required": true, "accepts": ["image"] },
+        "main": { "required": false, "accepts": ["title", "subtitle", "text"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 40 },
+        "text": { "maxChars": 100 }
+      },
+      "bestFor": ["intro", "quote", "cta"]
+    },
+    "cta": {
+      "name": "Call to Action",
+      "description": "Closing slide with action items",
+      "slots": {
+        "main": { "required": true, "accepts": ["title", "list", "text"] },
+        "footer": { "required": false, "accepts": ["quote", "text", "badge"] },
+        "background": { "required": false, "accepts": ["image"] }
+      },
+      "constraints": {
+        "title": { "maxChars": 50, "required": true },
+        "list": { "maxItems": 3 },
+        "quote": { "maxChars": 100 }
+      },
+      "bestFor": ["cta", "thanks"]
+    }
+  },
+  "intentToLayout": {
+    "title": ["hero_center", "hero_split"],
+    "intro": ["hero_split", "content_left", "quote_center"],
+    "problem": ["grid_2x2", "comparison", "feature_list"],
+    "solution": ["hero_split", "content_left", "content_right", "grid_3col"],
+    "data": ["data_highlight", "grid_3col", "grid_4col"],
+    "comparison": ["comparison", "grid_2x2"],
+    "timeline": ["timeline"],
+    "features": ["grid_2x2", "grid_3col", "feature_list"],
+    "quote": ["quote_center", "quote_side"],
+    "cta": ["cta", "hero_center"],
+    "thanks": ["hero_center", "cta"]
+  }
+}

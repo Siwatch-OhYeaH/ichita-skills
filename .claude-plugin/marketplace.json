@@ -1,0 +1,10 @@
+{
+  "name": "ichita",
+  "plugins": [
+    {
+      "name": "ichita-skills",
+      "source": ".",
+      "description": "ICHITA document skills with brand templates and assets"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "ichita-skills",
+  "version": "1.0.0",
+  "description": "ICHITA document skills — PPTX, DOCX, PDF with brand templates",
+  "author": {
+    "name": "ICHITA Technology",
+    "email": "admin@ichita.co.th"
+  },
+  "repository": "https://github.com/Siwatch-OhYeaH/ichita-skills",
+  "license": "Proprietary"
+}
