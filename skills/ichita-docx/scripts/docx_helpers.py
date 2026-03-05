@@ -16,7 +16,7 @@ from docx.oxml.ns import qn, nsdecls
 from docx.oxml import parse_xml
 
 
-# ── Brand Config (values from ichita-defaults.md) ───────────────────────────
+# ── Brand Config (values from docx-standard.md) ──────────────────────────
 
 ICHITA_BRAND = {
     "colors": {
@@ -25,10 +25,13 @@ ICHITA_BRAND = {
         "dark": "263338",
         "muted": "788F9C",
         "canvas": "CFD9DB",
+        "blue_black": "171C21",
         "table_header": "263338",
         "table_alt": "EFF2F3",
         "border": "A0B0B8",
         "off_white": "F8FAFB",
+        "code_bg": "F2F2F2",
+        "code_text": "333333",
         "green": "34A853",
         "red": "E83E3E",
     },
@@ -39,16 +42,63 @@ ICHITA_BRAND = {
         "display": "Betatron",
         "thai_fallback": "TH Sarabun New",
         "thai_scale": 0.9,
+        "code": "Courier New",
     },
     "typography": {
-        "title": {"size": 36, "bold": True, "color": "dark"},
-        "h1": {"size": 15, "bold": True, "color": "dark"},
-        "h2": {"size": 14, "bold": True, "color": "accent"},
-        "h3": {"size": 12, "bold": True, "color": "accent"},
-        "body": {"size": 12, "bold": False, "color": "dark"},
-        "caption": {"size": 10.5, "bold": False, "color": "muted"},
+        "title": {"size": 26, "bold": True, "color": "dark"},
+        "h1": {"size": 20, "bold": True, "color": "dark", "before": 18, "after": 8, "accent_bar": True},
+        "h2": {"size": 16, "bold": True, "color": "dark", "before": 14, "after": 6, "accent_bar": True},
+        "h3": {"size": 14, "bold": True, "color": "accent", "before": 10, "after": 6},
+        "h4": {"size": 12, "bold": True, "color": "accent", "before": 8, "after": 4},
+        "body": {"size": 12, "bold": False, "color": "dark", "before": 3, "after": 6},
+        "caption": {"size": 10.5, "bold": False, "color": "muted", "before": 6, "after": 3},
+        "bullet": {"size": 12, "bold": False, "color": "dark", "before": 2, "after": 2},
+        "code": {"size": 9, "bold": False, "color": "code_text"},
     },
-    "margins": {"portrait": 2.5, "landscape": 1.0},
+    "table": {
+        "header_font_size": 10,
+        "data_font_size": 10,
+        "wide_font_size": 8,
+        "wide_threshold": 10,
+        "wide_row_height": 320,
+        "cell_spacing_before": 2,
+        "cell_spacing_after": 2,
+        "gap_before_after": 8,
+    },
+    "header": {
+        "logo_width_inches": 1.5,
+        "border_sz": 6,
+        "space_after_pt": 4,
+    },
+    "title_page": {
+        "space_before_pt": 80,
+        "title_size": 26,
+        "subtitle_size": 16,
+        "space_after_subtitle_pt": 36,
+    },
+    "margins": {"portrait": 2.0, "landscape": 1.0},
+    "blockquote": {
+        "left_indent_inches": 0.5,
+        "right_indent_inches": 0.3,
+        "before_pt": 8,
+        "after_pt": 8,
+        "border_sz": 18,
+    },
+    "code_block": {
+        "indent_inches": 0.3,
+        "before_pt": 6,
+        "after_pt": 6,
+    },
+    "list": {
+        "left_indent_inches": 0.5,
+        "hanging_indent_inches": 0.25,
+        "nested_step_inches": 0.25,
+        "before_pt": 2,
+        "after_pt": 2,
+    },
+    "hr": {
+        "sz": 6,
+    },
 }
 
 
