@@ -6,6 +6,7 @@ All functions are brand-agnostic (receive config as parameter).
 ICHITA_BRAND dict is the single source of truth for brand values.
 """
 
+import copy
 import os
 import re
 import subprocess
@@ -37,7 +38,7 @@ ICHITA_BRAND = {
         "fallback": "Calibri",
         "display": "Betatron",
         "thai_fallback": "TH Sarabun New",
-        "latin_offset": 1.5,
+        "thai_scale": 0.9,
     },
     "typography": {
         "title": {"size": 36, "bold": True, "color": "dark"},
@@ -192,31 +193,46 @@ def resolve_font(brand=None):
 # ── XML Helpers (brand-agnostic) ────────────────────────────────────────────
 
 def set_font(run_elem, font_name=None, size_pt=None, color_hex=None,
-             bold=None, latin_offset=1.5):
+             bold=None, brand=None):
     """Set font properties on a w:r element at the XML level.
 
-    Latin text renders visually larger than Thai at same pt size,
-    so w:sz is reduced by latin_offset to balance them.
+    Detects Thai text and sets Bai Jamjuree font with scaled size.
+    For Latin text, uses font_name at the specified size.
+    Mixed runs are handled later by split_run_thai_latin().
     """
+    if brand is None:
+        brand = ICHITA_BRAND
+    fonts = brand["fonts"]
+    thai_font = fonts["thai"]
+    thai_scale = fonts["thai_scale"]
+
     rPr = run_elem.find(qn('w:rPr'))
     if rPr is None:
         rPr = parse_xml(f'<w:rPr {nsdecls("w")}/>')
         run_elem.insert(0, rPr)
 
-    # Font name
-    if font_name is not None:
+    # Detect if this run's text is Thai
+    t_elem = run_elem.find(qn('w:t'))
+    run_text = t_elem.text if t_elem is not None and t_elem.text else ""
+    is_thai = _text_is_thai(run_text) and not _text_is_mixed(run_text)
+
+    # Font name — Thai gets Bai Jamjuree, Latin gets font_name
+    actual_font = thai_font if is_thai else font_name
+    if actual_font is not None:
         rf = rPr.find(qn('w:rFonts'))
         if rf is None:
             rf = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
             rPr.insert(0, rf)
         for attr in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
-            rf.set(qn(attr), font_name)
+            rf.set(qn(attr), actual_font)
 
-    # Size (half-points, with latin offset)
+    # Size (half-points) — Thai scaled down for visual balance
     if size_pt is not None:
-        hp_latin = str(int((size_pt - latin_offset) * 2))
-        hp_cs = str(int(size_pt * 2))
-        for tag, hp in (('w:sz', hp_latin), ('w:szCs', hp_cs)):
+        if is_thai:
+            hp = str(int(size_pt * thai_scale * 2))
+        else:
+            hp = str(int(size_pt * 2))
+        for tag in ('w:sz', 'w:szCs'):
             el = rPr.find(qn(tag))
             if el is not None:
                 el.set(qn('w:val'), hp)
@@ -282,12 +298,14 @@ def set_table_borders(table, color_hex="A0B0B8"):
 
 
 def style_table_xml(tbl_elem, header_bg="263338", alt_bg="EFF2F3",
-                    border_color="A0B0B8", font_name=None, latin_offset=1.5):
+                    border_color="A0B0B8", font_name=None, brand=None):
     """Apply brand styling to a table XML element (w:tbl).
 
     Dark header rows with white bold text, alternating data row shading,
     brand borders. Handles multi-row headers and image-only tables.
     """
+    if brand is None:
+        brand = ICHITA_BRAND
     # Table-level borders
     tblPr = tbl_elem.find(qn('w:tblPr'))
     if tblPr is None:
@@ -352,21 +370,20 @@ def style_table_xml(tbl_elem, header_bg="263338", alt_bg="EFF2F3",
                 for run in tc.findall('.//' + qn('w:r')):
                     if not _has_images(run):
                         set_font(run, font_name=font_name, size_pt=font_sz,
-                                 color_hex=header_bg, latin_offset=latin_offset)
+                                 color_hex=header_bg, brand=brand)
             elif ri < header_rows:
                 set_cell_shading(tc, header_bg)
                 for run in tc.findall('.//' + qn('w:r')):
                     if not _has_images(run):
                         set_font(run, font_name=font_name, size_pt=font_sz,
-                                 color_hex="FFFFFF", bold=True,
-                                 latin_offset=latin_offset)
+                                 color_hex="FFFFFF", bold=True, brand=brand)
             else:
                 data_idx = ri - header_rows
                 set_cell_shading(tc, alt_bg if data_idx % 2 == 1 else "FFFFFF")
                 for run in tc.findall('.//' + qn('w:r')):
                     if not _has_images(run):
                         set_font(run, font_name=font_name, size_pt=font_sz,
-                                 color_hex=header_bg, latin_offset=latin_offset)
+                                 color_hex=header_bg, brand=brand)
 
 
 def add_header_footer(doc, logo_path=None, accent_color="2978FF",
@@ -469,6 +486,127 @@ def _has_images(elem):
     return bool(elem.findall('.//' + qn('a:blip')))
 
 
+def _is_thai(c):
+    """Check if a character is Thai (U+0E00-U+0E7F)."""
+    return '\u0e00' <= c <= '\u0e7f'
+
+
+def _split_thai_latin(text):
+    """Split text into segments of (text, is_thai) tuples.
+
+    Groups consecutive Thai chars together, and consecutive non-Thai chars
+    together.
+    """
+    if not text:
+        return []
+    segments = []
+    current = text[0]
+    current_thai = _is_thai(text[0])
+    for c in text[1:]:
+        c_thai = _is_thai(c)
+        if c_thai == current_thai:
+            current += c
+        else:
+            segments.append((current, current_thai))
+            current = c
+            current_thai = c_thai
+    segments.append((current, current_thai))
+    return segments
+
+
+def _text_is_thai(text):
+    """Check if text contains any Thai characters."""
+    return any(_is_thai(c) for c in text)
+
+
+def _text_is_mixed(text):
+    """Check if text contains both Thai and non-Thai alpha characters."""
+    has_thai = False
+    has_latin = False
+    for c in text:
+        if _is_thai(c):
+            has_thai = True
+        elif c.isalpha():
+            has_latin = True
+        if has_thai and has_latin:
+            return True
+    return False
+
+
+def split_run_thai_latin(run_elem, parent_elem, brand=None):
+    """Split a mixed Thai/Latin w:r element into separate runs.
+
+    Thai segments get Bai Jamjuree at size * thai_scale.
+    Latin segments get BRAND_FONT at original size.
+    """
+    if brand is None:
+        brand = ICHITA_BRAND
+    fonts = brand["fonts"]
+    thai_font = fonts["thai"]
+    thai_scale = fonts["thai_scale"]
+
+    t_elem = run_elem.find(qn('w:t'))
+    if t_elem is None or not t_elem.text:
+        return
+
+    text = t_elem.text
+    segments = _split_thai_latin(text)
+
+    if len(segments) <= 1:
+        return
+
+    rPr_orig = run_elem.find(qn('w:rPr'))
+
+    # Get current size from rPr
+    current_sz = None
+    if rPr_orig is not None:
+        sz_el = rPr_orig.find(qn('w:sz'))
+        if sz_el is not None:
+            current_sz = int(sz_el.get(qn('w:val'), '0'))
+
+    # Insert new runs after the original, then remove the original
+    insert_after = run_elem
+    for seg_text, is_thai in segments:
+        new_run = parse_xml(f'<w:r {nsdecls("w")}/>')
+
+        if rPr_orig is not None:
+            new_rPr = copy.deepcopy(rPr_orig)
+        else:
+            new_rPr = parse_xml(f'<w:rPr {nsdecls("w")}/>')
+        new_run.insert(0, new_rPr)
+
+        # Set font name
+        rf = new_rPr.find(qn('w:rFonts'))
+        if rf is None:
+            rf = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
+            new_rPr.insert(0, rf)
+        font = thai_font if is_thai else fonts.get("_resolved", fonts["latin"])
+        for attr in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
+            rf.set(qn(attr), font)
+
+        # Thai gets scaled down
+        if is_thai and current_sz:
+            thai_hp = str(int(current_sz * thai_scale))
+            for tag in ('w:sz', 'w:szCs'):
+                el = new_rPr.find(qn(tag))
+                if el is not None:
+                    el.set(qn('w:val'), thai_hp)
+                else:
+                    new_rPr.append(parse_xml(
+                        f'<{tag} {nsdecls("w")} w:val="{thai_hp}"/>'))
+
+        # Add text element
+        new_t = parse_xml(f'<w:t {nsdecls("w")}/>')
+        new_t.text = seg_text
+        new_t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+        new_run.append(new_t)
+
+        insert_after.addnext(new_run)
+        insert_after = new_run
+
+    parent_elem.remove(run_elem)
+
+
 def ensure_pPr(p_elem):
     """Ensure paragraph has a pPr element; return it."""
     pPr = p_elem.find(qn('w:pPr'))
@@ -546,19 +684,32 @@ def copy_image_rels(src_part, dst_part, elem):
 
 def make_para(text="", size_pt=12, color_hex="263338", bold=False,
               align='left', space_before=0, space_after=0,
-              font_name=None, latin_offset=1.5):
-    """Create a new w:p element with formatted text and spacing."""
+              font_name=None, brand=None):
+    """Create a new w:p element with formatted text and spacing.
+
+    Splits mixed Thai/Latin text into separate runs with appropriate fonts.
+    """
+    if brand is None:
+        brand = ICHITA_BRAND
+    fonts = brand["fonts"]
+    thai_font = fonts["thai"]
+    thai_scale = fonts["thai_scale"]
+
     p = parse_xml(f'<w:p {nsdecls("w")}/>')
 
     if text:
-        r = parse_xml(f'<w:r {nsdecls("w")}/>')
-        t = parse_xml(f'<w:t {nsdecls("w")}/>')
-        t.text = text
-        t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
-        r.append(t)
-        set_font(r, font_name=font_name, size_pt=size_pt,
-                 color_hex=color_hex, bold=bold, latin_offset=latin_offset)
-        p.append(r)
+        segments = _split_thai_latin(text)
+        for seg_text, is_thai in segments:
+            r = parse_xml(f'<w:r {nsdecls("w")}/>')
+            t = parse_xml(f'<w:t {nsdecls("w")}/>')
+            t.text = seg_text
+            t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+            r.append(t)
+            seg_font = thai_font if is_thai else (font_name or fonts["latin"])
+            seg_sz = size_pt * thai_scale if is_thai else size_pt
+            set_font(r, font_name=seg_font, size_pt=seg_sz,
+                     color_hex=color_hex, bold=bold, brand=brand)
+            p.append(r)
 
     pPr = ensure_pPr(p)
     if align != 'left':
@@ -569,6 +720,96 @@ def make_para(text="", size_pt=12, color_hex="263338", bold=False,
     pPr.append(parse_xml(
         f'<w:spacing {nsdecls("w")} w:before="{sb}" w:after="{sa}"/>'))
     return p
+
+
+def create_meta_table(items, brand=None):
+    """Build a clean 2-column metadata table (label | value).
+
+    Horizontal dividers only, no vertical lines — modern, professional look.
+    Uses Bai Jamjuree for Thai labels, brand font for Latin values.
+    """
+    if brand is None:
+        brand = ICHITA_BRAND
+    fonts = brand["fonts"]
+    colors = brand["colors"]
+    thai_font = fonts["thai"]
+    thai_scale = fonts["thai_scale"]
+    latin_font = fonts.get("_resolved", fonts["latin"])
+
+    label_sz = str(int(11 * thai_scale * 2))  # Thai scaled in half-points
+    value_sz = "22"                             # 11pt in half-points
+
+    rows_xml = ""
+    for label, value in items:
+        label_font = thai_font if _text_is_thai(label) else latin_font
+        label_hp = label_sz if _text_is_thai(label) else value_sz
+        value_font = thai_font if _text_is_thai(value) else latin_font
+        value_hp = label_sz if _text_is_thai(value) else value_sz
+
+        rows_xml += (
+            '<w:tr>'
+            '  <w:tc>'
+            '    <w:tcPr><w:tcW w:w="2600" w:type="dxa"/></w:tcPr>'
+            '    <w:p><w:pPr>'
+            '      <w:spacing w:before="50" w:after="50"/>'
+            '    </w:pPr>'
+            '    <w:r><w:rPr>'
+            f'      <w:rFonts w:ascii="{label_font}" w:hAnsi="{label_font}"'
+            f'               w:cs="{label_font}" w:eastAsia="{label_font}"/>'
+            f'      <w:sz w:val="{label_hp}"/><w:szCs w:val="{label_hp}"/>'
+            f'      <w:color w:val="{colors["accent"]}"/>'
+            '      <w:b/><w:bCs/>'
+            f'    </w:rPr><w:t xml:space="preserve">{label}</w:t></w:r>'
+            '    </w:p>'
+            '  </w:tc>'
+            '  <w:tc>'
+            '    <w:tcPr><w:tcW w:w="7400" w:type="dxa"/></w:tcPr>'
+            '    <w:p><w:pPr>'
+            '      <w:spacing w:before="50" w:after="50"/>'
+            '    </w:pPr>'
+            '    <w:r><w:rPr>'
+            f'      <w:rFonts w:ascii="{value_font}" w:hAnsi="{value_font}"'
+            f'               w:cs="{value_font}" w:eastAsia="{value_font}"/>'
+            f'      <w:sz w:val="{value_hp}"/><w:szCs w:val="{value_hp}"/>'
+            f'      <w:color w:val="{colors["dark"]}"/>'
+            f'    </w:rPr><w:t xml:space="preserve">{value}</w:t></w:r>'
+            '    </w:p>'
+            '  </w:tc>'
+            '</w:tr>'
+        )
+
+    tbl_xml = (
+        f'<w:tbl {nsdecls("w")}>'
+        '  <w:tblPr>'
+        '    <w:tblW w:w="5000" w:type="pct"/>'
+        '    <w:jc w:val="center"/>'
+        '    <w:tblBorders>'
+        f'      <w:top w:val="single" w:sz="6" w:space="0"'
+        f'            w:color="{colors["accent"]}"/>'
+        f'      <w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'      <w:bottom w:val="single" w:sz="6" w:space="0"'
+        f'               w:color="{colors["accent"]}"/>'
+        f'      <w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+        f'      <w:insideH w:val="single" w:sz="2" w:space="0"'
+        f'                 w:color="{colors["border"]}"/>'
+        f'      <w:insideV w:val="none" w:sz="0" w:space="0"'
+        f'                 w:color="auto"/>'
+        '    </w:tblBorders>'
+        '    <w:tblCellMar>'
+        '      <w:top w:w="60" w:type="dxa"/>'
+        '      <w:left w:w="120" w:type="dxa"/>'
+        '      <w:bottom w:w="60" w:type="dxa"/>'
+        '      <w:right w:w="120" w:type="dxa"/>'
+        '    </w:tblCellMar>'
+        '  </w:tblPr>'
+        '  <w:tblGrid>'
+        '    <w:gridCol w:w="2600"/>'
+        '    <w:gridCol w:w="7400"/>'
+        '  </w:tblGrid>'
+        f'  {rows_xml}'
+        '</w:tbl>'
+    )
+    return parse_xml(tbl_xml)
 
 
 def squeeze_wide_tables(body, usable_twips):
