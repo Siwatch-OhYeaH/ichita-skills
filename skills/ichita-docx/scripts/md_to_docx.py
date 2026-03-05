@@ -71,8 +71,9 @@ def _add_cell_text(cell, text, bold_header=False, font_name="Calibri",
                    font_size=Pt(10)):
     """Add formatted text to a table cell, preserving bold markdown."""
     para = cell.paragraphs[0]
-    para.paragraph_format.space_before = Pt(2)
-    para.paragraph_format.space_after = Pt(2)
+    tbl_cfg = ICHITA_BRAND.get("table", {})
+    para.paragraph_format.space_before = Pt(tbl_cfg.get("cell_spacing_before", 2))
+    para.paragraph_format.space_after = Pt(tbl_cfg.get("cell_spacing_after", 2))
 
     if bold_header:
         clean = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
@@ -141,19 +142,22 @@ def _add_table(doc, header_cells, data_rows, font_name, colors):
 def _add_code_block(doc, code_lines):
     """Add a code block with monospace font and grey background."""
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(6)
-    p.paragraph_format.space_after = Pt(6)
-    p.paragraph_format.left_indent = Inches(0.3)
-    p.paragraph_format.right_indent = Inches(0.3)
+    cb = ICHITA_BRAND.get("code_block", {})
+    code_typo = ICHITA_BRAND["typography"].get("code", {"size": 9, "color": "code_text"})
+    code_colors = ICHITA_BRAND["colors"]
+    p.paragraph_format.space_before = Pt(cb.get("before_pt", 6))
+    p.paragraph_format.space_after = Pt(cb.get("after_pt", 6))
+    p.paragraph_format.left_indent = Inches(cb.get("indent_inches", 0.3))
+    p.paragraph_format.right_indent = Inches(cb.get("indent_inches", 0.3))
 
     pPr = p._p.get_or_add_pPr()
     pPr.append(parse_xml(
-        f'<w:shd {nsdecls("w")} w:fill="F2F2F2" w:val="clear"/>'))
+        f'<w:shd {nsdecls("w")} w:fill="{code_colors.get("code_bg", "F2F2F2")}" w:val="clear"/>'))
 
     run = p.add_run('\n'.join(code_lines))
-    run.font.name = 'Courier New'
-    run.font.size = Pt(9)
-    run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+    run.font.name = ICHITA_BRAND["fonts"].get("code", "Courier New")
+    run.font.size = Pt(code_typo["size"])
+    run.font.color.rgb = RGBColor.from_string(code_colors.get(code_typo.get("color", "code_text"), "333333"))
 
 
 # ── Main Conversion ────────────────────────────────────────────────────────
@@ -186,8 +190,8 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
     style = doc.styles['Normal']
     style.font.name = font_name
     style.font.size = Pt(typo["body"]["size"])
-    style.paragraph_format.space_after = Pt(6)
-    style.paragraph_format.space_before = Pt(3)
+    style.paragraph_format.space_after = Pt(typo["body"]["after"])
+    style.paragraph_format.space_before = Pt(typo["body"]["before"])
 
     # Heading styles from brand typography
     heading_map = {
@@ -196,9 +200,17 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
         3: ("h3", RGBColor.from_string(colors["accent"])),
         4: ("h3", RGBColor.from_string(colors["accent"])),
     }
-    heading_sizes = {1: 20, 2: 16, 3: 13, 4: 11}
+    heading_sizes = {
+        1: typo["h1"]["size"],
+        2: typo["h2"]["size"],
+        3: typo["h3"]["size"],
+        4: typo["h4"]["size"],
+    }
     heading_spacing = {
-        1: (18, 8), 2: (14, 6), 3: (10, 6), 4: (8, 4),
+        1: (typo["h1"]["before"], typo["h1"]["after"]),
+        2: (typo["h2"]["before"], typo["h2"]["after"]),
+        3: (typo["h3"]["before"], typo["h3"]["after"]),
+        4: (typo["h4"]["before"], typo["h4"]["after"]),
     }
 
     for level in range(1, 5):
@@ -241,7 +253,7 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
             pPr = p._p.get_or_add_pPr()
             pPr.append(parse_xml(
                 f'<w:pBdr {nsdecls("w")}>'
-                f'  <w:bottom w:val="single" w:sz="6" w:space="1"'
+                f'  <w:bottom w:val="single" w:sz="{brand.get("hr", {}).get("sz", 6)}" w:space="1"'
                 f'            w:color="{colors["border"]}"/>'
                 f'</w:pBdr>'))
             i += 1
@@ -307,14 +319,15 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
         if stripped.startswith('>'):
             quote_text = stripped.lstrip('>').strip()
             p = doc.add_paragraph()
-            p.paragraph_format.left_indent = Inches(0.5)
-            p.paragraph_format.right_indent = Inches(0.3)
-            p.paragraph_format.space_before = Pt(8)
-            p.paragraph_format.space_after = Pt(8)
+            bq = brand.get("blockquote", {})
+            p.paragraph_format.left_indent = Inches(bq.get("left_indent_inches", 0.5))
+            p.paragraph_format.right_indent = Inches(bq.get("right_indent_inches", 0.3))
+            p.paragraph_format.space_before = Pt(bq.get("before_pt", 8))
+            p.paragraph_format.space_after = Pt(bq.get("after_pt", 8))
             pPr = p._p.get_or_add_pPr()
             pPr.append(parse_xml(
                 f'<w:pBdr {nsdecls("w")}>'
-                f'  <w:left w:val="single" w:sz="18" w:space="8"'
+                f'  <w:left w:val="single" w:sz="{bq.get("border_sz", 18)}" w:space="8"'
                 f'          w:color="{colors["accent"]}"/>'
                 f'</w:pBdr>'))
             pPr.append(parse_xml(
@@ -329,10 +342,11 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
             num = numbered_match.group(1)
             item_text = numbered_match.group(2)
             p = doc.add_paragraph()
-            p.paragraph_format.left_indent = Inches(0.5)
-            p.paragraph_format.first_line_indent = Inches(-0.25)
-            p.paragraph_format.space_before = Pt(2)
-            p.paragraph_format.space_after = Pt(2)
+            li = brand.get("list", {})
+            p.paragraph_format.left_indent = Inches(li.get("left_indent_inches", 0.5))
+            p.paragraph_format.first_line_indent = Inches(-li.get("hanging_indent_inches", 0.25))
+            p.paragraph_format.space_before = Pt(li.get("before_pt", 2))
+            p.paragraph_format.space_after = Pt(li.get("after_pt", 2))
             run = p.add_run(f"{num}. ")
             run.font.name = font_name
             run.font.size = base_size
@@ -347,11 +361,13 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
             indent_spaces = len(bullet_match.group(1))
             bullet_text = bullet_match.group(3)
             p = doc.add_paragraph(style='List Bullet')
-            p.paragraph_format.space_before = Pt(2)
-            p.paragraph_format.space_after = Pt(2)
+            li = brand.get("list", {})
+            p.paragraph_format.space_before = Pt(li.get("before_pt", 2))
+            p.paragraph_format.space_after = Pt(li.get("after_pt", 2))
             if indent_spaces >= 2:
+                step = li.get("nested_step_inches", 0.25)
                 p.paragraph_format.left_indent = Inches(
-                    0.6 + (indent_spaces // 2) * 0.25)
+                    0.6 + (indent_spaces // 2) * step)
             p.clear()
             add_formatted_text(p, bullet_text, font_name, base_size)
             i += 1
@@ -364,8 +380,9 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
 
         # Regular paragraph
         p = doc.add_paragraph()
-        p.paragraph_format.space_before = Pt(3)
-        p.paragraph_format.space_after = Pt(6)
+        bod = typo.get("body", {"before": 3, "after": 6})
+        p.paragraph_format.space_before = Pt(bod.get("before", 3))
+        p.paragraph_format.space_after = Pt(bod.get("after", 6))
         add_formatted_text(p, stripped, font_name, base_size)
         i += 1
 
@@ -397,7 +414,7 @@ def main():
     parser.add_argument("--font", default=None,
                         help="Override font name (default: auto-detect)")
     parser.add_argument("--margin", type=float, default=None,
-                        help="Page margin in cm (default: 2.5)")
+                        help="Page margin in cm (default: 2.0)")
     args = parser.parse_args()
 
     convert_md_to_docx(
