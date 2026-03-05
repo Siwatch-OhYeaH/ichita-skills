@@ -118,31 +118,32 @@ def _style_runs(p_elem, font_name, size_pt, color_hex, bold=None,
 
 def style_paragraph(p_elem, text, font_name, colors, brand=None):
     """Apply Ichita brand styling to a paragraph based on heading detection."""
+    typo = brand["typography"] if brand else {}
     style_id = get_style_id(p_elem)
 
     # Check for Word built-in heading styles
     style_lower = style_id.lower()
     if 'heading1' in style_lower or style_id == 'Heading1':
-        _style_runs(p_elem, font_name, 20, colors["dark"], bold=True,
-                     brand=brand)
+        h1 = typo.get("h1", {"size": 20, "color": "dark"})
+        _style_runs(p_elem, font_name, h1["size"], colors[h1.get("color", "dark")], bold=True, brand=brand)
         add_left_accent(p_elem, colors["accent"])
         return
     if 'heading2' in style_lower or style_id == 'Heading2':
-        _style_runs(p_elem, font_name, 16, colors["dark"], bold=True,
-                     brand=brand)
+        h2 = typo.get("h2", {"size": 16, "color": "dark"})
+        _style_runs(p_elem, font_name, h2["size"], colors[h2.get("color", "dark")], bold=True, brand=brand)
         add_left_accent(p_elem, colors["accent"])
         return
     if 'heading3' in style_lower or style_id == 'Heading3':
-        _style_runs(p_elem, font_name, 14, colors["accent"], bold=True,
-                     brand=brand)
+        h3 = typo.get("h3", {"size": 14, "color": "accent"})
+        _style_runs(p_elem, font_name, h3["size"], colors[h3.get("color", "accent")], bold=True, brand=brand)
         return
 
     # Detect heading from text content (for Normal-styled headings)
     heading = detect_heading(text)
 
     if heading == 'section':
-        _style_runs(p_elem, font_name, 14, colors["dark"], bold=True,
-                     brand=brand)
+        sec = typo.get("h3", {"size": 14, "color": "dark", "before": 10, "after": 6})
+        _style_runs(p_elem, font_name, sec["size"], colors[sec.get("color", "dark")], bold=True, brand=brand)
         add_left_accent(p_elem, colors["accent"])
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
@@ -150,22 +151,22 @@ def style_paragraph(p_elem, text, font_name, colors, brand=None):
         if sp is None:
             sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
             pPr.append(sp)
-        sp.set(qn('w:before'), '280')
-        sp.set(qn('w:after'), '120')
+        sp.set(qn('w:before'), str(sec.get("before", 10) * 20))
+        sp.set(qn('w:after'), str(sec.get("after", 6) * 20))
     elif heading == 'subsection':
-        _style_runs(p_elem, font_name, 12, colors["accent"], bold=True,
-                     brand=brand)
+        sub = typo.get("h4", {"size": 12, "color": "accent", "before": 8, "after": 4})
+        _style_runs(p_elem, font_name, sub["size"], colors[sub.get("color", "accent")], bold=True, brand=brand)
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
         sp = pPr.find(qn('w:spacing'))
         if sp is None:
             sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
             pPr.append(sp)
-        sp.set(qn('w:before'), '200')
-        sp.set(qn('w:after'), '120')
+        sp.set(qn('w:before'), str(sub.get("before", 8) * 20))
+        sp.set(qn('w:after'), str(sub.get("after", 4) * 20))
     elif heading == 'caption':
-        _style_runs(p_elem, font_name, 10.5, colors["muted"],
-                     brand=brand)
+        cap = typo.get("caption", {"size": 10.5, "color": "muted", "before": 6, "after": 3})
+        _style_runs(p_elem, font_name, cap["size"], colors[cap.get("color", "muted")], brand=brand)
         set_alignment(p_elem, 'center')
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
@@ -173,19 +174,19 @@ def style_paragraph(p_elem, text, font_name, colors, brand=None):
         if sp is None:
             sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
             pPr.append(sp)
-        sp.set(qn('w:before'), '120')
-        sp.set(qn('w:after'), '60')
+        sp.set(qn('w:before'), str(cap.get("before", 6) * 20))
+        sp.set(qn('w:after'), str(cap.get("after", 3) * 20))
     else:
         # Normal body text
-        _style_runs(p_elem, font_name, 12, colors["dark"],
-                     brand=brand)
+        bod = typo.get("body", {"size": 12, "color": "dark", "before": 3, "after": 6})
+        _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
         pPr = ensure_pPr(p_elem)
         sp = pPr.find(qn('w:spacing'))
         if sp is None:
             sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
             pPr.append(sp)
-        sp.set(qn('w:before'), '0')
-        sp.set(qn('w:after'), '120')
+        sp.set(qn('w:before'), str(bod.get("before", 3) * 20))
+        sp.set(qn('w:after'), str(bod.get("after", 6) * 20))
 
 
 # ── Cleanup ────────────────────────────────────────────────────────────────
@@ -255,9 +256,12 @@ def reorder_image_captions(body):
 
 # ── Table Spacing ─────────────────────────────────────────────────────────
 
-def enforce_table_spacing(body):
-    """Ensure 8pt gap before and after every table."""
-    SPACE_AROUND = "160"  # 8pt in twips
+def enforce_table_spacing(body, brand=None):
+    """Ensure gap before and after every table."""
+    gap_pt = 8
+    if brand and "table" in brand:
+        gap_pt = brand["table"].get("gap_before_after", 8)
+    SPACE_AROUND = str(gap_pt * 20)  # pt to twips
     children = list(body)
     for i, child in enumerate(children):
         if child.tag.split('}')[-1] != 'tbl':
@@ -513,9 +517,15 @@ def redesign_title_page(body, font_name, colors, brand=None):
                 body.append(elem)
 
     # Build new title page
-    insert(make_para(space_after=80, font_name=font_name, brand=brand))
+    tp = brand.get("title_page", {}) if brand else {}
+    title_sz = tp.get("title_size", 26)
+    subtitle_sz = tp.get("subtitle_size", 16)
+    space_before = tp.get("space_before_pt", 80)
+    space_after_sub = tp.get("space_after_subtitle_pt", 36)
 
-    insert(make_para(title_text, size_pt=36, color_hex=colors["dark"],
+    insert(make_para(space_after=space_before, font_name=font_name, brand=brand))
+
+    insert(make_para(title_text, size_pt=title_sz, color_hex=colors["dark"],
                      bold=True, align='center', space_after=10,
                      font_name=font_name, brand=brand))
 
@@ -525,8 +535,8 @@ def redesign_title_page(body, font_name, colors, brand=None):
     insert(band)
 
     if subtitle_text:
-        insert(make_para(subtitle_text, size_pt=16, color_hex=colors["muted"],
-                         align='center', space_before=8, space_after=36,
+        insert(make_para(subtitle_text, size_pt=subtitle_sz, color_hex=colors["muted"],
+                         align='center', space_before=8, space_after=space_after_sub,
                          font_name=font_name, brand=brand))
 
     # Metadata table
@@ -640,7 +650,7 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     reorder_image_captions(dst_body)
 
     # Enforce table spacing (8pt gap)
-    enforce_table_spacing(dst_body)
+    enforce_table_spacing(dst_body, brand=brand)
 
     # Title page redesign (optional)
     if not no_title_page:
@@ -675,7 +685,8 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     # Document default style — set Thai fonts on Normal style
     style = dst_doc.styles['Normal']
     style.font.name = font_name
-    style.font.size = Pt(12)
+    body_size = brand["typography"]["body"]["size"] if brand else 12
+    style.font.size = Pt(body_size)
     style.font.color.rgb = RGBColor.from_string(colors["dark"])
     n_rPr = style.element.get_or_add_rPr()
     n_rFonts = n_rPr.find(qn('w:rFonts'))
