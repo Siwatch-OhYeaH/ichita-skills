@@ -28,7 +28,8 @@ from docx_helpers import (
     set_font, set_cell_shading, ensure_pPr, get_style_id, get_text,
     add_left_accent, add_bottom_band, set_alignment, copy_image_rels,
     make_para, style_table_xml, add_header_footer, squeeze_wide_tables,
-    _has_images,
+    create_meta_table, split_run_thai_latin,
+    _has_images, _text_is_mixed,
 )
 
 
@@ -95,16 +96,27 @@ def detect_heading(text):
 # ── Paragraph Styling ──────────────────────────────────────────────────────
 
 def _style_runs(p_elem, font_name, size_pt, color_hex, bold=None,
-                latin_offset=1.5):
-    """Apply brand font to all text runs in a paragraph (skip image runs)."""
+                brand=None):
+    """Apply brand font to all text runs in a paragraph (skip image runs).
+
+    After setting fonts, splits mixed Thai/Latin runs into separate elements.
+    """
     for run in p_elem.findall('.//' + qn('w:r')):
         if _has_images(run):
             continue
         set_font(run, font_name=font_name, size_pt=size_pt,
-                 color_hex=color_hex, bold=bold, latin_offset=latin_offset)
+                 color_hex=color_hex, bold=bold, brand=brand)
+
+    # Second pass: split any mixed Thai/Latin runs
+    for run in list(p_elem.findall('.//' + qn('w:r'))):
+        if _has_images(run):
+            continue
+        t_elem = run.find(qn('w:t'))
+        if t_elem is not None and t_elem.text and _text_is_mixed(t_elem.text):
+            split_run_thai_latin(run, p_elem, brand=brand)
 
 
-def style_paragraph(p_elem, text, font_name, colors, latin_offset=1.5):
+def style_paragraph(p_elem, text, font_name, colors, brand=None):
     """Apply Ichita brand styling to a paragraph based on heading detection."""
     style_id = get_style_id(p_elem)
 
@@ -112,17 +124,17 @@ def style_paragraph(p_elem, text, font_name, colors, latin_offset=1.5):
     style_lower = style_id.lower()
     if 'heading1' in style_lower or style_id == 'Heading1':
         _style_runs(p_elem, font_name, 20, colors["dark"], bold=True,
-                     latin_offset=latin_offset)
+                     brand=brand)
         add_left_accent(p_elem, colors["accent"])
         return
     if 'heading2' in style_lower or style_id == 'Heading2':
         _style_runs(p_elem, font_name, 16, colors["dark"], bold=True,
-                     latin_offset=latin_offset)
+                     brand=brand)
         add_left_accent(p_elem, colors["accent"])
         return
     if 'heading3' in style_lower or style_id == 'Heading3':
         _style_runs(p_elem, font_name, 14, colors["accent"], bold=True,
-                     latin_offset=latin_offset)
+                     brand=brand)
         return
 
     # Detect heading from text content (for Normal-styled headings)
@@ -130,25 +142,50 @@ def style_paragraph(p_elem, text, font_name, colors, latin_offset=1.5):
 
     if heading == 'section':
         _style_runs(p_elem, font_name, 14, colors["dark"], bold=True,
-                     latin_offset=latin_offset)
+                     brand=brand)
         add_left_accent(p_elem, colors["accent"])
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
+        sp = pPr.find(qn('w:spacing'))
+        if sp is None:
+            sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
+            pPr.append(sp)
+        sp.set(qn('w:before'), '280')
+        sp.set(qn('w:after'), '120')
     elif heading == 'subsection':
         _style_runs(p_elem, font_name, 12, colors["accent"], bold=True,
-                     latin_offset=latin_offset)
+                     brand=brand)
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
+        sp = pPr.find(qn('w:spacing'))
+        if sp is None:
+            sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
+            pPr.append(sp)
+        sp.set(qn('w:before'), '200')
+        sp.set(qn('w:after'), '120')
     elif heading == 'caption':
         _style_runs(p_elem, font_name, 10.5, colors["muted"],
-                     latin_offset=latin_offset)
+                     brand=brand)
         set_alignment(p_elem, 'center')
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
+        sp = pPr.find(qn('w:spacing'))
+        if sp is None:
+            sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
+            pPr.append(sp)
+        sp.set(qn('w:before'), '120')
+        sp.set(qn('w:after'), '60')
     else:
         # Normal body text
         _style_runs(p_elem, font_name, 12, colors["dark"],
-                     latin_offset=latin_offset)
+                     brand=brand)
+        pPr = ensure_pPr(p_elem)
+        sp = pPr.find(qn('w:spacing'))
+        if sp is None:
+            sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
+            pPr.append(sp)
+        sp.set(qn('w:before'), '0')
+        sp.set(qn('w:after'), '120')
 
 
 # ── Cleanup ────────────────────────────────────────────────────────────────
@@ -190,18 +227,220 @@ def cleanup_empty_space(body):
     return removed
 
 
+# ── Image Caption Reorder ──────────────────────────────────────────────────
+
+def reorder_image_captions(body):
+    """Move 'รูปที่...' captions above their image tables.
+
+    Original order:  text → img table → caption
+    New order:       caption → img table → text
+    """
+    children = list(body)
+    moved = 0
+    for i, child in enumerate(children):
+        if child.tag.split('}')[-1] != 'tbl':
+            continue
+        if not child.findall('.//' + qn('w:drawing')):
+            continue
+        # Check next sibling is a caption
+        if i + 1 < len(children) and children[i + 1].tag == qn('w:p'):
+            nxt = children[i + 1]
+            cap_text = get_text(nxt).strip()
+            if cap_text.startswith('รูปที่'):
+                child.addprevious(nxt)
+                moved += 1
+    if moved:
+        print(f"  Reordered {moved} image caption(s)")
+
+
+# ── Table Spacing ─────────────────────────────────────────────────────────
+
+def enforce_table_spacing(body):
+    """Ensure 8pt gap before and after every table."""
+    SPACE_AROUND = "160"  # 8pt in twips
+    children = list(body)
+    for i, child in enumerate(children):
+        if child.tag.split('}')[-1] != 'tbl':
+            continue
+
+        # Paragraph BEFORE table: ensure space_after
+        if i > 0 and children[i - 1].tag == qn('w:p'):
+            prev_p = children[i - 1]
+            pPr = ensure_pPr(prev_p)
+            sp = pPr.find(qn('w:spacing'))
+            if sp is None:
+                sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
+                pPr.append(sp)
+            cur_after = int(sp.get(qn('w:after'), '0'))
+            if cur_after < int(SPACE_AROUND):
+                sp.set(qn('w:after'), SPACE_AROUND)
+
+        # Paragraph AFTER table: ensure space_before
+        if i + 1 < len(children) and children[i + 1].tag == qn('w:p'):
+            next_p = children[i + 1]
+            pPr = ensure_pPr(next_p)
+            sp = pPr.find(qn('w:spacing'))
+            if sp is None:
+                sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
+                pPr.append(sp)
+            cur_before = int(sp.get(qn('w:before'), '0'))
+            if cur_before < int(SPACE_AROUND):
+                sp.set(qn('w:before'), SPACE_AROUND)
+
+
+# ── Smart Page Breaks ─────────────────────────────────────────────────────
+
+def apply_page_breaks(body):
+    """Strip all pageBreakBefore → add back for 'Appendix' → zero space_before
+    on page-top paragraphs."""
+    # Remove ALL pageBreakBefore first
+    for p in body.iter(qn('w:p')):
+        pPr = p.find(qn('w:pPr'))
+        if pPr is not None:
+            pb = pPr.find(qn('w:pageBreakBefore'))
+            if pb is not None:
+                pPr.remove(pb)
+
+    # Add pageBreakBefore to "Appendix" heading
+    children = list(body)
+    for child in children:
+        if child.tag != qn('w:p'):
+            continue
+        text = get_text(child).strip()
+        if text.lower() == 'appendix':
+            pPr = ensure_pPr(child)
+            if pPr.find(qn('w:pageBreakBefore')) is None:
+                pPr.append(parse_xml(
+                    f'<w:pageBreakBefore {nsdecls("w")}/>'))
+
+    # Zero space_before on page-top paragraphs
+    children = list(body)
+    for i, child in enumerate(children):
+        if child.tag != qn('w:p'):
+            continue
+        pPr = child.find(qn('w:pPr'))
+        if pPr is None:
+            continue
+
+        zero_it = False
+        if pPr.find(qn('w:pageBreakBefore')) is not None:
+            zero_it = True
+        if i > 0 and children[i - 1].tag == qn('w:p'):
+            prev_pPr = children[i - 1].find(qn('w:pPr'))
+            if prev_pPr is not None and prev_pPr.find(qn('w:sectPr')) is not None:
+                zero_it = True
+
+        if zero_it:
+            sp = pPr.find(qn('w:spacing'))
+            if sp is not None:
+                sp.set(qn('w:before'), '0')
+
+
+# ── Trailing Empty Section Cleanup ────────────────────────────────────────
+
+def cleanup_trailing_section(body):
+    """If last inline sectPr creates a section with no content, merge it."""
+    children = list(body)
+    final_sect = body.find(qn('w:sectPr'))
+    if final_sect is None:
+        return
+
+    last_sb = None
+    last_sb_idx = None
+    for i, child in enumerate(children):
+        if child.tag == qn('w:p'):
+            pPr = child.find(qn('w:pPr'))
+            if pPr is not None and pPr.find(qn('w:sectPr')) is not None:
+                last_sb = child
+                last_sb_idx = i
+
+    if last_sb is None:
+        return
+
+    has_content = False
+    for sib in children[last_sb_idx + 1:]:
+        if sib.tag == qn('w:sectPr'):
+            continue
+        if sib.tag == qn('w:tbl'):
+            has_content = True
+            break
+        if sib.tag == qn('w:p'):
+            t = get_text(sib).strip()
+            if t or _has_images(sib):
+                has_content = True
+                break
+
+    if not has_content:
+        pPr = last_sb.find(qn('w:pPr'))
+        inline_sect = pPr.find(qn('w:sectPr'))
+        src_pgSz = inline_sect.find(qn('w:pgSz'))
+        dst_pgSz = final_sect.find(qn('w:pgSz'))
+        if src_pgSz is not None and dst_pgSz is not None:
+            for attr in (qn('w:w'), qn('w:h'), qn('w:orient')):
+                val = src_pgSz.get(attr)
+                if val is not None:
+                    dst_pgSz.set(attr, val)
+                elif attr == qn('w:orient'):
+                    if attr in dst_pgSz.attrib:
+                        del dst_pgSz.attrib[attr]
+        body.remove(last_sb)
+        print("  Removed trailing empty section")
+
+
 # ── Title Page Redesign ────────────────────────────────────────────────────
 
-def redesign_title_page(body, font_name, colors, latin_offset=1.5):
+def _extract_metadata(body):
+    """Scan body for Thai key patterns and extract metadata dict.
+
+    Looks for patterns like 'ชื่อโครงการ : value' in paragraphs.
+    Returns dict with keys: project, case, customer, date, notes.
+    """
+    metadata = {}
+    meta_elems = []
+    for elem in list(body):
+        tag = elem.tag.split('}')[-1]
+        if tag != 'p':
+            continue
+        text = get_text(elem).strip()
+        for thai_key, dict_key in [
+            ('ชื่อโครงการ', 'project'),
+            ('ชื่องาน', 'case'),
+            ('ลูกค้า', 'customer'),
+            ('วันที่จัดทำ', 'date'),
+            ('หมายเหตุ', 'notes'),
+        ]:
+            if thai_key in text:
+                clean = re.sub(r'\s*\([^)]*\)\s*', ' ', text)
+                _, _, value = clean.partition(':')
+                metadata[dict_key] = value.strip()
+                meta_elems.append(elem)
+                break
+    return metadata, meta_elems
+
+
+def redesign_title_page(body, font_name, colors, brand=None):
     """Extract title/subtitle from first heading-styled paragraphs.
 
-    Build a clean cover: Title → blue band → subtitle → page break.
+    Build a clean cover: Title → blue band → subtitle → metadata table → page break.
     Works generically — looks for Heading 1/2 styles or large/bold text.
+    Also extracts Thai metadata fields if present.
     """
     title_text = ""
     subtitle_text = ""
     to_remove = []
     sect_break_xml = None
+
+    # Extract metadata
+    metadata, meta_elems = _extract_metadata(body)
+    to_remove.extend(meta_elems)
+
+    # Preserve section break from metadata paragraphs
+    for elem in meta_elems:
+        pPr = elem.find(qn('w:pPr'))
+        if pPr is not None:
+            sect = pPr.find(qn('w:sectPr'))
+            if sect is not None:
+                sect_break_xml = copy.deepcopy(sect)
 
     # Find title and subtitle from first few elements
     for elem in list(body):
@@ -246,8 +485,13 @@ def redesign_title_page(body, font_name, colors, latin_offset=1.5):
     if not title_text:
         return  # No title found, skip redesign
 
-    # Remove old title elements
+    # Remove old title elements (deduplicate)
+    seen = set()
     for elem in to_remove:
+        eid = id(elem)
+        if eid in seen:
+            continue
+        seen.add(eid)
         if elem.getparent() is body:
             body.remove(elem)
 
@@ -269,26 +513,40 @@ def redesign_title_page(body, font_name, colors, latin_offset=1.5):
                 body.append(elem)
 
     # Build new title page
-    insert(make_para(space_after=80, font_name=font_name,
-                     latin_offset=latin_offset))
+    insert(make_para(space_after=80, font_name=font_name, brand=brand))
 
     insert(make_para(title_text, size_pt=36, color_hex=colors["dark"],
                      bold=True, align='center', space_after=10,
-                     font_name=font_name, latin_offset=latin_offset))
+                     font_name=font_name, brand=brand))
 
     band = make_para(space_before=0, space_after=14, font_name=font_name,
-                     latin_offset=latin_offset)
+                     brand=brand)
     add_bottom_band(band, color=colors["accent"], sz="24")
     insert(band)
 
     if subtitle_text:
         insert(make_para(subtitle_text, size_pt=16, color_hex=colors["muted"],
                          align='center', space_before=8, space_after=36,
-                         font_name=font_name, latin_offset=latin_offset))
+                         font_name=font_name, brand=brand))
+
+    # Metadata table
+    if metadata:
+        meta_items = [
+            ('ชื่อโครงการ',       metadata.get('project', '')),
+            ('ชื่องาน',           metadata.get('case', '')),
+            ('ลูกค้า',            metadata.get('customer', '')),
+            ('วันที่จัดทำ',        metadata.get('date', '')),
+            ('หมายเหตุโครงการ',   metadata.get('notes', '')),
+        ]
+        # Filter out empty values
+        meta_items = [(k, v) for k, v in meta_items if v]
+        if meta_items:
+            insert(create_meta_table(meta_items, brand=brand))
+            print(f"  Title page: metadata table ({len(meta_items)} fields)")
 
     # Section break
     sect_para = make_para(space_before=0, space_after=0, font_name=font_name,
-                          latin_offset=latin_offset)
+                          brand=brand)
     if sect_break_xml is not None:
         pPr = ensure_pPr(sect_para)
         pPr.append(sect_break_xml)
@@ -302,7 +560,6 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     """Open source DOCX, create Ichita-branded copy."""
     brand = ICHITA_BRAND
     colors = brand["colors"]
-    latin_offset = brand["fonts"]["latin_offset"]
 
     # Resolve font
     if font_name is None:
@@ -310,8 +567,11 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
         for w in warnings:
             print(f"  [font] {w}")
 
+    # Store resolved font for helpers that need it
+    brand["fonts"]["_resolved"] = font_name
+
     print(f"Source: {os.path.basename(input_path)}")
-    print(f"Font:   {font_name}")
+    print(f"Font:   {font_name} + {brand['fonts']['thai']} (Thai, {brand['fonts']['thai_scale']}x)")
 
     src_doc = Document(input_path)
     dst_doc = Document()
@@ -345,12 +605,16 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
             else:
                 dst_body.append(new_elem)
 
-    # Remove source header/footer references
+    # Remove source header/footer references + titlePg
     for sectPr in dst_body.iter(qn('w:sectPr')):
         for ref in list(sectPr.findall(qn('w:headerReference'))):
             sectPr.remove(ref)
         for ref in list(sectPr.findall(qn('w:footerReference'))):
             sectPr.remove(ref)
+        # Remove titlePg — "different first page" hides our header
+        title_pg = sectPr.find(qn('w:titlePg'))
+        if title_pg is not None:
+            sectPr.remove(title_pg)
 
     # Cleanup empty space
     removed = cleanup_empty_space(dst_body)
@@ -360,7 +624,7 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     para_count = 0
     for p in dst_body.iter(qn('w:p')):
         text = get_text(p)
-        style_paragraph(p, text, font_name, colors, latin_offset)
+        style_paragraph(p, text, font_name, colors, brand=brand)
         para_count += 1
 
     # Restyle tables
@@ -369,12 +633,21 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
         style_table_xml(tbl, header_bg=colors["table_header"],
                         alt_bg=colors["table_alt"],
                         border_color=colors["border"],
-                        font_name=font_name, latin_offset=latin_offset)
+                        font_name=font_name, brand=brand)
         tbl_count += 1
+
+    # Reorder image captions (before table, not after)
+    reorder_image_captions(dst_body)
+
+    # Enforce table spacing (8pt gap)
+    enforce_table_spacing(dst_body)
 
     # Title page redesign (optional)
     if not no_title_page:
-        redesign_title_page(dst_body, font_name, colors, latin_offset)
+        redesign_title_page(dst_body, font_name, colors, brand=brand)
+
+    # Cleanup trailing empty section
+    cleanup_trailing_section(dst_body)
 
     # Set page margins
     portrait_margin = Cm(brand["margins"]["portrait"])
@@ -396,11 +669,21 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
         (Cm(29.7) - 2 * landscape_margin) / 914400 * 1440)
     squeeze_wide_tables(dst_body, landscape_usable)
 
-    # Document default style
+    # Smart page breaks (after all content modifications)
+    apply_page_breaks(dst_body)
+
+    # Document default style — set Thai fonts on Normal style
     style = dst_doc.styles['Normal']
     style.font.name = font_name
     style.font.size = Pt(12)
     style.font.color.rgb = RGBColor.from_string(colors["dark"])
+    n_rPr = style.element.get_or_add_rPr()
+    n_rFonts = n_rPr.find(qn('w:rFonts'))
+    if n_rFonts is None:
+        n_rFonts = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
+        n_rPr.insert(0, n_rFonts)
+    n_rFonts.set(qn('w:cs'), brand["fonts"]["thai"])
+    n_rFonts.set(qn('w:eastAsia'), brand["fonts"]["thai"])
 
     # Logo header
     logo = logo_path or DEFAULT_LOGO
@@ -421,7 +704,7 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     print(f"  Tables:     {tbl_count}")
     print(f"  Images:     {img_count} blip references")
     print(f"  Sections:   {len(dst_doc.sections)}")
-    print(f"  Font:       {font_name}")
+    print(f"  Font:       {font_name} + {brand['fonts']['thai']} (Thai)")
     print(f"{'='*60}")
 
 
