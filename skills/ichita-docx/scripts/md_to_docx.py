@@ -319,7 +319,6 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
 
     # Parse and convert
     i = 0
-    first_h1 = True
     base_size = Pt(typo["body"]["size"])
 
     while i < len(lines):
@@ -376,29 +375,16 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
             level = len(heading_match.group(1))
             heading_text = heading_match.group(2).strip()
 
-            if level == 1 and first_h1:
-                p = doc.add_heading('', level=1)
-                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                clean = re.sub(r'\*\*(.+?)\*\*', r'\1', heading_text)
-                run = p.add_run(clean)
-                run.font.name = font_name
-                run.font.size = Pt(typo["title"]["size"])
-                run.font.color.rgb = RGBColor.from_string(colors["dark"])
+            p = doc.add_heading('', level=level)
+            size = Pt(heading_sizes[level])
+            add_formatted_text(p, heading_text, font_name, size, brand=brand)
+            for run in p.runs:
+                run.font.color.rgb = heading_map[level][1]
                 run.font.bold = True
-                _apply_thai_to_run(run, font_name, typo["title"]["size"], brand)
+            # Add accent bar for H1 and H2 per brand spec
+            h_cfg = typo.get(f"h{level}", {})
+            if h_cfg.get("accent_bar"):
                 add_left_accent(p._p, colors["accent"])
-                first_h1 = False
-            else:
-                p = doc.add_heading('', level=level)
-                size = Pt(heading_sizes[level])
-                add_formatted_text(p, heading_text, font_name, size, brand=brand)
-                for run in p.runs:
-                    run.font.color.rgb = heading_map[level][1]
-                    run.font.bold = True
-                # Add accent bar for H1 and H2 per brand spec
-                h_cfg = typo.get(f"h{level}", {})
-                if h_cfg.get("accent_bar"):
-                    add_left_accent(p._p, colors["accent"])
             i += 1
             continue
 
