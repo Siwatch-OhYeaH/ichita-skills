@@ -660,16 +660,24 @@ def split_run_thai_latin(run_elem, parent_elem, brand=None):
             new_rPr = parse_xml(f'<w:rPr {nsdecls("w")}/>')
         new_run.insert(0, new_rPr)
 
-        # Set font name
+        # Set font name — maintain dual-font (Latin on ascii/hAnsi, Thai on cs)
         rf = new_rPr.find(qn('w:rFonts'))
         if rf is None:
             rf = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
             new_rPr.insert(0, rf)
-        font = thai_font if is_thai else fonts.get("_resolved", fonts["latin"])
-        for attr in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
-            rf.set(qn(attr), font)
+        latin = fonts.get("_resolved", fonts["latin"])
+        if is_thai:
+            # Thai segment: all attrs = Thai font (Word uses cs for Thai chars)
+            for attr in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
+                rf.set(qn(attr), thai_font)
+        else:
+            # Latin segment: dual-font (ascii/hAnsi=Latin, cs=Thai for fallback)
+            rf.set(qn('w:ascii'), latin)
+            rf.set(qn('w:hAnsi'), latin)
+            rf.set(qn('w:cs'), thai_font)
+            rf.set(qn('w:eastAsia'), latin)
 
-        # Thai gets scaled down
+        # Thai segments: scale both sz and szCs down
         if is_thai and current_sz:
             thai_hp = str(int(current_sz * thai_scale))
             for tag in ('w:sz', 'w:szCs'):
@@ -679,6 +687,15 @@ def split_run_thai_latin(run_elem, parent_elem, brand=None):
                 else:
                     new_rPr.append(parse_xml(
                         f'<{tag} {nsdecls("w")} w:val="{thai_hp}"/>'))
+        elif not is_thai and current_sz:
+            # Latin segments: ensure szCs is set (Thai scaled) for dual-font
+            thai_hp = str(int(current_sz * thai_scale))
+            szCs_el = new_rPr.find(qn('w:szCs'))
+            if szCs_el is not None:
+                szCs_el.set(qn('w:val'), thai_hp)
+            else:
+                new_rPr.append(parse_xml(
+                    f'<w:szCs {nsdecls("w")} w:val="{thai_hp}"/>'))
 
         # Add text element
         new_t = parse_xml(f'<w:t {nsdecls("w")}/>')

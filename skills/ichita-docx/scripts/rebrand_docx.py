@@ -79,7 +79,8 @@ def detect_heading(text):
     # Subsection: "3.1 Title", "A. Title", "B. Title"
     if re.match(r'^\d+\.\d+\s+\S', text) and len(text) < 80:
         return 'subsection'
-    if re.match(r'^[A-Z]\.?\s*\S', text) and len(text) < 80:
+    # Single letter + period + space (strict: avoids matching regular sentences)
+    if re.match(r'^[A-Z]\.\s+\S', text) and len(text) < 80:
         return 'subsection'
 
     # Figure/table captions (Thai and English patterns)
@@ -591,6 +592,47 @@ def redesign_title_page(body, font_name, colors, brand=None):
     insert(sect_para)
 
 
+# ── Numbering Copy ────────────────────────────────────────────────────────
+
+def _copy_numbering(src_doc, dst_doc):
+    """Copy numbering definitions (abstractNum + num) from source to destination.
+
+    Pandoc lists use numPr referencing numId values. Without the matching
+    abstractNum/num definitions, list numbering/bullets are lost after rebrand.
+    """
+    try:
+        src_numbering = src_doc.part.numbering_part.element
+    except Exception:
+        return  # No numbering in source
+
+    dst_numbering = dst_doc.part.numbering_part.element
+
+    # Collect existing numIds in destination to avoid duplicates
+    existing_num_ids = set()
+    for num in dst_numbering.findall(qn('w:num')):
+        nid = num.get(qn('w:numId'))
+        if nid:
+            existing_num_ids.add(nid)
+
+    existing_abstract_ids = set()
+    for an in dst_numbering.findall(qn('w:abstractNum')):
+        aid = an.get(qn('w:abstractNumId'))
+        if aid:
+            existing_abstract_ids.add(aid)
+
+    # Copy abstractNum definitions
+    for an in src_numbering.findall(qn('w:abstractNum')):
+        aid = an.get(qn('w:abstractNumId'))
+        if aid and aid not in existing_abstract_ids:
+            dst_numbering.append(copy.deepcopy(an))
+
+    # Copy num definitions
+    for num in src_numbering.findall(qn('w:num')):
+        nid = num.get(qn('w:numId'))
+        if nid and nid not in existing_num_ids:
+            dst_numbering.append(copy.deepcopy(num))
+
+
 # ── Main Rebranding ────────────────────────────────────────────────────────
 
 def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
@@ -643,6 +685,9 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
             else:
                 dst_body.append(new_elem)
 
+    # Copy numbering definitions (pandoc lists use numPr → abstractNum/num)
+    _copy_numbering(src_doc, dst_doc)
+
     # Remove source header/footer references + titlePg
     for sectPr in dst_body.iter(qn('w:sectPr')):
         for ref in list(sectPr.findall(qn('w:headerReference'))):
@@ -660,12 +705,16 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
 
     # Restyle paragraphs (skip those inside tables — handled by style_table_xml)
     para_count = 0
-    table_paras = set()
+    # Collect table paragraphs — keep refs alive to prevent id() reuse across
+    # lxml proxy objects (GC'd proxies can get same memory address as new ones)
+    _table_para_refs = []
+    table_para_ids = set()
     for tbl in dst_body.iter(qn('w:tbl')):
         for tp in tbl.iter(qn('w:p')):
-            table_paras.add(id(tp))
+            _table_para_refs.append(tp)
+            table_para_ids.add(id(tp))
     for p in dst_body.iter(qn('w:p')):
-        if id(p) in table_paras:
+        if id(p) in table_para_ids:
             continue
         text = get_text(p)
         style_paragraph(p, text, font_name, colors, brand=brand)
