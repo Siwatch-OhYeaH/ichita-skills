@@ -26,7 +26,7 @@ from docx.oxml import parse_xml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from docx_helpers import (
     ICHITA_BRAND, resolve_font, set_cell_shading_docx, set_table_borders,
-    add_formatted_text, add_header_footer,
+    add_formatted_text, add_header_footer, add_left_accent,
 )
 from docx.oxml.ns import qn
 
@@ -151,7 +151,7 @@ def _add_cell_text(cell, text, bold_header=False, font_name="Calibri",
         run.font.bold = True
         run.font.name = font_name
         run.font.size = font_size
-        run.font.color.rgb = RGBColor.from_string(ICHITA_BRAND["colors"]["dark"])
+        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)  # White on dark header
         _apply_thai_to_run(run, font_name, size_val)
     else:
         pattern = re.compile(r'\*\*(.+?)\*\*')
@@ -378,7 +378,7 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
 
             if level == 1 and first_h1:
                 p = doc.add_heading('', level=1)
-                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
                 clean = re.sub(r'\*\*(.+?)\*\*', r'\1', heading_text)
                 run = p.add_run(clean)
                 run.font.name = font_name
@@ -386,6 +386,7 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
                 run.font.color.rgb = RGBColor.from_string(colors["dark"])
                 run.font.bold = True
                 _apply_thai_to_run(run, font_name, typo["title"]["size"], brand)
+                add_left_accent(p._p, colors["accent"])
                 first_h1 = False
             else:
                 p = doc.add_heading('', level=level)
@@ -394,6 +395,10 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
                 for run in p.runs:
                     run.font.color.rgb = heading_map[level][1]
                     run.font.bold = True
+                # Add accent bar for H1 and H2 per brand spec
+                h_cfg = typo.get(f"h{level}", {})
+                if h_cfg.get("accent_bar"):
+                    add_left_accent(p._p, colors["accent"])
             i += 1
             continue
 
