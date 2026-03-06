@@ -147,6 +147,20 @@ def style_paragraph(p_elem, text, font_name, colors, brand=None):
     if has_numPr or is_list_style:
         bod = typo.get("body", {"size": 10, "color": "dark", "before": 2, "after": 2})
         _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
+        # Remove orphan pStyle (e.g. "Compact") — not in destination styles.xml
+        # Keep numPr intact so numbering level controls indent + prefix
+        pPr_li = ensure_pPr(p_elem)
+        ps = pPr_li.find(qn('w:pStyle'))
+        if ps is not None:
+            pPr_li.remove(ps)
+        # Set list spacing
+        li = brand.get("list", {}) if brand else {}
+        sp = pPr_li.find(qn('w:spacing'))
+        if sp is None:
+            sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
+            pPr_li.append(sp)
+        sp.set(qn('w:before'), str(li.get("before_pt", 2) * 20))
+        sp.set(qn('w:after'), str(li.get("after_pt", 2) * 20))
         return
 
     # Pandoc-specific styles → treat as body
