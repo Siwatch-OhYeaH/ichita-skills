@@ -46,13 +46,13 @@ ICHITA_BRAND = {
     },
     "typography": {
         "title": {"size": 26, "bold": True, "color": "dark"},
-        "h1": {"size": 20, "bold": True, "color": "dark", "before": 18, "after": 8, "accent_bar": True},
-        "h2": {"size": 16, "bold": True, "color": "dark", "before": 14, "after": 6, "accent_bar": True},
-        "h3": {"size": 14, "bold": True, "color": "accent", "before": 10, "after": 6},
-        "h4": {"size": 12, "bold": True, "color": "accent", "before": 8, "after": 4},
-        "body": {"size": 12, "bold": False, "color": "dark", "before": 3, "after": 6},
-        "caption": {"size": 10.5, "bold": False, "color": "muted", "before": 6, "after": 3},
-        "bullet": {"size": 12, "bold": False, "color": "dark", "before": 2, "after": 2},
+        "h1": {"size": 22, "bold": True, "color": "dark", "before": 18, "after": 8, "accent_bar": True},
+        "h2": {"size": 15, "bold": True, "color": "dark", "before": 14, "after": 6, "accent_bar": True},
+        "h3": {"size": 12, "bold": True, "color": "accent", "before": 10, "after": 6},
+        "h4": {"size": 10.5, "bold": True, "color": "accent", "before": 8, "after": 4},
+        "body": {"size": 10, "bold": False, "color": "dark", "before": 3, "after": 6},
+        "caption": {"size": 9, "bold": False, "color": "muted", "before": 6, "after": 3},
+        "bullet": {"size": 10, "bold": False, "color": "dark", "before": 2, "after": 2},
         "code": {"size": 9, "bold": False, "color": "code_text"},
     },
     "table": {
@@ -246,9 +246,9 @@ def set_font(run_elem, font_name=None, size_pt=None, color_hex=None,
              bold=None, brand=None):
     """Set font properties on a w:r element at the XML level.
 
-    Detects Thai text and sets Bai Jamjuree font with scaled size.
-    For Latin text, uses font_name at the specified size.
-    Mixed runs are handled later by split_run_thai_latin().
+    Sets dual-font (ascii/hAnsi = Latin, cs = Thai) and dual-size
+    (sz = Latin pt, szCs = Thai 0.9× pt) so Word picks the right
+    font and size per character automatically.
     """
     if brand is None:
         brand = ICHITA_BRAND
@@ -261,28 +261,22 @@ def set_font(run_elem, font_name=None, size_pt=None, color_hex=None,
         rPr = parse_xml(f'<w:rPr {nsdecls("w")}/>')
         run_elem.insert(0, rPr)
 
-    # Detect if this run's text is Thai
-    t_elem = run_elem.find(qn('w:t'))
-    run_text = t_elem.text if t_elem is not None and t_elem.text else ""
-    is_thai = _text_is_thai(run_text) and not _text_is_mixed(run_text)
-
-    # Font name — Thai gets Bai Jamjuree, Latin gets font_name
-    actual_font = thai_font if is_thai else font_name
-    if actual_font is not None:
+    # Font name — Latin on ascii/hAnsi, Thai on cs
+    if font_name is not None:
         rf = rPr.find(qn('w:rFonts'))
         if rf is None:
             rf = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
             rPr.insert(0, rf)
-        for attr in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
-            rf.set(qn(attr), actual_font)
+        rf.set(qn('w:ascii'), font_name)
+        rf.set(qn('w:hAnsi'), font_name)
+        rf.set(qn('w:cs'), thai_font)
+        rf.set(qn('w:eastAsia'), font_name)
 
-    # Size (half-points) — Thai scaled down for visual balance
+    # Size — sz for Latin, szCs for Thai (scaled)
     if size_pt is not None:
-        if is_thai:
-            hp = str(int(size_pt * thai_scale * 2))
-        else:
-            hp = str(int(size_pt * 2))
-        for tag in ('w:sz', 'w:szCs'):
+        latin_hp = str(int(size_pt * 2))
+        thai_hp = str(int(size_pt * thai_scale * 2))
+        for tag, hp in [('w:sz', latin_hp), ('w:szCs', thai_hp)]:
             el = rPr.find(qn(tag))
             if el is not None:
                 el.set(qn('w:val'), hp)
@@ -362,6 +356,12 @@ def style_table_xml(tbl_elem, header_bg="263338", alt_bg="EFF2F3",
         tblPr = parse_xml(f'<w:tblPr {nsdecls("w")}/>')
         tbl_elem.insert(0, tblPr)
 
+    # Remove tblStyle and tblLook — our explicit styling overrides everything
+    for tag in ('w:tblStyle', 'w:tblLook'):
+        old = tblPr.find(qn(tag))
+        if old is not None:
+            tblPr.remove(old)
+
     old_borders = tblPr.find(qn('w:tblBorders'))
     if old_borders is not None:
         tblPr.remove(old_borders)
@@ -416,6 +416,14 @@ def style_table_xml(tbl_elem, header_bg="263338", alt_bg="EFF2F3",
                     f'<w:trHeight {nsdecls("w")} w:val="320" w:hRule="atLeast"/>'))
 
         for tc in tr.findall(qn('w:tc')):
+            # Clear orphan pStyle on cell paragraphs (e.g. pandoc's "Compact")
+            for cp in tc.findall(qn('w:p')):
+                cpPr = cp.find(qn('w:pPr'))
+                if cpPr is not None:
+                    ps = cpPr.find(qn('w:pStyle'))
+                    if ps is not None:
+                        cpPr.remove(ps)
+
             if is_image_table:
                 for run in tc.findall('.//' + qn('w:r')):
                     if not _has_images(run):
@@ -477,14 +485,38 @@ def add_header_footer(doc, logo_path=None, accent_color="2978FF",
 
 
 def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
-                       is_blockquote=False):
-    """Parse inline markdown (bold, italic, bold+italic, links) and add runs."""
+                       is_blockquote=False, brand=None):
+    """Parse inline markdown (bold, italic, bold+italic, links) and add runs.
+
+    Sets dual-font (ascii/hAnsi = Latin, cs = Thai) and dual-size
+    (sz = base_size, szCs = Thai scaled) on every run.
+    """
+    if brand is None:
+        brand = ICHITA_BRAND
+    thai_font = brand["fonts"]["thai"]
+    thai_scale = brand["fonts"]["thai_scale"]
+    # Convert Pt to raw pt number for szCs calculation
+    size_val = base_size.pt if hasattr(base_size, 'pt') else float(base_size) / 12700
+
     pattern = re.compile(
         r'(\*\*\*(.+?)\*\*\*)'
         r'|(\*\*(.+?)\*\*)'
         r'|(\*(.+?)\*)'
         r'|(\[([^\]]+)\]\(([^)]+)\))'
     )
+
+    def _set_thai(run):
+        """Set cs font and szCs on a run."""
+        rPr = run._r.get_or_add_rPr()
+        rFonts = rPr.find(qn('w:rFonts'))
+        if rFonts is not None:
+            rFonts.set(qn('w:cs'), thai_font)
+        thai_hp = str(int(size_val * thai_scale * 2))
+        szCs = rPr.find(qn('w:szCs'))
+        if szCs is not None:
+            szCs.set(qn('w:val'), thai_hp)
+        else:
+            rPr.append(parse_xml(f'<w:szCs {nsdecls("w")} w:val="{thai_hp}"/>'))
 
     last_end = 0
     for match in pattern.finditer(text):
@@ -493,6 +525,7 @@ def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
             run = paragraph.add_run(before)
             run.font.name = base_font
             run.font.size = base_size
+            _set_thai(run)
             if is_blockquote:
                 run.font.italic = True
                 run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
@@ -517,6 +550,7 @@ def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
 
         run.font.name = base_font
         run.font.size = base_size
+        _set_thai(run)
         last_end = match.end()
 
     remaining = text[last_end:]
@@ -524,6 +558,7 @@ def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
         run = paragraph.add_run(remaining)
         run.font.name = base_font
         run.font.size = base_size
+        _set_thai(run)
         if is_blockquote:
             run.font.italic = True
             run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)

@@ -124,18 +124,46 @@ def style_paragraph(p_elem, text, font_name, colors, brand=None):
     # Check for Word built-in heading styles
     style_lower = style_id.lower()
     if 'heading1' in style_lower or style_id == 'Heading1':
-        h1 = typo.get("h1", {"size": 20, "color": "dark"})
+        h1 = typo.get("h1", {"size": 22, "color": "dark"})
         _style_runs(p_elem, font_name, h1["size"], colors[h1.get("color", "dark")], bold=True, brand=brand)
         add_left_accent(p_elem, colors["accent"])
         return
     if 'heading2' in style_lower or style_id == 'Heading2':
-        h2 = typo.get("h2", {"size": 16, "color": "dark"})
+        h2 = typo.get("h2", {"size": 15, "color": "dark"})
         _style_runs(p_elem, font_name, h2["size"], colors[h2.get("color", "dark")], bold=True, brand=brand)
         add_left_accent(p_elem, colors["accent"])
         return
     if 'heading3' in style_lower or style_id == 'Heading3':
-        h3 = typo.get("h3", {"size": 14, "color": "accent"})
+        h3 = typo.get("h3", {"size": 12, "color": "accent"})
         _style_runs(p_elem, font_name, h3["size"], colors[h3.get("color", "accent")], bold=True, brand=brand)
+        return
+
+    # List items (pandoc: Compact/ListParagraph with numPr, or bullet styles)
+    pPr = p_elem.find(qn('w:pPr'))
+    has_numPr = pPr is not None and pPr.find(qn('w:numPr')) is not None
+    is_list_style = style_lower in ('compact', 'listparagraph', 'list bullet',
+                                     'list number', 'listbullet', 'listnumber')
+    if has_numPr or is_list_style:
+        bod = typo.get("body", {"size": 10, "color": "dark", "before": 2, "after": 2})
+        _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
+        return
+
+    # Pandoc-specific styles → treat as body
+    if style_lower in ('firstparagraph', 'bodytext', 'body text'):
+        bod = typo.get("body", {"size": 10, "color": "dark", "before": 3, "after": 6})
+        _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
+        return
+
+    # Pandoc blockquote
+    if style_lower == 'blocktext':
+        bod = typo.get("body", {"size": 10, "color": "dark"})
+        _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
+        return
+
+    # Pandoc code block
+    if style_lower == 'sourcecode':
+        code = typo.get("code", {"size": 9, "color": "code_text"})
+        _style_runs(p_elem, font_name, code["size"], colors.get(code.get("color", "code_text"), "333333"), brand=brand)
         return
 
     # Detect heading from text content (for Normal-styled headings)
@@ -630,9 +658,15 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     removed = cleanup_empty_space(dst_body)
     print(f"  Cleanup: removed {removed} empty paragraphs")
 
-    # Restyle paragraphs
+    # Restyle paragraphs (skip those inside tables — handled by style_table_xml)
     para_count = 0
+    table_paras = set()
+    for tbl in dst_body.iter(qn('w:tbl')):
+        for tp in tbl.iter(qn('w:p')):
+            table_paras.add(id(tp))
     for p in dst_body.iter(qn('w:p')):
+        if id(p) in table_paras:
+            continue
         text = get_text(p)
         style_paragraph(p, text, font_name, colors, brand=brand)
         para_count += 1

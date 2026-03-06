@@ -28,6 +28,73 @@ from docx_helpers import (
     ICHITA_BRAND, resolve_font, set_cell_shading_docx, set_table_borders,
     add_formatted_text, add_header_footer,
 )
+from docx.oxml.ns import qn
+
+
+# ── Thai Font Helpers ──────────────────────────────────────────────────────
+
+def _apply_thai_font(run_or_style_font, latin_font, size_pt, brand=None):
+    """Set cs font (Bai Jamjuree) and szCs (Thai scaled size) on a run/style.
+
+    Works with both python-docx Run.font and Style.font objects.
+    Sets the XML attributes that python-docx doesn't expose directly.
+    """
+    if brand is None:
+        brand = ICHITA_BRAND
+    thai_font = brand["fonts"]["thai"]
+    thai_scale = brand["fonts"]["thai_scale"]
+
+    # Access the underlying XML element
+    elem = run_or_style_font.element if hasattr(run_or_style_font, 'element') else run_or_style_font._element
+    rPr = elem  # For style.font, element IS the rPr
+
+    # Set cs font to Bai Jamjuree
+    rFonts = rPr.find(qn('w:rFonts'))
+    if rFonts is not None:
+        rFonts.set(qn('w:cs'), thai_font)
+    else:
+        from docx.oxml import parse_xml
+        from docx.oxml.ns import nsdecls
+        rFonts = parse_xml(
+            f'<w:rFonts {nsdecls("w")} w:ascii="{latin_font}" '
+            f'w:hAnsi="{latin_font}" w:cs="{thai_font}" '
+            f'w:eastAsia="{latin_font}"/>')
+        rPr.insert(0, rFonts)
+
+    # Set szCs (Thai scaled size in half-points)
+    thai_hp = str(int(size_pt * thai_scale * 2))
+    szCs = rPr.find(qn('w:szCs'))
+    if szCs is not None:
+        szCs.set(qn('w:val'), thai_hp)
+    else:
+        from docx.oxml import parse_xml
+        from docx.oxml.ns import nsdecls
+        rPr.append(parse_xml(f'<w:szCs {nsdecls("w")} w:val="{thai_hp}"/>'))
+
+
+def _apply_thai_to_run(run, latin_font, size_pt, brand=None):
+    """Convenience: apply Thai font attrs to a python-docx Run object."""
+    if brand is None:
+        brand = ICHITA_BRAND
+    thai_font = brand["fonts"]["thai"]
+    thai_scale = brand["fonts"]["thai_scale"]
+
+    rPr = run._r.get_or_add_rPr()
+
+    # Set cs font
+    rFonts = rPr.find(qn('w:rFonts'))
+    if rFonts is not None:
+        rFonts.set(qn('w:cs'), thai_font)
+
+    # Set szCs
+    thai_hp = str(int(size_pt * thai_scale * 2))
+    szCs = rPr.find(qn('w:szCs'))
+    if szCs is not None:
+        szCs.set(qn('w:val'), thai_hp)
+    else:
+        from docx.oxml import parse_xml
+        from docx.oxml.ns import nsdecls
+        rPr.append(parse_xml(f'<w:szCs {nsdecls("w")} w:val="{thai_hp}"/>'))
 
 
 # ── Logo path (auto-detect repo root) ──────────────────────────────────────
@@ -75,6 +142,9 @@ def _add_cell_text(cell, text, bold_header=False, font_name="Calibri",
     para.paragraph_format.space_before = Pt(tbl_cfg.get("cell_spacing_before", 2))
     para.paragraph_format.space_after = Pt(tbl_cfg.get("cell_spacing_after", 2))
 
+    # Convert Pt to raw pt for Thai scale calculation
+    size_val = font_size.pt if hasattr(font_size, 'pt') else float(font_size) / 12700
+
     if bold_header:
         clean = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
         run = para.add_run(clean)
@@ -82,6 +152,7 @@ def _add_cell_text(cell, text, bold_header=False, font_name="Calibri",
         run.font.name = font_name
         run.font.size = font_size
         run.font.color.rgb = RGBColor.from_string(ICHITA_BRAND["colors"]["dark"])
+        _apply_thai_to_run(run, font_name, size_val)
     else:
         pattern = re.compile(r'\*\*(.+?)\*\*')
         last_end = 0
@@ -91,16 +162,19 @@ def _add_cell_text(cell, text, bold_header=False, font_name="Calibri",
                 run = para.add_run(before)
                 run.font.name = font_name
                 run.font.size = font_size
+                _apply_thai_to_run(run, font_name, size_val)
             run = para.add_run(match.group(1))
             run.font.bold = True
             run.font.name = font_name
             run.font.size = font_size
+            _apply_thai_to_run(run, font_name, size_val)
             last_end = match.end()
         remaining = text[last_end:]
         if remaining:
             run = para.add_run(remaining)
             run.font.name = font_name
             run.font.size = font_size
+            _apply_thai_to_run(run, font_name, size_val)
 
 
 def _add_table(doc, header_cells, data_rows, font_name, colors):
@@ -155,9 +229,11 @@ def _add_code_block(doc, code_lines):
         f'<w:shd {nsdecls("w")} w:fill="{code_colors.get("code_bg", "F2F2F2")}" w:val="clear"/>'))
 
     run = p.add_run('\n'.join(code_lines))
-    run.font.name = ICHITA_BRAND["fonts"].get("code", "Courier New")
+    code_font = ICHITA_BRAND["fonts"].get("code", "Courier New")
+    run.font.name = code_font
     run.font.size = Pt(code_typo["size"])
     run.font.color.rgb = RGBColor.from_string(code_colors.get(code_typo.get("color", "code_text"), "333333"))
+    _apply_thai_to_run(run, code_font, code_typo["size"])
 
 
 # ── Main Conversion ────────────────────────────────────────────────────────
@@ -192,6 +268,8 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
     style.font.size = Pt(typo["body"]["size"])
     style.paragraph_format.space_after = Pt(typo["body"]["after"])
     style.paragraph_format.space_before = Pt(typo["body"]["before"])
+    # Thai: cs font + szCs on Normal style
+    _apply_thai_font(style.font, font_name, typo["body"]["size"], brand)
 
     # Heading styles from brand typography
     heading_map = {
@@ -222,12 +300,15 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
         sb, sa = heading_spacing[level]
         hs.paragraph_format.space_before = Pt(sb)
         hs.paragraph_format.space_after = Pt(sa)
+        # Thai: cs font + szCs on heading styles
+        _apply_thai_font(hs.font, font_name, heading_sizes[level], brand)
 
     # List style
     if 'List Bullet' in doc.styles:
         lb = doc.styles['List Bullet']
         lb.font.name = font_name
         lb.font.size = Pt(typo["body"]["size"])
+        _apply_thai_font(lb.font, font_name, typo["body"]["size"], brand)
 
     # Margins
     for section in doc.sections:
@@ -280,7 +361,7 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
             if len(table_lines) < 2:
                 for tl in table_lines:
                     p = doc.add_paragraph()
-                    add_formatted_text(p, tl.strip(), font_name, base_size)
+                    add_formatted_text(p, tl.strip(), font_name, base_size, brand=brand)
                 continue
             header_cells = _parse_table_line(table_lines[0])
             data_start = 2 if len(table_lines) > 1 and _is_separator_line(table_lines[1]) else 1
@@ -304,11 +385,12 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
                 run.font.size = Pt(typo["title"]["size"])
                 run.font.color.rgb = RGBColor.from_string(colors["dark"])
                 run.font.bold = True
+                _apply_thai_to_run(run, font_name, typo["title"]["size"], brand)
                 first_h1 = False
             else:
                 p = doc.add_heading('', level=level)
                 size = Pt(heading_sizes[level])
-                add_formatted_text(p, heading_text, font_name, size)
+                add_formatted_text(p, heading_text, font_name, size, brand=brand)
                 for run in p.runs:
                     run.font.color.rgb = heading_map[level][1]
                     run.font.bold = True
@@ -332,7 +414,7 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
                 f'</w:pBdr>'))
             pPr.append(parse_xml(
                 f'<w:shd {nsdecls("w")} w:fill="{colors["off_white"]}" w:val="clear"/>'))
-            add_formatted_text(p, quote_text, font_name, base_size, is_blockquote=True)
+            add_formatted_text(p, quote_text, font_name, base_size, is_blockquote=True, brand=brand)
             i += 1
             continue
 
@@ -351,7 +433,8 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
             run.font.name = font_name
             run.font.size = base_size
             run.font.bold = True
-            add_formatted_text(p, item_text, font_name, base_size)
+            _apply_thai_to_run(run, font_name, typo["body"]["size"], brand)
+            add_formatted_text(p, item_text, font_name, base_size, brand=brand)
             i += 1
             continue
 
@@ -369,7 +452,7 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
                 p.paragraph_format.left_indent = Inches(
                     0.6 + (indent_spaces // 2) * step)
             p.clear()
-            add_formatted_text(p, bullet_text, font_name, base_size)
+            add_formatted_text(p, bullet_text, font_name, base_size, brand=brand)
             i += 1
             continue
 
@@ -383,7 +466,7 @@ def convert_md_to_docx(input_path, output_path, font_name=None,
         bod = typo.get("body", {"before": 3, "after": 6})
         p.paragraph_format.space_before = Pt(bod.get("before", 3))
         p.paragraph_format.space_after = Pt(bod.get("after", 6))
-        add_formatted_text(p, stripped, font_name, base_size)
+        add_formatted_text(p, stripped, font_name, base_size, brand=brand)
         i += 1
 
     # Logo header (optional)

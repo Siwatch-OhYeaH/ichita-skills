@@ -35,18 +35,20 @@
 
 ## Text Styles
 
-| Style   | Size  | Weight  | Color   | Before | After | Accent                  |
-|---------|-------|---------|---------|--------|-------|-------------------------|
-| Title   | 26pt  | Bold    | #263338 | 0pt    | 12pt  | Blue band               |
-| H1      | 20pt  | Bold    | #263338 | 18pt   | 8pt   | Left bar 4pt #2978FF    |
-| H2      | 16pt  | Bold    | #263338 | 14pt   | 6pt   | Left bar 4pt #2978FF    |
-| H3      | 14pt  | Bold    | #2978FF | 10pt   | 6pt   | None                    |
-| H4      | 12pt  | Bold    | #2978FF | 8pt    | 4pt   | None                    |
-| Body    | 12pt  | Regular | #263338 | 3pt    | 6pt   | —                       |
-| Caption | 10.5pt| Regular | #788F9C | 6pt    | 3pt   | —                       |
-| Lists   | 12pt  | Regular | #263338 | 2pt    | 2pt   | —                       |
+Sizes from Mitrphol UF Technical Proposal (production reference). Thai uses `szCs` at 0.9× scale.
 
-**Rules**: Minimum font size 9pt. `keepNext` on all headings.
+| Style   | Latin (sz) | Thai (szCs) | Weight  | Color   | Before | After | Accent                  |
+|---------|-----------|-------------|---------|---------|--------|-------|-------------------------|
+| Title   | 26pt      | 23.4pt      | Bold    | #263338 | 0pt    | 12pt  | Blue band               |
+| H1      | 22pt      | 20pt        | Bold    | #263338 | 18pt   | 8pt   | Left bar 4pt #2978FF    |
+| H2      | 15pt      | 13.5pt      | Bold    | #263338 | 14pt   | 6pt   | Left bar 4pt #2978FF    |
+| H3      | 12pt      | 11pt        | Bold    | #2978FF | 10pt   | 6pt   | None                    |
+| H4      | 10.5pt    | 9.5pt       | Bold    | #2978FF | 8pt    | 4pt   | None                    |
+| Body    | 10pt      | 9pt         | Regular | #263338 | 3pt    | 6pt   | —                       |
+| Caption | 9pt       | 9pt         | Regular | #788F9C | 6pt    | 3pt   | —                       |
+| Lists   | 10pt      | 9pt         | Regular | #263338 | 2pt    | 2pt   | —                       |
+
+**Rules**: Minimum font size 8pt. `keepNext` on all headings.
 
 ---
 
@@ -179,6 +181,10 @@ None.
 ## Implementation Notes
 
 - All values map to `ICHITA_BRAND` dict sections in `docx_helpers.py`.
-- Thai text uses Bai Jamjuree at 0.9x scale to match Latin baseline.
+- **Font attributes on EVERY run**: `ascii`/`hAnsi` = Aeonik (Latin), `cs` = Bai Jamjuree (Thai).
+- **Size attributes on EVERY run**: `sz` = Latin pt size, `szCs` = Thai pt size (0.9× scale).
+  - Word/LibreOffice picks `sz` for Latin chars and `szCs` for Thai chars automatically.
+  - This means runs do NOT need to be split by language for font sizing to work.
+- `split_run_thai_latin()` is still used in `rebrand_docx.py` for existing documents where runs may have mixed content with wrong fonts.
 - Templates live in `assets/ichita/templates/` in the main oracle repo.
 - Always copy original template and edit XML; never generate DOCX from scratch.
