@@ -23,6 +23,7 @@ Layer 2: ichita-skills@ichita (THIS PLUGIN)
 |-------|---------|-------------|
 | **ichita-docx** | `/ichita-skills:ichita-docx` | Create Ichita-branded DOCX, convert Markdown, rebrand existing docs |
 | **ichita-pptx** | `/ichita-skills:ichita-pptx` | Create Ichita-branded PPTX, process diagrams, html2pptx |
+| **ichita-template** | `/ichita-skills:ichita-template` | Apply ICHITA template to existing PPTX (restyle fonts/colors), or generate new PPTX from Company Demo base template |
 
 ### Trigger Behavior
 
@@ -33,6 +34,9 @@ Layer 2: ichita-skills@ichita (THIS PLUGIN)
 | "Create a process flow diagram" | `ichita-pptx` + `pptx` |
 | "Rebrand this DOCX to Ichita style" | `ichita-docx` |
 | "Fill out this PDF form" | `pdf` (Anthropic) |
+| "Apply ichita template to this PPTX" | `ichita-template` |
+| "Convert this presentation to ichita template" | `ichita-template` |
+| "Generate new PPTX from Company Demo" | `ichita-template` |
 
 ### DOCX Tools
 
@@ -133,19 +137,24 @@ ichita-skills/
 │   │       ├── rebrand_docx.py   # Rebrand existing DOCX
 │   │       ├── document.py       # OOXML editing library
 │   │       └── utilities.py      # XML utilities
-│   └── ichita-pptx/       # Ichita-branded presentations
+│   ├── ichita-pptx/       # Ichita-branded presentations
+│   │   ├── SKILL.md
+│   │   ├── process-diagrams.md
+│   │   ├── html2pptx.md
+│   │   ├── layout-patterns.json
+│   │   └── scripts/
+│   │       ├── process-diagram-lib.cjs
+│   │       ├── html2pptx.js
+│   │       ├── extract_positions.py
+│   │       ├── inventory.py
+│   │       ├── replace.py
+│   │       ├── rearrange.py
+│   │       └── thumbnail.py
+│   └── ichita-template/   # Apply/generate ICHITA template PPTX
 │       ├── SKILL.md
-│       ├── process-diagrams.md
-│       ├── html2pptx.md
-│       ├── layout-patterns.json
 │       └── scripts/
-│           ├── process-diagram-lib.cjs
-│           ├── html2pptx.js
-│           ├── extract_positions.py
-│           ├── inventory.py
-│           ├── replace.py
-│           ├── rearrange.py
-│           └── thumbnail.py
+│           ├── restyle_pptx.py    # Restyle fonts/colors in existing PPTX
+│           └── generate_pptx.py   # Generate new PPTX from Company Demo template
 ├── assets/
 │   ├── brand/             # ichita-defaults.md + brand guidelines PDF
 │   ├── fonts/             # Aeonik, Bai Jamjuree, Betatron
