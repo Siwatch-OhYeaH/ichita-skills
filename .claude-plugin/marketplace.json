@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "ichita-skills",
-      "description": "ICHITA brand extension — ichita-docx (branded DOCX) + ichita-pptx (branded PPTX). Requires document-skills for base capabilities.",
+      "description": "ICHITA brand extension — ichita-docx (branded DOCX) + ichita-pptx (branded PPTX) + ichita-pdf (HTML→PDF briefs). Requires document-skills for base capabilities.",
       "source": "./",
       "version": "1.0.0",
       "author": {
