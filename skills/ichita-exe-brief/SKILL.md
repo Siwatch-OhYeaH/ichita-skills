@@ -1,12 +1,13 @@
 ---
-name: ichita-pdf
-description: "Use when creating Ichita-branded PDF documents from HTML templates — executive briefs, memos, one-pagers. Renders HTML with weasyprint at print quality (300 DPI). For general PDF processing (merge, split, OCR, watermark), use the base pdf skill instead."
+name: ichita-exe-brief
+description: "Use when creating Ichita-branded executive briefs — the workflow from content ideation through HTML design to print-ready PDF. Covers strategic briefs, board memos, government submissions. Trigger when user mentions 'executive brief', 'brief', 'board memo', or wants a formal branded document for executives/officials."
 ---
 
-# Ichita PDF — Branded HTML→PDF Generation
+# Ichita Executive Brief
 
-> This skill creates print-quality branded PDFs from HTML templates using weasyprint.
-> For general PDF processing (merge, split, extract, OCR), use the base `document-skills:pdf` skill.
+> Workflow skill: content → branded HTML layout → print-ready PDF.
+> For general PDF processing (merge, split, OCR), use `document-skills:pdf`.
+> For general DOCX creation, use `ichita-docx`.
 
 ## Quick Reference
 
@@ -168,26 +169,45 @@ All colors, typography, and visual identity: [`ichita-defaults.md`](../../assets
 
 ---
 
-## Document Types
+## Workflow
 
-### Executive Brief
-- 2-3 pages, formal tone
-- Hero section with title + subtitle
-- Numbered sections with icon badges
-- Data tables, KPI highlights
-- Footer with ICHITA logo + page number
+```
+1. IDEATION    — Chat/co-work to solidify idea, scope, key messages
+2. CONTENT     — Draft text, data points, key figures (human/Oda)
+3. DESIGN      — Build HTML template with branded CSS layout
+4. RENDER      — html2pdf.py → print-ready PDF
+```
 
-### Memo
-- 1-2 pages, internal communication
-- Header with To/From/Date/Subject
-- Clean body text, bullet points
-- ICHITA letterhead
+This skill handles steps 3-4. Steps 1-2 happen in conversation.
 
-### One-Pager
-- Single A4 page
-- Dense layout, multiple sections
-- Charts/tables as HTML
-- Marketing or technical focus
+## Executive Brief Anatomy
+
+A typical 2-3 page executive brief:
+
+### Page 1 — Hook
+- **Hero section**: Dark header with title + subtitle + badge
+- **Section 01**: Strategic objective / problem statement
+- **Section 02**: Key data table (market size, costs, projections)
+
+### Page 2 — Evidence
+- **Section 03**: Technical solution / approach
+- **Section 04**: Financial analysis (CAPEX, ROI, payback)
+- **Section 05**: Implementation timeline
+
+### Page 3 — Ask
+- **Section 06**: Recommendation / decision requested
+- **Section 07**: Risk assessment
+- **Call-to-action box**: Clear next steps
+- **Footer**: ICHITA branding + contact + classification
+
+## Use Cases
+
+| Type | Pages | Audience | Tone |
+|------|-------|----------|------|
+| Board memo | 2-3 | C-suite, board | Formal, data-driven |
+| Government submission | 2-3 | Officials, regulators | ทางการ, anti-AI |
+| Investor brief | 1-2 | Investors, partners | Confident, metrics-focused |
+| Project proposal | 2-4 | Internal stakeholders | Technical, practical |
 
 ---
 
