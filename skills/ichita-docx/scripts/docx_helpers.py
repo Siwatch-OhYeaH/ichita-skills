@@ -26,7 +26,7 @@ ICHITA_BRAND = {
         "muted": "788F9C",
         "canvas": "CFD9DB",
         "blue_black": "171C21",
-        "table_header": "263338",
+        "table_header": "2978FF",
         "table_alt": "EFF2F3",
         "border": "A0B0B8",
         "off_white": "F8FAFB",
