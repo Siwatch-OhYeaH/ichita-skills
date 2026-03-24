@@ -26,7 +26,7 @@ ICHITA_BRAND = {
         "muted": "788F9C",
         "canvas": "CFD9DB",
         "blue_black": "171C21",
-        "table_header": "2978FF",
+        "table_header": "263338",
         "table_alt": "EFF2F3",
         "border": "A0B0B8",
         "off_white": "F8FAFB",
@@ -119,10 +119,6 @@ def _scan_font_dirs(font_name):
             "/usr/share/fonts",
             "/usr/local/share/fonts",
         ],
-        "macos": [
-            os.path.expanduser("~/Library/Fonts"),
-            "/Library/Fonts",
-        ],
         "windows": [
             "/mnt/c/Windows/Fonts",
             # WSL: Windows user fonts
@@ -197,6 +193,9 @@ def resolve_font(brand=None):
 
     Returns (font_name, warnings) where warnings is a list of messages
     for the user about missing/misplaced fonts.
+
+    Checks TH Aeonik first (unified Latin+Thai font). If found, sets
+    brand["fonts"]["th_aeonik_mode"] = True so callers can skip Thai splitting.
     """
     if brand is None:
         brand = ICHITA_BRAND
@@ -204,6 +203,16 @@ def resolve_font(brand=None):
     preferred = fonts["latin"]
     fallback = fonts["fallback"]
     warnings = []
+
+    # Check TH Aeonik first (unified Latin+Thai — no splitting needed)
+    th_aeonik_found, th_aeonik_loc = _check_font_installed("TH Aeonik")
+    if th_aeonik_found:
+        fonts["_resolved"] = "TH Aeonik"
+        fonts["_thai_resolved"] = "TH Aeonik"
+        fonts["th_aeonik_mode"] = True
+        return "TH Aeonik", warnings
+
+    fonts["th_aeonik_mode"] = False
 
     found, location = _check_font_installed(preferred)
 
@@ -223,9 +232,6 @@ def resolve_font(brand=None):
         warnings.append(
             f"To fix: copy font files to ~/.local/share/fonts/ and run fc-cache -f"
         )
-        return preferred, warnings
-
-    if found and location == "macos":
         return preferred, warnings
 
     # Not found anywhere
@@ -262,17 +268,27 @@ def set_font(run_elem, font_name=None, size_pt=None, color_hex=None,
         run_elem.insert(0, rPr)
 
     # Font name — Latin on ascii/hAnsi, Thai on cs
+    # In TH Aeonik mode: single font for all scripts (no splitting needed)
+    th_aeonik_mode = fonts.get("th_aeonik_mode", False)
     if font_name is not None:
         rf = rPr.find(qn('w:rFonts'))
         if rf is None:
             rf = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
             rPr.insert(0, rf)
-        rf.set(qn('w:ascii'), font_name)
-        rf.set(qn('w:hAnsi'), font_name)
-        rf.set(qn('w:cs'), thai_font)
-        rf.set(qn('w:eastAsia'), font_name)
+        if th_aeonik_mode:
+            rf.set(qn('w:ascii'), font_name)
+            rf.set(qn('w:hAnsi'), font_name)
+            rf.set(qn('w:cs'), font_name)
+            rf.set(qn('w:eastAsia'), font_name)
+        else:
+            rf.set(qn('w:ascii'), font_name)
+            rf.set(qn('w:hAnsi'), font_name)
+            rf.set(qn('w:cs'), thai_font)
+            rf.set(qn('w:eastAsia'), font_name)
 
-    # Size — sz for Latin, szCs for Thai (scaled)
+    # Size — sz for Latin, szCs for Thai (scaled, or 1.0 in TH Aeonik mode)
+    if th_aeonik_mode:
+        thai_scale = 1.0
     if size_pt is not None:
         latin_hp = str(int(size_pt * 2))
         thai_hp = str(int(size_pt * thai_scale * 2))
@@ -313,8 +329,12 @@ def set_cell_shading(tc_elem, color_hex):
     existing = tcPr.find(qn('w:shd'))
     if existing is not None:
         tcPr.remove(existing)
-    tcPr.append(parse_xml(
-        f'<w:shd {nsdecls("w")} w:fill="{color_hex}" w:val="clear"/>'))
+    shd = tcPr.makeelement(qn('w:shd'), {
+        qn('w:val'): 'clear',
+        qn('w:color'): 'auto',
+        qn('w:fill'): color_hex,
+    })
+    tcPr.append(shd)
 
 
 def set_cell_shading_docx(cell, color_hex):
@@ -460,7 +480,7 @@ def add_header_footer(doc, logo_path=None, accent_color="2978FF",
 
         if logo_path and os.path.exists(logo_path):
             run = hp.add_run()
-            run.add_picture(logo_path, width=Inches(1.5))
+            run.add_picture(logo_path, width=Emu(1371600), height=Emu(381000))
         else:
             run = hp.add_run("ICHITA\u2122")
             fn = font_name or "Calibri"
@@ -484,6 +504,82 @@ def add_header_footer(doc, logo_path=None, accent_color="2978FF",
             p.clear()
 
 
+def add_ichita_header(doc, logo_path=None, accent_color="2978FF",
+                      font_name=None, dark_color="263338", brand=None):
+    """ICHITA header: logo left-aligned + blue accent line.
+
+    Applies to all sections. Caller should use add_ichita_footer()
+    together with this function.
+    """
+    from docx.shared import Emu, Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    if brand is None:
+        brand = ICHITA_BRAND
+
+    # Try logo path, then multiple candidate paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    logo_candidates = [
+        logo_path,
+        os.path.join(script_dir, "..", "..", "..", "assets", "ichita", "logos", "ichita-wordmark-dark-on-white.png"),
+        os.path.expanduser("~/ghq/github.com/Siwatch-OhYeaH/miipan-oracle/assets/ichita/logos/ichita-wordmark-dark-on-white.png"),
+        os.path.expanduser("~/ghq/github.com/Siwatch-OhYeaH/ichita-skills/assets/logos/ichita-wordmark-dark-on-white.png"),
+        os.path.join(script_dir, "ichita-wordmark-dark-on-white.png"),
+    ]
+    resolved_logo = next((p for p in logo_candidates if p and os.path.exists(p)), None)
+
+    for section in doc.sections:
+        header = section.header
+        header.is_linked_to_previous = False
+        for p in header.paragraphs:
+            p.clear()
+        hp = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+        hp.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        hp.paragraph_format.space_after = Pt(4)
+
+        if resolved_logo:
+            run = hp.add_run()
+            run.add_picture(resolved_logo, width=Emu(1371600), height=Emu(381000))
+        else:
+            run = hp.add_run("ICHITA")
+            fn = font_name or brand["fonts"].get("_resolved", "Calibri")
+            run.font.size = Pt(14)
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(38, 51, 56)
+            run.font.name = fn
+
+        pPr = hp._p.get_or_add_pPr()
+        pBdr = pPr.makeelement(qn('w:pBdr'), {})
+        bottom = pBdr.makeelement(qn('w:bottom'), {
+            qn('w:val'): 'single', qn('w:sz'): '6',
+            qn('w:space'): '4', qn('w:color'): accent_color,
+        })
+        pBdr.append(bottom)
+        pPr.append(pBdr)
+
+
+def add_ichita_footer(doc, brand=None):
+    """ICHITA footer: www.ichita.co.th right-aligned, applied to all sections."""
+    from docx.shared import Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    if brand is None:
+        brand = ICHITA_BRAND
+
+    fn = brand["fonts"].get("_resolved", brand["fonts"].get("latin", "Calibri"))
+
+    for section in doc.sections:
+        footer = section.footer
+        footer.is_linked_to_previous = False
+        fp = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+        fp.clear()
+        fp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        fr = fp.add_run("www.ichita.co.th")
+        fr.font.size = Pt(9)
+        fr.font.color.rgb = RGBColor(120, 143, 156)
+        fr.font.name = fn
+
+
 def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
                        is_blockquote=False, brand=None):
     """Parse inline markdown (bold, italic, bold+italic, links) and add runs.
@@ -495,6 +591,7 @@ def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
         brand = ICHITA_BRAND
     thai_font = brand["fonts"]["thai"]
     thai_scale = brand["fonts"]["thai_scale"]
+    th_aeonik_mode = brand["fonts"].get("th_aeonik_mode", False)
     # Convert Pt to raw pt number for szCs calculation
     size_val = base_size.pt if hasattr(base_size, 'pt') else float(base_size) / 12700
 
@@ -506,12 +603,22 @@ def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
     )
 
     def _set_thai(run):
-        """Set cs font and szCs on a run."""
+        """Set cs font and szCs on a run.
+
+        In TH Aeonik mode: sets cs to BRAND_FONT (same font for all scripts)
+        and szCs = sz (no scaling). Otherwise: Bai Jamjuree + thai_scale.
+        """
         rPr = run._r.get_or_add_rPr()
         rFonts = rPr.find(qn('w:rFonts'))
-        if rFonts is not None:
-            rFonts.set(qn('w:cs'), thai_font)
-        thai_hp = str(int(size_val * thai_scale * 2))
+        if th_aeonik_mode:
+            # Single font for all scripts
+            if rFonts is not None:
+                rFonts.set(qn('w:cs'), base_font)
+            thai_hp = str(int(size_val * 2))  # No scaling
+        else:
+            if rFonts is not None:
+                rFonts.set(qn('w:cs'), thai_font)
+            thai_hp = str(int(size_val * thai_scale * 2))
         szCs = rPr.find(qn('w:szCs'))
         if szCs is not None:
             szCs.set(qn('w:val'), thai_hp)
@@ -623,10 +730,17 @@ def split_run_thai_latin(run_elem, parent_elem, brand=None):
 
     Thai segments get Bai Jamjuree at size * thai_scale.
     Latin segments get BRAND_FONT at original size.
+
+    In TH Aeonik mode: skipped entirely — TH Aeonik handles both scripts.
     """
     if brand is None:
         brand = ICHITA_BRAND
     fonts = brand["fonts"]
+
+    # TH Aeonik handles both Latin and Thai — no splitting needed
+    if fonts.get("th_aeonik_mode", False):
+        return
+
     thai_font = fonts["thai"]
     thai_scale = fonts["thai_scale"]
 
@@ -796,22 +910,34 @@ def make_para(text="", size_pt=12, color_hex="263338", bold=False,
     fonts = brand["fonts"]
     thai_font = fonts["thai"]
     thai_scale = fonts["thai_scale"]
+    th_aeonik_mode = fonts.get("th_aeonik_mode", False)
 
     p = parse_xml(f'<w:p {nsdecls("w")}/>')
 
     if text:
-        segments = _split_thai_latin(text)
-        for seg_text, is_thai in segments:
+        if th_aeonik_mode:
+            # TH Aeonik handles all scripts — single run, no splitting
             r = parse_xml(f'<w:r {nsdecls("w")}/>')
             t = parse_xml(f'<w:t {nsdecls("w")}/>')
-            t.text = seg_text
+            t.text = text
             t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
             r.append(t)
-            seg_font = thai_font if is_thai else (font_name or fonts["latin"])
-            seg_sz = size_pt * thai_scale if is_thai else size_pt
-            set_font(r, font_name=seg_font, size_pt=seg_sz,
-                     color_hex=color_hex, bold=bold, brand=brand)
+            set_font(r, font_name=font_name or fonts.get("_resolved", fonts["latin"]),
+                     size_pt=size_pt, color_hex=color_hex, bold=bold, brand=brand)
             p.append(r)
+        else:
+            segments = _split_thai_latin(text)
+            for seg_text, is_thai in segments:
+                r = parse_xml(f'<w:r {nsdecls("w")}/>')
+                t = parse_xml(f'<w:t {nsdecls("w")}/>')
+                t.text = seg_text
+                t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+                r.append(t)
+                seg_font = thai_font if is_thai else (font_name or fonts["latin"])
+                seg_sz = size_pt * thai_scale if is_thai else size_pt
+                set_font(r, font_name=seg_font, size_pt=seg_sz,
+                         color_hex=color_hex, bold=bold, brand=brand)
+                p.append(r)
 
     pPr = ensure_pPr(p)
     if align != 'left':

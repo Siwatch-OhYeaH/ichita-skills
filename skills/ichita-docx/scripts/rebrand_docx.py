@@ -29,6 +29,7 @@ from docx_helpers import (
     add_left_accent, add_bottom_band, set_alignment, copy_image_rels,
     make_para, style_table_xml, add_header_footer, squeeze_wide_tables,
     create_meta_table, split_run_thai_latin,
+    add_ichita_header, add_ichita_footer,
     _has_images, _text_is_mixed,
 )
 
@@ -46,8 +47,9 @@ def _find_repo_root():
 def _find_logo(repo_root):
     """Find Ichita logo in known asset locations."""
     candidates = [
-        os.path.join(repo_root, "assets/logos/ichita-logo-black.png"),
-        os.path.join(repo_root, "assets/ichita/logos/ichita-logo-black.png"),
+        os.path.join(repo_root, "assets/logos/ichita-wordmark-dark-on-white.png"),
+        os.path.join(repo_root, "assets/ichita/logos/ichita-wordmark-dark-on-white.png"),
+        os.path.join(os.path.expanduser("~/ghq/github.com/Siwatch-OhYeaH/ichita-skills"), "assets/logos/ichita-wordmark-dark-on-white.png"),
     ]
     for c in candidates:
         if os.path.exists(c):
@@ -221,7 +223,7 @@ def style_paragraph(p_elem, text, font_name, colors, brand=None):
         sp.set(qn('w:after'), str(cap.get("after", 3) * 20))
     else:
         # Normal body text
-        bod = typo.get("body", {"size": 12, "color": "dark", "before": 3, "after": 6})
+        bod = typo.get("body", {"size": 10, "color": "dark", "before": 3, "after": 6})
         _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
         pPr = ensure_pPr(p_elem)
         sp = pPr.find(qn('w:spacing'))
@@ -665,7 +667,10 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     brand["fonts"]["_resolved"] = font_name
 
     print(f"Source: {os.path.basename(input_path)}")
-    print(f"Font:   {font_name} + {brand['fonts']['thai']} (Thai, {brand['fonts']['thai_scale']}x)")
+    if brand["fonts"].get("th_aeonik_mode", False):
+        print(f"Font:   {font_name} (unified Latin+Thai)")
+    else:
+        print(f"Font:   {font_name} + {brand['fonts']['thai']} (Thai, {brand['fonts']['thai_scale']}x)")
 
     src_doc = Document(input_path)
     dst_doc = Document()
@@ -782,7 +787,7 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     # Document default style — set Thai fonts on Normal style
     style = dst_doc.styles['Normal']
     style.font.name = font_name
-    body_size = brand["typography"]["body"]["size"] if brand else 12
+    body_size = brand["typography"]["body"]["size"] if brand else 10
     style.font.size = Pt(body_size)
     style.font.color.rgb = RGBColor.from_string(colors["dark"])
     n_rPr = style.element.get_or_add_rPr()
@@ -790,15 +795,66 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     if n_rFonts is None:
         n_rFonts = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
         n_rPr.insert(0, n_rFonts)
-    n_rFonts.set(qn('w:cs'), brand["fonts"]["thai"])
-    n_rFonts.set(qn('w:eastAsia'), brand["fonts"]["thai"])
+    if brand["fonts"].get("th_aeonik_mode", False):
+        # TH Aeonik: single font for all scripts
+        n_rFonts.set(qn('w:ascii'), font_name)
+        n_rFonts.set(qn('w:hAnsi'), font_name)
+        n_rFonts.set(qn('w:cs'), font_name)
+        n_rFonts.set(qn('w:eastAsia'), font_name)
+    else:
+        n_rFonts.set(qn('w:cs'), brand["fonts"]["thai"])
+        n_rFonts.set(qn('w:eastAsia'), brand["fonts"]["thai"])
 
-    # Logo header
+    # Heading styles — set font EXPLICITLY (not via theme) so TH Aeonik resolves
+    _heading_specs = [
+        ('Heading 1', 22, RGBColor(38, 51, 56),  True,  False),
+        ('Heading 2', 15, RGBColor(38, 51, 56),  True,  False),
+        ('Heading 3', 12, RGBColor(41, 120, 255), True,  False),
+        ('Heading 4', 10, RGBColor(41, 120, 255), True,  True),  # 10.5 → nearest half
+    ]
+    _heading_sizes = {
+        'Heading 1': Pt(22),
+        'Heading 2': Pt(15),
+        'Heading 3': Pt(12),
+        'Heading 4': Pt(10.5),
+    }
+    for _h_name, _h_sz, _h_color, _h_bold, _h_italic in _heading_specs:
+        try:
+            _h_style = dst_doc.styles[_h_name]
+        except KeyError:
+            continue
+        _h_style.font.name = font_name
+        _h_style.font.size = _heading_sizes[_h_name]
+        _h_style.font.bold = _h_bold
+        _h_style.font.italic = _h_italic
+        _h_style.font.color.rgb = _h_color
+        # Remove theme font references that override explicit font names
+        _h_rPr = _h_style.element.find(qn('w:rPr'))
+        if _h_rPr is not None:
+            _h_rFonts = _h_rPr.find(qn('w:rFonts'))
+            if _h_rFonts is not None:
+                for _attr in ('w:asciiTheme', 'w:hAnsiTheme', 'w:cstheme', 'w:eastAsiaTheme'):
+                    if _h_rFonts.get(qn(_attr)) is not None:
+                        del _h_rFonts.attrib[qn(_attr)]
+                _h_rFonts.set(qn('w:ascii'), font_name)
+                _h_rFonts.set(qn('w:hAnsi'), font_name)
+                _h_rFonts.set(qn('w:cs'), font_name)
+                _h_rFonts.set(qn('w:eastAsia'), font_name)
+            # Remove color theme references
+            _h_color_elem = _h_rPr.find(qn('w:color'))
+            if _h_color_elem is not None:
+                for _attr in ('w:themeColor', 'w:themeShade'):
+                    if _h_color_elem.get(qn(_attr)) is not None:
+                        del _h_color_elem.attrib[qn(_attr)]
+
+    # Logo header + branded footer
     logo = logo_path or DEFAULT_LOGO
-    add_header_footer(dst_doc, logo_path=logo,
+    add_ichita_header(dst_doc, logo_path=logo,
                       accent_color=colors["accent"],
                       font_name=font_name,
-                      dark_color=colors["dark"])
+                      dark_color=colors["dark"],
+                      brand=brand)
+    add_ichita_footer(dst_doc, brand=brand)
 
     dst_doc.save(output_path)
 
@@ -812,7 +868,10 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     print(f"  Tables:     {tbl_count}")
     print(f"  Images:     {img_count} blip references")
     print(f"  Sections:   {len(dst_doc.sections)}")
-    print(f"  Font:       {font_name} + {brand['fonts']['thai']} (Thai)")
+    if brand["fonts"].get("th_aeonik_mode", False):
+        print(f"  Font:       {font_name} (unified Latin+Thai)")
+    else:
+        print(f"  Font:       {font_name} + {brand['fonts']['thai']} (Thai)")
     print(f"{'='*60}")
 
 
