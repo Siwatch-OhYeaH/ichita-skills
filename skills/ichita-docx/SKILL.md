@@ -8,11 +8,24 @@ description: "Use when creating Ichita-branded documents, converting Markdown to
 > This skill extends the base `docx` skill with Ichita brand identity.
 > For general DOCX editing, tracked changes, comments, and OOXML manipulation, use the base `document-skills:docx` skill.
 
+## Prerequisites
+
+```bash
+bash skills/ichita-docx/install.sh
+# or: pip install -r skills/ichita-docx/requirements.txt
+```
+
+**Required**: `python-docx` (DOCX creation/editing)
+**Optional**: `LibreOffice` (PDF conversion), `Poppler` (PDF→images)
+
+---
+
 ## Quick Reference
 
 | Task | Action |
 |------|--------|
 | Create branded DOCX from Markdown | `python scripts/md_to_docx.py INPUT.md OUTPUT.docx` |
+| Create branded DOCX from HTML | `python scripts/html_to_docx.py INPUT.html OUTPUT.docx` |
 | Rebrand existing DOCX to Ichita | `python scripts/rebrand_docx.py INPUT.docx OUTPUT.docx` |
 | Edit DOCX XML directly | Use `document.py` + `utilities.py` (see below) |
 | General DOCX editing/creation | Use base `document-skills:docx` skill |
@@ -67,6 +80,30 @@ If Aeonik is found on Windows but not registered in Linux, it will:
 - Use "Aeonik" in the DOCX (renders correctly when opened in Word on Windows/Mac)
 - Warn that LibreOffice preview may substitute the font
 - Suggest: `cp fonts/*.otf ~/.local/share/fonts/ && fc-cache -f`
+
+---
+
+## Workflow A2: HTML to Branded DOCX
+
+Convert HTML content to an Ichita-branded document. Supports custom logos and footers.
+
+```bash
+python scripts/html_to_docx.py INPUT.html OUTPUT.docx
+```
+
+### Options
+- `--logo PATH` — custom logo image for header (default: Ichita wordmark)
+- `--footer TEXT` — footer text (default: "www.ichita.co.th")
+- `--font NAME` — override font (default: auto-detects TH Aeonik → Aeonik → Calibri)
+- `--no-logo` — skip logo in header
+- `--margin CM` — page margin in cm (default: 2.5)
+
+### What it does
+- Parses HTML elements: headings (h1-h4), tables, lists, bold/italic, links, images, code blocks, blockquotes
+- Applies Ichita brand colors and typography
+- Tables: dark header (#263338), alternating rows (#EFF2F3)
+- Header: logo + blue accent line (customizable via --logo)
+- No external HTML parsing dependency (uses stdlib html.parser)
 
 ---
 
