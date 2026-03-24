@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ichita": {
+      "command": "python3",
+      "args": ["mcp-server/server.py"]
+    }
+  }
+}

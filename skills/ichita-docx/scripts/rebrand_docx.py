@@ -79,7 +79,8 @@ def detect_heading(text):
     # Subsection: "3.1 Title", "A. Title", "B. Title"
     if re.match(r'^\d+\.\d+\s+\S', text) and len(text) < 80:
         return 'subsection'
-    if re.match(r'^[A-Z]\.?\s*\S', text) and len(text) < 80:
+    # Single letter + period + space (strict: avoids matching regular sentences)
+    if re.match(r'^[A-Z]\.\s+\S', text) and len(text) < 80:
         return 'subsection'
 
     # Figure/table captions (Thai and English patterns)
@@ -118,31 +119,74 @@ def _style_runs(p_elem, font_name, size_pt, color_hex, bold=None,
 
 def style_paragraph(p_elem, text, font_name, colors, brand=None):
     """Apply Ichita brand styling to a paragraph based on heading detection."""
+    typo = brand["typography"] if brand else {}
     style_id = get_style_id(p_elem)
 
     # Check for Word built-in heading styles
     style_lower = style_id.lower()
     if 'heading1' in style_lower or style_id == 'Heading1':
-        _style_runs(p_elem, font_name, 20, colors["dark"], bold=True,
-                     brand=brand)
+        h1 = typo.get("h1", {"size": 22, "color": "dark"})
+        _style_runs(p_elem, font_name, h1["size"], colors[h1.get("color", "dark")], bold=True, brand=brand)
         add_left_accent(p_elem, colors["accent"])
         return
     if 'heading2' in style_lower or style_id == 'Heading2':
-        _style_runs(p_elem, font_name, 16, colors["dark"], bold=True,
-                     brand=brand)
+        h2 = typo.get("h2", {"size": 15, "color": "dark"})
+        _style_runs(p_elem, font_name, h2["size"], colors[h2.get("color", "dark")], bold=True, brand=brand)
         add_left_accent(p_elem, colors["accent"])
         return
     if 'heading3' in style_lower or style_id == 'Heading3':
-        _style_runs(p_elem, font_name, 14, colors["accent"], bold=True,
-                     brand=brand)
+        h3 = typo.get("h3", {"size": 12, "color": "accent"})
+        _style_runs(p_elem, font_name, h3["size"], colors[h3.get("color", "accent")], bold=True, brand=brand)
+        return
+
+    # List items (pandoc: Compact/ListParagraph with numPr, or bullet styles)
+    pPr = p_elem.find(qn('w:pPr'))
+    has_numPr = pPr is not None and pPr.find(qn('w:numPr')) is not None
+    is_list_style = style_lower in ('compact', 'listparagraph', 'list bullet',
+                                     'list number', 'listbullet', 'listnumber')
+    if has_numPr or is_list_style:
+        bod = typo.get("body", {"size": 10, "color": "dark", "before": 2, "after": 2})
+        _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
+        # Remove orphan pStyle (e.g. "Compact") — not in destination styles.xml
+        # Keep numPr intact so numbering level controls indent + prefix
+        pPr_li = ensure_pPr(p_elem)
+        ps = pPr_li.find(qn('w:pStyle'))
+        if ps is not None:
+            pPr_li.remove(ps)
+        # Set list spacing
+        li = brand.get("list", {}) if brand else {}
+        sp = pPr_li.find(qn('w:spacing'))
+        if sp is None:
+            sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
+            pPr_li.append(sp)
+        sp.set(qn('w:before'), str(li.get("before_pt", 2) * 20))
+        sp.set(qn('w:after'), str(li.get("after_pt", 2) * 20))
+        return
+
+    # Pandoc-specific styles → treat as body
+    if style_lower in ('firstparagraph', 'bodytext', 'body text'):
+        bod = typo.get("body", {"size": 10, "color": "dark", "before": 3, "after": 6})
+        _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
+        return
+
+    # Pandoc blockquote
+    if style_lower == 'blocktext':
+        bod = typo.get("body", {"size": 10, "color": "dark"})
+        _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
+        return
+
+    # Pandoc code block
+    if style_lower == 'sourcecode':
+        code = typo.get("code", {"size": 9, "color": "code_text"})
+        _style_runs(p_elem, font_name, code["size"], colors.get(code.get("color", "code_text"), "333333"), brand=brand)
         return
 
     # Detect heading from text content (for Normal-styled headings)
     heading = detect_heading(text)
 
     if heading == 'section':
-        _style_runs(p_elem, font_name, 14, colors["dark"], bold=True,
-                     brand=brand)
+        sec = typo.get("h3", {"size": 14, "color": "dark", "before": 10, "after": 6})
+        _style_runs(p_elem, font_name, sec["size"], colors[sec.get("color", "dark")], bold=True, brand=brand)
         add_left_accent(p_elem, colors["accent"])
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
@@ -150,22 +194,22 @@ def style_paragraph(p_elem, text, font_name, colors, brand=None):
         if sp is None:
             sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
             pPr.append(sp)
-        sp.set(qn('w:before'), '280')
-        sp.set(qn('w:after'), '120')
+        sp.set(qn('w:before'), str(sec.get("before", 10) * 20))
+        sp.set(qn('w:after'), str(sec.get("after", 6) * 20))
     elif heading == 'subsection':
-        _style_runs(p_elem, font_name, 12, colors["accent"], bold=True,
-                     brand=brand)
+        sub = typo.get("h4", {"size": 12, "color": "accent", "before": 8, "after": 4})
+        _style_runs(p_elem, font_name, sub["size"], colors[sub.get("color", "accent")], bold=True, brand=brand)
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
         sp = pPr.find(qn('w:spacing'))
         if sp is None:
             sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
             pPr.append(sp)
-        sp.set(qn('w:before'), '200')
-        sp.set(qn('w:after'), '120')
+        sp.set(qn('w:before'), str(sub.get("before", 8) * 20))
+        sp.set(qn('w:after'), str(sub.get("after", 4) * 20))
     elif heading == 'caption':
-        _style_runs(p_elem, font_name, 10.5, colors["muted"],
-                     brand=brand)
+        cap = typo.get("caption", {"size": 10.5, "color": "muted", "before": 6, "after": 3})
+        _style_runs(p_elem, font_name, cap["size"], colors[cap.get("color", "muted")], brand=brand)
         set_alignment(p_elem, 'center')
         pPr = ensure_pPr(p_elem)
         pPr.append(parse_xml(f'<w:keepNext {nsdecls("w")}/>'))
@@ -173,19 +217,19 @@ def style_paragraph(p_elem, text, font_name, colors, brand=None):
         if sp is None:
             sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
             pPr.append(sp)
-        sp.set(qn('w:before'), '120')
-        sp.set(qn('w:after'), '60')
+        sp.set(qn('w:before'), str(cap.get("before", 6) * 20))
+        sp.set(qn('w:after'), str(cap.get("after", 3) * 20))
     else:
         # Normal body text
-        _style_runs(p_elem, font_name, 12, colors["dark"],
-                     brand=brand)
+        bod = typo.get("body", {"size": 12, "color": "dark", "before": 3, "after": 6})
+        _style_runs(p_elem, font_name, bod["size"], colors[bod.get("color", "dark")], brand=brand)
         pPr = ensure_pPr(p_elem)
         sp = pPr.find(qn('w:spacing'))
         if sp is None:
             sp = parse_xml(f'<w:spacing {nsdecls("w")}/>')
             pPr.append(sp)
-        sp.set(qn('w:before'), '0')
-        sp.set(qn('w:after'), '120')
+        sp.set(qn('w:before'), str(bod.get("before", 3) * 20))
+        sp.set(qn('w:after'), str(bod.get("after", 6) * 20))
 
 
 # ── Cleanup ────────────────────────────────────────────────────────────────
@@ -255,9 +299,12 @@ def reorder_image_captions(body):
 
 # ── Table Spacing ─────────────────────────────────────────────────────────
 
-def enforce_table_spacing(body):
-    """Ensure 8pt gap before and after every table."""
-    SPACE_AROUND = "160"  # 8pt in twips
+def enforce_table_spacing(body, brand=None):
+    """Ensure gap before and after every table."""
+    gap_pt = 8
+    if brand and "table" in brand:
+        gap_pt = brand["table"].get("gap_before_after", 8)
+    SPACE_AROUND = str(gap_pt * 20)  # pt to twips
     children = list(body)
     for i, child in enumerate(children):
         if child.tag.split('}')[-1] != 'tbl':
@@ -513,9 +560,15 @@ def redesign_title_page(body, font_name, colors, brand=None):
                 body.append(elem)
 
     # Build new title page
-    insert(make_para(space_after=80, font_name=font_name, brand=brand))
+    tp = brand.get("title_page", {}) if brand else {}
+    title_sz = tp.get("title_size", 26)
+    subtitle_sz = tp.get("subtitle_size", 16)
+    space_before = tp.get("space_before_pt", 80)
+    space_after_sub = tp.get("space_after_subtitle_pt", 36)
 
-    insert(make_para(title_text, size_pt=36, color_hex=colors["dark"],
+    insert(make_para(space_after=space_before, font_name=font_name, brand=brand))
+
+    insert(make_para(title_text, size_pt=title_sz, color_hex=colors["dark"],
                      bold=True, align='center', space_after=10,
                      font_name=font_name, brand=brand))
 
@@ -525,8 +578,8 @@ def redesign_title_page(body, font_name, colors, brand=None):
     insert(band)
 
     if subtitle_text:
-        insert(make_para(subtitle_text, size_pt=16, color_hex=colors["muted"],
-                         align='center', space_before=8, space_after=36,
+        insert(make_para(subtitle_text, size_pt=subtitle_sz, color_hex=colors["muted"],
+                         align='center', space_before=8, space_after=space_after_sub,
                          font_name=font_name, brand=brand))
 
     # Metadata table
@@ -551,6 +604,47 @@ def redesign_title_page(body, font_name, colors, brand=None):
         pPr = ensure_pPr(sect_para)
         pPr.append(sect_break_xml)
     insert(sect_para)
+
+
+# ── Numbering Copy ────────────────────────────────────────────────────────
+
+def _copy_numbering(src_doc, dst_doc):
+    """Copy numbering definitions (abstractNum + num) from source to destination.
+
+    Pandoc lists use numPr referencing numId values. Without the matching
+    abstractNum/num definitions, list numbering/bullets are lost after rebrand.
+    """
+    try:
+        src_numbering = src_doc.part.numbering_part.element
+    except Exception:
+        return  # No numbering in source
+
+    dst_numbering = dst_doc.part.numbering_part.element
+
+    # Collect existing numIds in destination to avoid duplicates
+    existing_num_ids = set()
+    for num in dst_numbering.findall(qn('w:num')):
+        nid = num.get(qn('w:numId'))
+        if nid:
+            existing_num_ids.add(nid)
+
+    existing_abstract_ids = set()
+    for an in dst_numbering.findall(qn('w:abstractNum')):
+        aid = an.get(qn('w:abstractNumId'))
+        if aid:
+            existing_abstract_ids.add(aid)
+
+    # Copy abstractNum definitions
+    for an in src_numbering.findall(qn('w:abstractNum')):
+        aid = an.get(qn('w:abstractNumId'))
+        if aid and aid not in existing_abstract_ids:
+            dst_numbering.append(copy.deepcopy(an))
+
+    # Copy num definitions
+    for num in src_numbering.findall(qn('w:num')):
+        nid = num.get(qn('w:numId'))
+        if nid and nid not in existing_num_ids:
+            dst_numbering.append(copy.deepcopy(num))
 
 
 # ── Main Rebranding ────────────────────────────────────────────────────────
@@ -605,6 +699,9 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
             else:
                 dst_body.append(new_elem)
 
+    # Copy numbering definitions (pandoc lists use numPr → abstractNum/num)
+    _copy_numbering(src_doc, dst_doc)
+
     # Remove source header/footer references + titlePg
     for sectPr in dst_body.iter(qn('w:sectPr')):
         for ref in list(sectPr.findall(qn('w:headerReference'))):
@@ -620,9 +717,19 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     removed = cleanup_empty_space(dst_body)
     print(f"  Cleanup: removed {removed} empty paragraphs")
 
-    # Restyle paragraphs
+    # Restyle paragraphs (skip those inside tables — handled by style_table_xml)
     para_count = 0
+    # Collect table paragraphs — keep refs alive to prevent id() reuse across
+    # lxml proxy objects (GC'd proxies can get same memory address as new ones)
+    _table_para_refs = []
+    table_para_ids = set()
+    for tbl in dst_body.iter(qn('w:tbl')):
+        for tp in tbl.iter(qn('w:p')):
+            _table_para_refs.append(tp)
+            table_para_ids.add(id(tp))
     for p in dst_body.iter(qn('w:p')):
+        if id(p) in table_para_ids:
+            continue
         text = get_text(p)
         style_paragraph(p, text, font_name, colors, brand=brand)
         para_count += 1
@@ -640,7 +747,7 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     reorder_image_captions(dst_body)
 
     # Enforce table spacing (8pt gap)
-    enforce_table_spacing(dst_body)
+    enforce_table_spacing(dst_body, brand=brand)
 
     # Title page redesign (optional)
     if not no_title_page:
@@ -675,7 +782,8 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     # Document default style — set Thai fonts on Normal style
     style = dst_doc.styles['Normal']
     style.font.name = font_name
-    style.font.size = Pt(12)
+    body_size = brand["typography"]["body"]["size"] if brand else 12
+    style.font.size = Pt(body_size)
     style.font.color.rgb = RGBColor.from_string(colors["dark"])
     n_rPr = style.element.get_or_add_rPr()
     n_rFonts = n_rPr.find(qn('w:rFonts'))
