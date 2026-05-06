@@ -70,8 +70,20 @@ const FONTS = {
   emphasis: "Aeonik",          // Medium weight (use bold:true)
   heading:  "Aeonik",          // Bold heading
   display:  "Betatron",        // Display numerals ONLY — KPIs, section numbers
-  thai:     "TH Sarabun New",  // Thai text fallback
+  thai:     "TH Aeonik",       // Thai text — TH Aeonik (canonical fc-list name)
 };
+
+/**
+ * Detect Thai characters and return the Thai font face — else default body font.
+ * Use when adding text that may contain Thai glyphs to ensure correct font rendering.
+ * @param {string} text  Text to inspect for Thai characters
+ * @param {string} [defaultFace]  Fallback font face for non-Thai text (default: FONTS.body)
+ * @returns {string}  Font face name to use
+ */
+function _thaiFontFace(text, defaultFace) {
+  if (typeof text !== "string") return defaultFace || FONTS.body;
+  return /[฀-๿]/.test(text) ? FONTS.thai : (defaultFace || FONTS.body);
+}
 
 /** Font sizes — minimums enforced */
 const SIZES = {
@@ -1076,4 +1088,8 @@ module.exports = {
 
   // Components
   blocks,
+
+  // Helpers
+  _thaiFontFace,
+  thaiFontFace: _thaiFontFace,
 };

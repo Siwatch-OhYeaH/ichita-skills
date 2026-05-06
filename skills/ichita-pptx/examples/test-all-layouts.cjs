@@ -11,7 +11,7 @@
 "use strict";
 
 const path = require("path");
-const { createPresentation, slides, blocks, COLORS } = require(
+const { createPresentation, slides, blocks, COLORS, FONTS } = require(
   path.resolve(__dirname, "../scripts/ichita-slide-lib.cjs")
 );
 
@@ -19,7 +19,7 @@ const outputPath = process.argv[2] || path.resolve(__dirname, "../../../test-out
 
 console.log("Ichita Slide Library — Test All Layouts");
 console.log("Output:", outputPath);
-console.log("Building 13 slides...\n");
+console.log("Building 14 slides...\n");
 
 // ---------------------------------------------------------------------------
 // Initialize presentation
@@ -317,6 +317,25 @@ slides.closing(pres, {
 });
 
 // ---------------------------------------------------------------------------
+// Slide 14: Thai-text smoke test (verifies TH Aeonik wiring)
+// ---------------------------------------------------------------------------
+console.log("  [14] Thai Smoke Test (TH Aeonik)");
+const thaiSlide = pres.addSlide();
+thaiSlide.background = { color: COLORS.white };
+thaiSlide.addText("ภาษาไทย — Thai Glyph Smoke Test", {
+  x: 0.5, y: 0.4, w: 9, h: 0.6,
+  fontSize: 24, fontFace: FONTS.thai, bold: true, color: COLORS.blueGrey03,
+});
+thaiSlide.addText("ระบบกรอง UF + NF ของ Ichita ผลิตน้ำเชื่อมใสคุณภาพอาหาร", {
+  x: 0.5, y: 1.2, w: 9, h: 0.5,
+  fontSize: 16, fontFace: FONTS.thai, color: COLORS.blueGrey03,
+});
+thaiSlide.addText("Mixed text: 99.2% efficiency / ประสิทธิภาพ 99.2%", {
+  x: 0.5, y: 2.0, w: 9, h: 0.5,
+  fontSize: 14, fontFace: FONTS.thai, color: COLORS.blueGrey02,
+});
+
+// ---------------------------------------------------------------------------
 // Write output
 // ---------------------------------------------------------------------------
 console.log("\nWriting PPTX to:", outputPath);
@@ -325,7 +344,7 @@ pres.writeFile({ fileName: outputPath })
     const fs = require("fs");
     const stat = fs.statSync(outputPath);
     console.log("Done. File size:", (stat.size / 1024).toFixed(1), "KB");
-    console.log("13 slides generated successfully.");
+    console.log("14 slides generated successfully.");
   })
   .catch((err) => {
     console.error("ERROR:", err.message);
