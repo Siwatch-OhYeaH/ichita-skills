@@ -20,11 +20,7 @@ const path = require("path");
 function _requirePptxgen() {
   // 1. Try standard resolution (caller's node_modules or global)
   try { return require("pptxgenjs"); } catch (_) {}
-  // 2. Try davinci-oracle node_modules (common dev environment)
-  try {
-    return require(path.resolve(__dirname, "../../../../davinci-oracle/node_modules/pptxgenjs"));
-  } catch (_) {}
-  // 3. Try global npm/fnm prefix
+  // 2. Try global npm/fnm prefix
   try {
     const { execSync } = require("child_process");
     const globalPrefix = execSync("npm root -g", { encoding: "utf8" }).trim();

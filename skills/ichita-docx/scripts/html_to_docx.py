@@ -150,11 +150,12 @@ except ImportError:
 # ── Default Logo Path ─────────────────────────────────────────────────────────
 
 _LOGO_ASSET = os.path.join(SCRIPT_DIR, "assets", "ichita-wordmark-dark-on-white.png")
-_LOGO_ICHITA_SKILLS = os.path.expanduser(
-    "~/ghq/github.com/Siwatch-OhYeaH/ichita-skills/assets/logos/ichita-wordmark-dark-on-white.png")
+# Repo-relative fallback: skills/ichita-docx/scripts/ → repo root is three "..".
+_LOGO_REPO_ASSETS = os.path.normpath(os.path.join(
+    SCRIPT_DIR, "..", "..", "..", "assets", "logos", "ichita-wordmark-dark-on-white.png"))
 DEFAULT_LOGO = (
     _LOGO_ASSET if os.path.exists(_LOGO_ASSET)
-    else _LOGO_ICHITA_SKILLS if os.path.exists(_LOGO_ICHITA_SKILLS)
+    else _LOGO_REPO_ASSETS if os.path.exists(_LOGO_REPO_ASSETS)
     else None
 )
 

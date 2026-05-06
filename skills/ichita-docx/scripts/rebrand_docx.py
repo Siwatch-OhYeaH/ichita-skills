@@ -45,11 +45,12 @@ def _find_repo_root():
     return os.path.dirname(os.path.abspath(__file__))
 
 def _find_logo(repo_root):
-    """Find Ichita logo in known asset locations."""
+    """Find Ichita logo in known asset locations (all repo-relative)."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.path.join(repo_root, "assets/logos/ichita-wordmark-dark-on-white.png"),
         os.path.join(repo_root, "assets/ichita/logos/ichita-wordmark-dark-on-white.png"),
-        os.path.join(os.path.expanduser("~/ghq/github.com/Siwatch-OhYeaH/ichita-skills"), "assets/logos/ichita-wordmark-dark-on-white.png"),
+        os.path.normpath(os.path.join(script_dir, "..", "..", "..", "assets", "logos", "ichita-wordmark-dark-on-white.png")),
     ]
     for c in candidates:
         if os.path.exists(c):

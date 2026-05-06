@@ -517,13 +517,12 @@ def add_ichita_header(doc, logo_path=None, accent_color="2978FF",
     if brand is None:
         brand = ICHITA_BRAND
 
-    # Try logo path, then multiple candidate paths
+    # Try logo path, then multiple candidate paths (all repo-relative — no user-specific paths)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     logo_candidates = [
         logo_path,
-        os.path.join(script_dir, "..", "..", "..", "assets", "ichita", "logos", "ichita-wordmark-dark-on-white.png"),
-        os.path.expanduser("~/ghq/github.com/Siwatch-OhYeaH/miipan-oracle/assets/ichita/logos/ichita-wordmark-dark-on-white.png"),
-        os.path.expanduser("~/ghq/github.com/Siwatch-OhYeaH/ichita-skills/assets/logos/ichita-wordmark-dark-on-white.png"),
+        os.path.normpath(os.path.join(script_dir, "..", "..", "..", "assets", "ichita", "logos", "ichita-wordmark-dark-on-white.png")),
+        os.path.normpath(os.path.join(script_dir, "..", "..", "..", "assets", "logos", "ichita-wordmark-dark-on-white.png")),
         os.path.join(script_dir, "ichita-wordmark-dark-on-white.png"),
     ]
     resolved_logo = next((p for p in logo_candidates if p and os.path.exists(p)), None)
