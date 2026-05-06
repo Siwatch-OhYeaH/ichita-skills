@@ -50,15 +50,12 @@ const COLORS = {
   blueGrey02:   "788F9C",   // Muted text, captions
   blueGrey03:   "263338",   // Primary text, dark backgrounds
   blueBlack:    "171C21",   // Darkest background
-  green:        "34A853",   // Success / positive
-  red:          "E83E3E",   // Warning / negative
-  orange:       "FFA000",   // Emphasis (use sparingly)
   offWhite:     "F8FAFB",   // Card backgrounds
   altRow:       "F0F4F5",   // Table alternating rows
 };
 
-/** Chart color sequence */
-const CHART_COLORS = ["2978FF", "263338", "82B0FF", "788F9C", "34A853", "E83E3E"];
+/** Chart color sequence — brand-only palette (Blue, BlueGrey03, BlueLight, BlueGrey02, BlueGrey01, BlueBlack) */
+const CHART_COLORS = ["2978FF", "263338", "82B0FF", "788F9C", "CFD9DB", "171C21"];
 
 /** Ichita brand fonts */
 const FONTS = {
@@ -141,9 +138,11 @@ const ASSETS = {
 /** Add footer to a slide */
 function _addFooter(slide, opts = {}) {
   const { dark = false } = opts;
+  // VS-9: y bumped up from SLIDE.h - 0.28 → SLIDE.h - 0.30 (small lift to keep
+  // text off the bottom edge while leaving room for logo above at -0.45).
   slide.addText("www.ichita.co.th", {
     x: SLIDE.w - MARGIN.right - 2.0,
-    y: SLIDE.h - 0.28,
+    y: SLIDE.h - 0.30,
     w: 1.95,
     h: 0.2,
     fontSize: SIZES.footer,
@@ -157,16 +156,18 @@ function _addFooter(slide, opts = {}) {
 function _addLogo(slide, opts = {}) {
   const { dark = false } = opts;
   const logoPath = dark ? ASSETS.logoWhite : ASSETS.logoDark;
+  // VS-9: y bumped up from SLIDE.h - 0.38 → SLIDE.h - 0.55 to give 12-16pt
+  // clear-space between the logo and the bottom canvas edge / footer URL.
   try {
     slide.addImage({
       path: logoPath,
       x: MARGIN.left,
-      y: SLIDE.h - 0.38,
+      y: SLIDE.h - 0.55,
       w: 1.2,
       h: 0.25,
     });
   } catch (e) {
-    // Asset not found — skip logo silently (file may not exist in all envs)
+    console.warn("[ichita-slide-lib] logo asset not found: " + logoPath + " — skipping. " + e.message);
   }
 }
 
@@ -189,7 +190,7 @@ function _addContentFrame(slide) {
       w: SLIDE.w, h: SLIDE.h,
     });
   } catch (e) {
-    // Fall back to plain white
+    console.warn("[ichita-slide-lib] content frame not found: " + ASSETS.contentFrame + " — falling back to white. " + e.message);
     slide.background = { color: COLORS.white };
   }
 }
@@ -552,8 +553,8 @@ const slides = {
    * @param {string} opts.title
    * @param {string} opts.leftLabel
    * @param {string} opts.rightLabel
-   * @param {string} [opts.leftColor]    Left label color (default: red)
-   * @param {string} [opts.rightColor]   Right label color (default: green)
+   * @param {string} [opts.leftColor]    Left label color (default: blueGrey02 — muted "before")
+   * @param {string} [opts.rightColor]   Right label color (default: blue — brand "after")
    * @param {Function} opts.leftContent   (slide, {x, y, w, h}) => void
    * @param {Function} opts.rightContent  (slide, {x, y, w, h}) => void
    */
@@ -576,7 +577,7 @@ const slides = {
       fontSize: SIZES.sectionHeader,
       fontFace: FONTS.heading,
       bold: true,
-      color: leftColor || COLORS.red,
+      color: leftColor || COLORS.blueGrey02,
       align: "center",
     });
 
@@ -587,7 +588,7 @@ const slides = {
       fontSize: SIZES.sectionHeader,
       fontFace: FONTS.heading,
       bold: true,
-      color: rightColor || COLORS.green,
+      color: rightColor || COLORS.blue,
       align: "center",
     });
 

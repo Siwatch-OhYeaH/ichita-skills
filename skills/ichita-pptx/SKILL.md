@@ -124,14 +124,14 @@ Blue Grey 01 background. Large Betatron number centered. Label + optional contex
 
 #### `slides.comparison(pres, { title, leftLabel, rightLabel, leftColor?, rightColor?, leftContent, rightContent })`
 
-Two labeled columns with vertical divider. Default colors: red (left/before), green (right/after).
+Two labeled columns with vertical divider. Default colors: blueGrey02 (left/before — muted), blue (right/after — brand).
 
 ```javascript
 slides.comparison(pres, {
   title: "Before vs After",
   leftLabel: "Current", rightLabel: "Proposed",
-  leftContent: (s, z) => blocks.featureList(s, { items: [...], ...z, dotColor: COLORS.red }),
-  rightContent: (s, z) => blocks.featureList(s, { items: [...], ...z, dotColor: COLORS.green }),
+  leftContent: (s, z) => blocks.featureList(s, { items: [...], ...z, dotColor: COLORS.blueGrey02 }),
+  rightContent: (s, z) => blocks.featureList(s, { items: [...], ...z, dotColor: COLORS.blue }),
 });
 ```
 

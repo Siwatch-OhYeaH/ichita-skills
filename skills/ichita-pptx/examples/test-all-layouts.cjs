@@ -156,7 +156,7 @@ slides.grid(pres, {
       value: "99.2%",
       label: "System Uptime (avg)",
       x: zone.x, y: zone.y, w: zone.w, h: zone.h,
-      valueColor: COLORS.green,
+      valueColor: COLORS.blue,
     }),
   ],
 });
@@ -190,7 +190,7 @@ slides.grid2x2(pres, {
       value: "EDI",
       label: "Electrodeionisation — UPW",
       x: zone.x, y: zone.y, w: zone.w, h: zone.h,
-      valueColor: COLORS.green,
+      valueColor: COLORS.blueGrey02,
     }),
   ],
 });
@@ -231,7 +231,7 @@ slides.comparison(pres, {
         { title: "Manual QC sampling", description: "Lab turnaround 4–8 hrs; no real-time control feedback." },
       ],
       x: zone.x, y: zone.y, w: zone.w, h: zone.h,
-      dotColor: COLORS.red,
+      dotColor: COLORS.blueGrey02,
     });
   },
   rightContent: (slide, zone) => {
@@ -242,7 +242,7 @@ slides.comparison(pres, {
         { title: "Inline turbidity + conductivity", description: "Real-time monitoring; automatic alarm and divert." },
       ],
       x: zone.x, y: zone.y, w: zone.w, h: zone.h,
-      dotColor: COLORS.green,
+      dotColor: COLORS.blue,
     });
   },
 });

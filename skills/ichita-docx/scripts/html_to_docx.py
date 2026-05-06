@@ -89,13 +89,22 @@ for _fd in _font_dirs:
         pass
 
 if not TH_AEONIK_MODE:
+    _AEONIK_FOUND = False
     for _fd in _font_dirs:
         try:
             if any("aeonik" in f.lower() for f in os.listdir(_fd)):
                 BRAND_FONT = "Aeonik"
+                _AEONIK_FOUND = True
                 break
         except OSError:
             pass
+    if not _AEONIK_FOUND:
+        print(
+            "WARNING: Aeonik font family not detected on system — falling back to "
+            "Calibri. DOCX will not be brand-compliant. Install fonts via "
+            "assets/fonts/install-fonts.sh in the ichita-skills repo.",
+            file=sys.stderr,
+        )
 
 
 # ── Import shared header/footer helpers ─────────────────────────────────────
@@ -787,7 +796,7 @@ class IchitaHTMLParser(HTMLParser):
 
 # ── Document setup ────────────────────────────────────────────────────────────
 
-def _setup_document_styles(doc, font_name, margin_cm=2.5):
+def _setup_document_styles(doc, font_name, margin_cm=2.0):
     """Apply Ichita brand to default document styles."""
     from docx.oxml import OxmlElement
 
@@ -985,8 +994,8 @@ def main():
                         help="Override font name (default: auto-detect TH Aeonik → Aeonik → Calibri)")
     parser.add_argument("--no-logo", action="store_true",
                         help="Skip logo in header")
-    parser.add_argument("--margin", type=float, default=2.5,
-                        help="Page margin in cm (default: 2.5)")
+    parser.add_argument("--margin", type=float, default=2.0,
+                        help="Page margin in cm (default: 2.0)")
     args = parser.parse_args()
 
     # Validate input
