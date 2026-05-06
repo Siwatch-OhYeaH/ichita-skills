@@ -438,7 +438,17 @@ class IchitaHTMLParser(HTMLParser):
         run.font.color.rgb = ICHITA_BLUE_GREY3
 
     def _flush_table(self):
-        """Build and style the accumulated HTML table into DOCX."""
+        """Build and style the accumulated HTML table into DOCX.
+
+        VS-5 (Sibyl QA PR4): preview-B-3 reportedly degrades table borders /
+        column structure. Suspected root causes (unverified — needs side-by-side
+        path-A vs path-B-3 inspection): (a) _table_depth nesting interaction
+        when an inner element triggers a premature flush; (b) HEX border colour
+        "A0B0B8" too light to render visibly under pandoc-roundtripped DOCX
+        styles; (c) header detection fallback (line 463-465) misclassifying a
+        body row as header when path-B HTML omits <th>. Audit recommended in a
+        follow-up PR.
+        """
         if not self._table_rows:
             return
 

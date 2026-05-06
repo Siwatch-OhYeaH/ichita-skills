@@ -370,6 +370,16 @@ const slides = {
 
     _addContentFrame(slide);
 
+    // VS-7: explicit left accent bar (drawn over the frame image so the bar
+    // is full-height regardless of frame asset rendering). Above the title at
+    // y=0.1, height covers nearly the full slide (clear of footer at -0.30).
+    slide.addShape("rect", {
+      x: 0, y: 0.1,
+      w: 0.08, h: SLIDE.h - 0.45,
+      fill: { color: COLORS.blue },
+      line: { color: COLORS.blue, width: 0 },
+    });
+
     // Title — centered in header area
     slide.addText(title, {
       x: TITLE_POS.x, y: TITLE_POS.y,
@@ -1048,13 +1058,13 @@ const blocks = {
         wrap: true,
       });
 
-      // Arrow between steps
+      // Arrow between steps (VS-8: triangle arrowhead, darker BlueGrey03 for visibility)
       if (i < steps.length - 1) {
         const arrowX = boxX + boxW;
         slide.addShape("line", {
           x: arrowX, y: y + h / 2,
           w: arrowW, h: 0,
-          line: { color: COLORS.blueGrey02, width: 1.5, endArrowType: "open" },
+          line: { color: COLORS.blueGrey03, width: 1.5, endArrowType: "triangle" },
         });
       }
     });
