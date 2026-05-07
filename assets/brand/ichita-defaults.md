@@ -492,7 +492,7 @@ Before generating any PPTX:
 | Asset | Path |
 |-------|------|
 | **Brand Guidelines PDF** | `assets/ichita/brand/Ichita_Brand_Guidelines_V1.0.pdf` |
-| **Aeonik Font Files** | `D:/Doccument/New Identity/Aeonik-font-download/` |
+| **Aeonik Font Files** | `assets/fonts/aeonik/` and `assets/fonts/aeonik-th/` (install via `bash assets/fonts/install-fonts.sh` — see `assets/fonts/README.md`) |
 | ICHITA Dark BG | `assets/ichita/brand/ichita-dark-bg.jpg` |
 | ICHITA Content Frame | `assets/ichita/brand/ichita-content-frame.png` |
 | ICHITA Logos | `assets/ichita/logos/` (5 variants) |

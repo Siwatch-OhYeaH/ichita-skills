@@ -31,7 +31,7 @@ const DEFAULTS = {
   streamLabelColor: "788F9C",
   annotationSize: 7,
   annotationColor: "788F9C",
-  fontFace: "Calibri",
+  fontFace: "Aeonik",
 };
 
 // Factory: shadow for unit boxes
@@ -858,7 +858,7 @@ const annotations = {
    * title — slide title for process diagram slides.
    */
   title(slide, pres, text, opts = {}) {
-    const fontFace = opts.fontFace || "Trebuchet MS";
+    const fontFace = opts.fontFace || "Aeonik";
     const color = opts.color || "263338";
     slide.addText(text, {
       x: 0.5, y: 0.15, w: 9, h: 0.5,
