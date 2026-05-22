@@ -14,8 +14,9 @@ description: "Use when creating Ichita-branded presentations, process diagrams, 
 |----------|---------|-------------|
 | **JavaScript** | `ichita-slide-lib.cjs` (PptxGenJS) | Default. Full slide catalog (cover, section, content, kpi, grid, comparison, timeline, closing). |
 | **Python** | `ichita_slide_lib.py` (python-pptx) | When integrating with existing Python tooling (proposal generators, QA pipelines, batch processors). Master-level backgrounds, OhYeaH title style, numbered cards, scope tables, process flows. |
+| **HTML→PNG** | `assets/html-template/` chrome image | When each slide is a full-bleed custom composition (diagram-heavy decks): slides authored as HTML, rendered to PNG, assembled to PPTX. |
 
-**Iron rule (both languages):** Set backgrounds at the MASTER/LAYOUT level, never as per-slide pictures. Users can't accidentally click/move them, and they survive content changes.
+**Iron rule (all three paths):** The Ichita slide chrome — dark navy `#263338` field, white floating content card, top-left ICHITA logo notch, bottom-left chamfer — is a **fixed asset, never hand-drawn.** PptxGenJS/python-pptx: set it at the MASTER/LAYOUT level, never as per-slide pictures. HTML→PNG: use `assets/html-template/ichita-content-bg.png` as the slide background — see [`assets/html-template/README.md`](assets/html-template/README.md). Do not reconstruct the chrome in CSS from a screenshot; that inverts to a white-background slide and deletes the Ichita identity (TNCC sweetener incident, 2026-05-22).
 
 ## Setup
 
@@ -57,6 +58,7 @@ pres.writeFile({ fileName: "output.pptx" });
 | **Create branded PPTX** | Use `ichita-slide-lib.cjs` (see API below) |
 | Process flow diagrams | Read [process-diagrams.md](process-diagrams.md) + use `process-diagram-lib.cjs` |
 | HTML to PPTX | Read [html2pptx.md](html2pptx.md) + use `html2pptx.js` |
+| Full-bleed html→png slides | Use [`assets/html-template/`](assets/html-template/) — real chrome as background image, never redrawn |
 | Edit existing PPTX | Use `replace.py` / `rearrange.py` / `inventory.py` |
 | Brand reference | Read [`ichita-defaults.md`](../../assets/brand/ichita-defaults.md) |
 | Layout patterns | See [layout-patterns.json](layout-patterns.json) |
