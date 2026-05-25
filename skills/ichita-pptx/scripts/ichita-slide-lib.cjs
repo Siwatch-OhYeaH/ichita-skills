@@ -3,12 +3,18 @@
  *
  * PptxGenJS wrapper that produces consistent, brand-compliant Ichita presentations.
  *
+ * Canvas: 13.333" × 7.5" (LAYOUT_WIDE — standard PowerPoint widescreen)
+ * Backgrounds: defineSlideMaster with background.path — NOT per-slide addImage.
+ *
  * Usage:
  *   const { createPresentation, slides, blocks, COLORS, FONTS } = require("./ichita-slide-lib.cjs");
  *   const pres = createPresentation({ title: "My Presentation" });
  *   slides.cover(pres, { title: "Ichita Solution Overview", subtitle: "Liquid Sugar Refinery" });
  *   slides.content(pres, { title: "Key Benefits" });
  *   pres.writeFile({ fileName: "output.pptx" });
+ *
+ * Note: scripts/ichita_slide_lib.py (Python sibling) still uses the old 10×5.625
+ * constants — needs a follow-up fix with the same rules.
  */
 
 "use strict";
@@ -54,7 +60,7 @@ const COLORS = {
   altRow:       "F0F4F5",   // Table alternating rows
 };
 
-/** Chart color sequence — brand-only palette (Blue, BlueGrey03, BlueLight, BlueGrey02, BlueGrey01, BlueBlack) */
+/** Chart color sequence — brand-only palette */
 const CHART_COLORS = ["2978FF", "263338", "82B0FF", "788F9C", "CFD9DB", "171C21"];
 
 /** Ichita brand fonts */
@@ -68,10 +74,6 @@ const FONTS = {
 
 /**
  * Detect Thai characters and return the Thai font face — else default body font.
- * Use when adding text that may contain Thai glyphs to ensure correct font rendering.
- * @param {string} text  Text to inspect for Thai characters
- * @param {string} [defaultFace]  Fallback font face for non-Thai text (default: FONTS.body)
- * @returns {string}  Font face name to use
  */
 function _thaiFontFace(text, defaultFace) {
   if (typeof text !== "string") return defaultFace || FONTS.body;
@@ -92,34 +94,44 @@ const SIZES = {
   sectionNumber: 72,
 };
 
-/** Slide dimensions (inches) */
+/**
+ * Slide dimensions (inches) — standard PowerPoint widescreen (LAYOUT_WIDE).
+ * The old lib used 10×5.625 but pres.layout="LAYOUT_WIDE" = 13.333×7.5.
+ * All positions are now calculated for the real canvas.
+ */
 const SLIDE = {
-  w: 10,
-  h: 5.625,
+  w: 13.333,
+  h: 7.5,
 };
 
-/** Margins */
+/** Margins — match reference Powerpoint Template.pptx */
 const MARGIN = {
-  top:    0.5,
-  right:  0.5,
-  bottom: 0.5,
-  left:   0.5,
+  top:    0.40,
+  right:  0.92,
+  bottom: 0.75,
+  left:   0.92,
 };
 
-/** Body content area (below title) on content slides */
+/**
+ * Title area on content slides — matches master placeholder in reference template.
+ * (x=0.92, y=0.40, w=11.50, h=1.45)
+ */
+const TITLE_POS = {
+  x: MARGIN.left,        // 0.92
+  y: MARGIN.top,         // 0.40
+  w: 11.50,
+  h: 1.45,
+};
+
+/**
+ * Body content area on content slides — below title, above footer row.
+ * y=2.00 clears the title+accent bar; h=4.20 leaves the footer row (y≈6.95) clear.
+ */
 const CONTENT_AREA = {
   x: MARGIN.left,
-  y: 1.2,  // below title + accent bar
-  w: SLIDE.w - MARGIN.left - MARGIN.right,
-  h: SLIDE.h - 1.2 - MARGIN.bottom - 0.35,  // leave room for footer/logo
-};
-
-/** Title position on content slides */
-const TITLE_POS = {
-  x: 2.7,
-  y: 0.1,
-  w: 6.95,
-  h: 0.45,
+  y: 2.00,
+  w: SLIDE.w - MARGIN.left - MARGIN.right,   // 13.333 - 0.92 - 0.92 = 11.493
+  h: 4.20,
 };
 
 /** Asset paths */
@@ -132,46 +144,114 @@ const ASSETS = {
 };
 
 // ---------------------------------------------------------------------------
-// HELPERS
+// SLIDE MASTER SETUP
 // ---------------------------------------------------------------------------
 
-/** Add footer to a slide */
-function _addFooter(slide, opts = {}) {
-  const { dark = false } = opts;
-  // VS-9: y bumped up from SLIDE.h - 0.28 → SLIDE.h - 0.30 (small lift to keep
-  // text off the bottom edge while leaving room for logo above at -0.45).
-  slide.addText("www.ichita.co.th", {
-    x: SLIDE.w - MARGIN.right - 2.0,
-    y: SLIDE.h - 0.30,
-    w: 1.95,
-    h: 0.2,
-    fontSize: SIZES.footer,
-    fontFace: FONTS.body,
-    color: COLORS.blueGrey02,
-    align: "right",
+/**
+ * Define MASTER_CONTENT and MASTER_DARK on the presentation — called once.
+ * Uses defineSlideMaster with background.path so the BG image is set at
+ * master level (not per-slide addImage), matching the canonical template rule.
+ */
+function _ensureMasters(pres) {
+  if (pres._ichitaMastersDefined) return;
+
+  // MASTER_CONTENT — content-frame BG (16:9, 4047×2253) + logo + footer URL
+  pres.defineSlideMaster({
+    title: "MASTER_CONTENT",
+    background: { path: ASSETS.contentFrame },
+    objects: [
+      // Ichita wordmark — bottom left, y≈6.95 row
+      {
+        image: {
+          path: ASSETS.logoDark,
+          x: MARGIN.left,
+          y: SLIDE.h - 0.55,
+          w: 1.2,
+          h: 0.25,
+        },
+      },
+      // Website URL — bottom right
+      {
+        text: {
+          text: "www.ichita.co.th",
+          options: {
+            x: SLIDE.w - MARGIN.right - 2.0,
+            y: SLIDE.h - 0.30,
+            w: 1.95,
+            h: 0.2,
+            fontSize: SIZES.footer,
+            fontFace: FONTS.body,
+            color: COLORS.blueGrey02,
+            align: "right",
+          },
+        },
+      },
+    ],
   });
+
+  // MASTER_DARK — dark BG (2002×1126, perfect 16:9) + footer URL (no logo — dark bg image has brand mark)
+  pres.defineSlideMaster({
+    title: "MASTER_DARK",
+    background: { path: ASSETS.darkBg },
+    objects: [
+      {
+        text: {
+          text: "www.ichita.co.th",
+          options: {
+            x: SLIDE.w - MARGIN.right - 2.0,
+            y: SLIDE.h - 0.30,
+            w: 1.95,
+            h: 0.2,
+            fontSize: SIZES.footer,
+            fontFace: FONTS.body,
+            color: COLORS.blueGrey02,
+            align: "right",
+          },
+        },
+      },
+    ],
+  });
+
+  // MASTER_SECTION — flat color for section dividers and KPI slides
+  pres.defineSlideMaster({
+    title: "MASTER_SECTION",
+    background: { color: COLORS.blueGrey01 },
+    objects: [
+      {
+        image: {
+          path: ASSETS.logoDark,
+          x: MARGIN.left,
+          y: SLIDE.h - 0.55,
+          w: 1.2,
+          h: 0.25,
+        },
+      },
+      {
+        text: {
+          text: "www.ichita.co.th",
+          options: {
+            x: SLIDE.w - MARGIN.right - 2.0,
+            y: SLIDE.h - 0.30,
+            w: 1.95,
+            h: 0.2,
+            fontSize: SIZES.footer,
+            fontFace: FONTS.body,
+            color: COLORS.blueGrey02,
+            align: "right",
+          },
+        },
+      },
+    ],
+  });
+
+  pres._ichitaMastersDefined = true;
 }
 
-/** Add logo to a slide */
-function _addLogo(slide, opts = {}) {
-  const { dark = false } = opts;
-  const logoPath = dark ? ASSETS.logoWhite : ASSETS.logoDark;
-  // VS-9: y bumped up from SLIDE.h - 0.38 → SLIDE.h - 0.55 to give 12-16pt
-  // clear-space between the logo and the bottom canvas edge / footer URL.
-  try {
-    slide.addImage({
-      path: logoPath,
-      x: MARGIN.left,
-      y: SLIDE.h - 0.55,
-      w: 1.2,
-      h: 0.25,
-    });
-  } catch (e) {
-    console.warn("[ichita-slide-lib] logo asset not found: " + logoPath + " — skipping. " + e.message);
-  }
-}
+// ---------------------------------------------------------------------------
+// HELPERS (internal — no longer do per-slide chrome; masters handle it)
+// ---------------------------------------------------------------------------
 
-/** Add top accent line (blue, full width) */
+/** Add top accent line (blue, full width) — used on dark slides */
 function _addTopAccentLine(slide) {
   slide.addShape("rect", {
     x: 0, y: 0,
@@ -179,20 +259,6 @@ function _addTopAccentLine(slide) {
     fill: { color: COLORS.blue },
     line: { color: COLORS.blue, width: 0 },
   });
-}
-
-/** Add content frame background image */
-function _addContentFrame(slide) {
-  try {
-    slide.addImage({
-      path: ASSETS.contentFrame,
-      x: 0, y: 0,
-      w: SLIDE.w, h: SLIDE.h,
-    });
-  } catch (e) {
-    console.warn("[ichita-slide-lib] content frame not found: " + ASSETS.contentFrame + " — falling back to white. " + e.message);
-    slide.background = { color: COLORS.white };
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +276,7 @@ function _addContentFrame(slide) {
 function createPresentation(opts = {}) {
   const pptxgen = _requirePptxgen();
   const pres = new pptxgen();
-  pres.layout = "LAYOUT_WIDE";   // 10" x 5.625"
+  pres.layout = "LAYOUT_WIDE";   // 13.333" × 7.5" (standard widescreen)
   if (opts.title)   pres.title   = opts.title;
   if (opts.subject) pres.subject = opts.subject;
   pres.author = opts.author || "Ichita Co., Ltd.";
@@ -224,26 +290,12 @@ function createPresentation(opts = {}) {
 const slides = {
 
   /**
-   * cover — dark bg, accent bars, white text
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.title
-   * @param {string} [opts.subtitle]
-   * @param {string} [opts.date]
+   * cover — dark bg (MASTER_DARK), accent bars, white text
    */
   cover(pres, opts = {}) {
     const { title = "", subtitle = "", date = "" } = opts;
-    const slide = pres.addSlide();
-    slide.background = { color: COLORS.blueGrey03 };
-
-    // Try dark bg image
-    try {
-      slide.addImage({
-        path: ASSETS.darkBg,
-        x: 0, y: 0,
-        w: SLIDE.w, h: SLIDE.h,
-      });
-    } catch (e) { /* use solid bg */ }
+    _ensureMasters(pres);
+    const slide = pres.addSlide({ masterName: "MASTER_DARK" });
 
     // Top accent line — blue, full width
     _addTopAccentLine(slide);
@@ -256,10 +308,10 @@ const slides = {
       line: { color: COLORS.blue, width: 0 },
     });
 
-    // Title
+    // Title — positioned for the wider 13.333" canvas
     slide.addText(title, {
-      x: 1.0, y: 1.3,
-      w: 8.0, h: 1.0,
+      x: 1.0, y: 1.5,
+      w: 10.5, h: 1.4,
       fontSize: SIZES.coverTitle,
       fontFace: FONTS.heading,
       bold: true,
@@ -270,8 +322,8 @@ const slides = {
     // Subtitle
     if (subtitle) {
       slide.addText(subtitle, {
-        x: 1.0, y: 3.3,
-        w: 7.5, h: 0.45,
+        x: 1.0, y: 3.6,
+        w: 10.0, h: 0.55,
         fontSize: SIZES.sectionHeader,
         fontFace: FONTS.body,
         color: COLORS.blue,
@@ -282,38 +334,31 @@ const slides = {
     // Date
     if (date) {
       slide.addText(date, {
-        x: 1.0, y: 3.85,
-        w: 4.0, h: 0.3,
+        x: 1.0, y: 4.3,
+        w: 6.0, h: 0.35,
         fontSize: SIZES.label,
         fontFace: FONTS.body,
         color: COLORS.blueGrey02,
       });
     }
 
-    // Note: dark bg image already contains ICHITA brand mark — no extra logo needed
-    _addFooter(slide, { dark: true });
-
+    // Footer URL is in MASTER_DARK — no _addFooter call needed
     return slide;
   },
 
   /**
-   * sectionDivider — grey1 bg, big Betatron number, title
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string|number} opts.number   Section number
-   * @param {string} opts.title
-   * @param {string} [opts.subtitle]
+   * sectionDivider — MASTER_SECTION bg, big Betatron number, title
    */
   sectionDivider(pres, opts = {}) {
     const { number = "", title = "", subtitle = "" } = opts;
-    const slide = pres.addSlide();
-    slide.background = { color: COLORS.blueGrey01 };
+    _ensureMasters(pres);
+    const slide = pres.addSlide({ masterName: "MASTER_SECTION" });
 
     // Big section number — Betatron, right-aligned, blue
     slide.addText(String(number), {
       x: 0, y: 0.5,
       w: SLIDE.w - MARGIN.right,
-      h: 2.0,
+      h: 2.5,
       fontSize: SIZES.sectionNumber,
       fontFace: FONTS.display,
       color: COLORS.blue,
@@ -322,8 +367,8 @@ const slides = {
 
     // Title
     slide.addText(title, {
-      x: MARGIN.left, y: 2.8,
-      w: 7.5, h: 0.8,
+      x: MARGIN.left, y: 3.2,
+      w: 10.0, h: 1.0,
       fontSize: 28,
       fontFace: FONTS.heading,
       bold: true,
@@ -334,8 +379,8 @@ const slides = {
     // Subtitle
     if (subtitle) {
       slide.addText(subtitle, {
-        x: MARGIN.left, y: 3.65,
-        w: 7.5, h: 0.5,
+        x: MARGIN.left, y: 4.3,
+        w: 10.0, h: 0.6,
         fontSize: SIZES.sectionHeader,
         fontFace: FONTS.body,
         color: COLORS.blueGrey02,
@@ -351,28 +396,19 @@ const slides = {
       line: { color: COLORS.blue, width: 0 },
     });
 
-    _addLogo(slide, { dark: false });
-    _addFooter(slide);
-
+    // Logo and footer are in MASTER_SECTION
     return slide;
   },
 
   /**
-   * content — white bg with content frame image, returns slide for custom content
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.title
+   * content — MASTER_CONTENT bg, returns slide for custom content
    */
   content(pres, opts = {}) {
     const { title = "" } = opts;
-    const slide = pres.addSlide();
-    slide.background = { color: COLORS.white };
+    _ensureMasters(pres);
+    const slide = pres.addSlide({ masterName: "MASTER_CONTENT" });
 
-    _addContentFrame(slide);
-
-    // VS-7: explicit left accent bar (drawn over the frame image so the bar
-    // is full-height regardless of frame asset rendering). Above the title at
-    // y=0.1, height covers nearly the full slide (clear of footer at -0.30).
+    // Left accent bar — drawn over the frame so it's full-height regardless of BG
     slide.addShape("rect", {
       x: 0, y: 0.1,
       w: 0.08, h: SLIDE.h - 0.45,
@@ -380,7 +416,7 @@ const slides = {
       line: { color: COLORS.blue, width: 0 },
     });
 
-    // Title — centered in header area
+    // Slide title — positioned per reference template
     slide.addText(title, {
       x: TITLE_POS.x, y: TITLE_POS.y,
       w: TITLE_POS.w, h: TITLE_POS.h,
@@ -389,28 +425,30 @@ const slides = {
       bold: true,
       color: COLORS.blueGrey03,
       align: "center",
+      valign: "middle",
     });
 
-    _addLogo(slide, { dark: false });
-    _addFooter(slide);
+    // Blue accent line under title
+    slide.addShape("rect", {
+      x: TITLE_POS.x, y: TITLE_POS.y + TITLE_POS.h - 0.04,
+      w: TITLE_POS.w, h: 0.04,
+      fill: { color: COLORS.blue },
+      line: { color: COLORS.blue, width: 0 },
+    });
 
+    // Logo and footer URL are in MASTER_CONTENT
     return slide;
   },
 
   /**
-   * twoColumn — frame bg, two equal zones. Callback pattern for content.
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.title
-   * @param {Function} opts.leftContent   (slide, {x, y, w, h}) => void
-   * @param {Function} opts.rightContent  (slide, {x, y, w, h}) => void
+   * twoColumn — MASTER_CONTENT bg, two equal zones. Callback pattern for content.
    */
   twoColumn(pres, opts = {}) {
     const { title = "", leftContent, rightContent } = opts;
     const slide = slides.content(pres, { title });
 
-    const contentY = 1.2;
-    const contentH = SLIDE.h - contentY - MARGIN.bottom - 0.35;
+    const contentY = CONTENT_AREA.y;
+    const contentH = CONTENT_AREA.h;
     const colGap = 0.2;
     const totalW = CONTENT_AREA.w;
     const colW = (totalW - colGap) / 2;
@@ -425,19 +463,14 @@ const slides = {
   },
 
   /**
-   * grid — frame bg, N equal columns. Callback per card.
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.title
-   * @param {number} opts.cols
-   * @param {Function[]} opts.cards  Array of (slide, {x, y, w, h}) => void
+   * grid — MASTER_CONTENT bg, N equal columns. Callback per card.
    */
   grid(pres, opts = {}) {
     const { title = "", cols = 3, cards = [] } = opts;
     const slide = slides.content(pres, { title });
 
-    const contentY = 1.2;
-    const contentH = SLIDE.h - contentY - MARGIN.bottom - 0.35;
+    const contentY = CONTENT_AREA.y;
+    const contentH = CONTENT_AREA.h;
     const colGap = 0.15;
     const totalW = CONTENT_AREA.w;
     const colW = (totalW - colGap * (cols - 1)) / cols;
@@ -463,18 +496,14 @@ const slides = {
   },
 
   /**
-   * grid2x2 — frame bg, 4 cards in 2 rows × 2 cols
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.title
-   * @param {Function[]} opts.cards  Array of 4 (slide, {x, y, w, h}) => void
+   * grid2x2 — MASTER_CONTENT bg, 4 cards in 2 rows × 2 cols
    */
   grid2x2(pres, opts = {}) {
     const { title = "", cards = [] } = opts;
     const slide = slides.content(pres, { title });
 
-    const contentY = 1.2;
-    const contentH = SLIDE.h - contentY - MARGIN.bottom - 0.35;
+    const contentY = CONTENT_AREA.y;
+    const contentH = CONTENT_AREA.h;
     const colGap = 0.2;
     const rowGap = 0.15;
     const totalW = CONTENT_AREA.w;
@@ -504,22 +533,17 @@ const slides = {
   },
 
   /**
-   * kpi — grey1 bg, big Betatron number
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.value    Main KPI value (e.g. "99.7%")
-   * @param {string} opts.label    KPI label
-   * @param {string} [opts.context] Small context text below
+   * kpi — MASTER_SECTION bg, big Betatron number
    */
   kpi(pres, opts = {}) {
     const { value = "", label = "", context = "" } = opts;
-    const slide = pres.addSlide();
-    slide.background = { color: COLORS.blueGrey01 };
+    _ensureMasters(pres);
+    const slide = pres.addSlide({ masterName: "MASTER_SECTION" });
 
     // Big KPI value — Betatron, centered
     slide.addText(value, {
-      x: 0, y: 1.2,
-      w: SLIDE.w, h: 2.2,
+      x: 0, y: 1.5,
+      w: SLIDE.w, h: 2.8,
       fontSize: 80,
       fontFace: FONTS.display,
       color: COLORS.blue,
@@ -528,8 +552,8 @@ const slides = {
 
     // Label
     slide.addText(label, {
-      x: MARGIN.left, y: 3.6,
-      w: CONTENT_AREA.w, h: 0.5,
+      x: MARGIN.left, y: 4.5,
+      w: CONTENT_AREA.w, h: 0.65,
       fontSize: SIZES.sectionHeader,
       fontFace: FONTS.heading,
       bold: true,
@@ -540,8 +564,8 @@ const slides = {
     // Context
     if (context) {
       slide.addText(context, {
-        x: MARGIN.left, y: 4.15,
-        w: CONTENT_AREA.w, h: 0.35,
+        x: MARGIN.left, y: 5.2,
+        w: CONTENT_AREA.w, h: 0.45,
         fontSize: SIZES.label,
         fontFace: FONTS.body,
         color: COLORS.blueGrey02,
@@ -549,33 +573,25 @@ const slides = {
       });
     }
 
-    _addLogo(slide, { dark: false });
-    _addFooter(slide);
-
+    // Logo and footer are in MASTER_SECTION
     return slide;
   },
 
   /**
-   * comparison — frame bg, two labeled columns with divider
+   * comparison — MASTER_CONTENT bg, two labeled columns with divider.
    * Callback pattern: leftContent/rightContent receive zone bounds.
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.title
-   * @param {string} opts.leftLabel
-   * @param {string} opts.rightLabel
-   * @param {string} [opts.leftColor]    Left label color (default: blueGrey02 — muted "before")
-   * @param {string} [opts.rightColor]   Right label color (default: blue — brand "after")
-   * @param {Function} opts.leftContent   (slide, {x, y, w, h}) => void
-   * @param {Function} opts.rightContent  (slide, {x, y, w, h}) => void
+   * contentH is capped at insightBarY - 0.1 to prevent overlap with insightBar.
    */
   comparison(pres, opts = {}) {
     const { title = "", leftLabel = "", rightLabel = "", leftColor, rightColor, leftContent, rightContent } = opts;
     const slide = slides.content(pres, { title });
 
-    const labelY = 1.1;
-    const labelH = 0.35;
-    const contentY = labelY + labelH + 0.1;
-    const contentH = SLIDE.h - contentY - MARGIN.bottom - 0.35;
+    const labelY = CONTENT_AREA.y - 0.65;   // 2.00 - 0.65 = 1.35 (clears title bar at y≈1.84)
+    const labelH = 0.40;
+    const contentY = labelY + labelH + 0.12;
+    // Cap content bottom at insightBar top - 0.1 (insightBar default y = SLIDE.h - 1.05 = 6.45)
+    const insightBarY = SLIDE.h - 1.05;
+    const contentH = Math.min(CONTENT_AREA.y + CONTENT_AREA.h, insightBarY - 0.1) - contentY;
     const colGap = 0.25;
     const totalW = CONTENT_AREA.w;
     const colW = (totalW - colGap) / 2;
@@ -605,7 +621,7 @@ const slides = {
     // Vertical divider
     slide.addShape("line", {
       x: MARGIN.left + colW + colGap / 2, y: labelY,
-      w: 0, h: contentH + labelH + 0.1,
+      w: 0, h: contentH + labelH + 0.12,
       line: { color: COLORS.blueGrey01, width: 1.5 },
     });
 
@@ -619,11 +635,7 @@ const slides = {
   },
 
   /**
-   * timeline — frame bg, horizontal steps with connecting line
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.title
-   * @param {Array<{title: string, number?: string, description?: string}>} opts.steps
+   * timeline — MASTER_CONTENT bg, horizontal steps with connecting line
    */
   timeline(pres, opts = {}) {
     const { title = "", steps = [] } = opts;
@@ -631,8 +643,8 @@ const slides = {
 
     if (steps.length === 0) return slide;
 
-    const lineY = 2.6;
-    const dotR  = 0.18;
+    const lineY = 3.5;
+    const dotR  = 0.22;
     const stepW = CONTENT_AREA.w / steps.length;
     const lineStartX = MARGIN.left + stepW / 2;
     const lineEndX   = MARGIN.left + CONTENT_AREA.w - stepW / 2;
@@ -672,7 +684,7 @@ const slides = {
       // Step label
       slide.addText(step.title || step.label || "", {
         x: cx - stepW / 2 + 0.05, y: lineY + dotR + 0.12,
-        w: stepW - 0.1, h: 0.35,
+        w: stepW - 0.1, h: 0.45,
         fontSize: SIZES.label,
         fontFace: FONTS.heading,
         bold: true,
@@ -684,8 +696,8 @@ const slides = {
       // Step description
       if (step.description) {
         slide.addText(step.description, {
-          x: cx - stepW / 2 + 0.05, y: lineY + dotR + 0.5,
-          w: stepW - 0.1, h: 0.8,
+          x: cx - stepW / 2 + 0.05, y: lineY + dotR + 0.6,
+          w: stepW - 0.1, h: 1.0,
           fontSize: 9,
           fontFace: FONTS.body,
           color: COLORS.blueGrey02,
@@ -699,34 +711,20 @@ const slides = {
   },
 
   /**
-   * closing — dark bg, centered title and optional subtitle/contact
-   * @param {PptxGenJS} pres
-   * @param {object} opts
-   * @param {string} opts.title
-   * @param {string} [opts.subtitle]
-   * @param {string} [opts.contact]
+   * closing — MASTER_DARK bg, centered title and optional subtitle/contact
    */
   closing(pres, opts = {}) {
     const { title = "", subtitle = "", contact = "" } = opts;
-    const slide = pres.addSlide();
-    slide.background = { color: COLORS.blueGrey03 };
-
-    // Try dark bg image
-    try {
-      slide.addImage({
-        path: ASSETS.darkBg,
-        x: 0, y: 0,
-        w: SLIDE.w, h: SLIDE.h,
-      });
-    } catch (e) { /* use solid bg */ }
+    _ensureMasters(pres);
+    const slide = pres.addSlide({ masterName: "MASTER_DARK" });
 
     // Top accent line
     _addTopAccentLine(slide);
 
     // Centered title
     slide.addText(title, {
-      x: MARGIN.left, y: 1.5,
-      w: CONTENT_AREA.w, h: 1.2,
+      x: MARGIN.left, y: 2.0,
+      w: CONTENT_AREA.w, h: 1.5,
       fontSize: SIZES.closingTitle,
       fontFace: FONTS.heading,
       bold: true,
@@ -738,8 +736,8 @@ const slides = {
     // Subtitle
     if (subtitle) {
       slide.addText(subtitle, {
-        x: MARGIN.left, y: 2.9,
-        w: CONTENT_AREA.w, h: 0.5,
+        x: MARGIN.left, y: 3.7,
+        w: CONTENT_AREA.w, h: 0.65,
         fontSize: SIZES.sectionHeader,
         fontFace: FONTS.body,
         color: COLORS.blue,
@@ -751,8 +749,8 @@ const slides = {
     // Contact
     if (contact) {
       slide.addText(contact, {
-        x: MARGIN.left, y: 3.5,
-        w: CONTENT_AREA.w, h: 0.4,
+        x: MARGIN.left, y: 4.5,
+        w: CONTENT_AREA.w, h: 0.5,
         fontSize: SIZES.label,
         fontFace: FONTS.body,
         color: COLORS.blueGrey02,
@@ -760,9 +758,7 @@ const slides = {
       });
     }
 
-    // Note: dark bg image already contains ICHITA brand mark — no extra logo needed
-    _addFooter(slide, { dark: true });
-
+    // Footer URL is in MASTER_DARK
     return slide;
   },
 };
@@ -775,25 +771,15 @@ const blocks = {
 
   /**
    * statCard — rounded card with big Betatron number
-   * @param {object} slide   PptxGenJS slide object
-   * @param {object} opts
-   * @param {string} opts.value         The KPI/stat value
-   * @param {string} opts.label         Card label
-   * @param {number} opts.x
-   * @param {number} opts.y
-   * @param {number} opts.w
-   * @param {number} opts.h
-   * @param {string} [opts.valueColor]  Override value color (default: COLORS.blue)
    */
   statCard(slide, opts = {}) {
     const {
       value = "",
       label = "",
-      x = 0, y = 0, w = 2.5, h = 1.5,
+      x = 0, y = 0, w = 3.0, h = 1.8,
       valueColor = COLORS.blue,
     } = opts;
 
-    // Card background
     slide.addShape("roundRect", {
       x, y, w, h,
       rectRadius: 0.1,
@@ -801,7 +787,6 @@ const blocks = {
       line: { color: COLORS.blueGrey01, width: 1 },
     });
 
-    // Value — Betatron display font
     slide.addText(value, {
       x: x + 0.1, y: y + 0.1,
       w: w - 0.2, h: h * 0.6,
@@ -812,7 +797,6 @@ const blocks = {
       valign: "middle",
     });
 
-    // Label
     slide.addText(label, {
       x: x + 0.1, y: y + h * 0.65,
       w: w - 0.2, h: h * 0.3,
@@ -826,19 +810,11 @@ const blocks = {
 
   /**
    * featureList — dot + title + description rows
-   * @param {object} slide
-   * @param {object} opts
-   * @param {Array<{title: string, description?: string}>} opts.items
-   * @param {number} opts.x
-   * @param {number} opts.y
-   * @param {number} opts.w
-   * @param {number} opts.h
-   * @param {string} [opts.dotColor]   Dot accent color (default: COLORS.blue)
    */
   featureList(slide, opts = {}) {
     const {
       items = [],
-      x = 0, y = 0, w = 4.0, h = 3.0,
+      x = 0, y = 0, w = 5.0, h = 3.5,
       dotColor = COLORS.blue,
     } = opts;
 
@@ -854,26 +830,23 @@ const blocks = {
       const rowY = y + i * rowH;
       const titleH = item.description ? rowH * 0.42 : rowH * 0.6;
 
-      // Dot
       slide.addShape("ellipse", {
         x: x + dotPad, y: rowY + rowH * 0.2,
         w: dotSize, h: dotSize,
-        fill: { color: dotColor },
-        line: { color: dotColor, width: 0 },
+        fill: { color: item.dotColor || dotColor },
+        line: { color: item.dotColor || dotColor, width: 0 },
       });
 
-      // Title
       slide.addText(item.title || "", {
         x: textX, y: rowY + 0.05,
         w: textW, h: titleH,
         fontSize: SIZES.body,
         fontFace: FONTS.heading,
         bold: true,
-        color: COLORS.blueGrey03,
+        color: item.titleColor || COLORS.blueGrey03,
         wrap: true,
       });
 
-      // Description
       if (item.description) {
         slide.addText(item.description, {
           x: textX, y: rowY + titleH + 0.05,
@@ -888,21 +861,18 @@ const blocks = {
   },
 
   /**
-   * insightBar — bottom callout strip with blue accent line
-   * @param {object} slide
-   * @param {object} opts
-   * @param {string} opts.text
-   * @param {number} [opts.y]   Y position (default: near bottom)
+   * insightBar — bottom callout strip with blue accent line.
+   * Default y = SLIDE.h - 1.05 = 6.45, above footer row at 6.95.
+   * contentH in comparison is capped to stay above insightBarY.
    */
   insightBar(slide, opts = {}) {
     const {
       text = "",
-      y = SLIDE.h - 1.05,
+      y = SLIDE.h - 1.05,   // 7.5 - 1.05 = 6.45
     } = opts;
 
     const barH = 0.55;
 
-    // Background strip
     slide.addShape("rect", {
       x: 0, y,
       w: SLIDE.w, h: barH,
@@ -910,7 +880,6 @@ const blocks = {
       line: { color: COLORS.offWhite, width: 0 },
     });
 
-    // Blue accent left line
     slide.addShape("rect", {
       x: 0, y,
       w: 0.06, h: barH,
@@ -918,7 +887,6 @@ const blocks = {
       line: { color: COLORS.blue, width: 0 },
     });
 
-    // Text
     slide.addText(text, {
       x: 0.2, y: y + 0.05,
       w: SLIDE.w - 0.4, h: barH - 0.1,
@@ -932,20 +900,12 @@ const blocks = {
 
   /**
    * table — alternating row table
-   * @param {object} slide
-   * @param {object} opts
-   * @param {string[]} opts.headers
-   * @param {string[][]} opts.rows
-   * @param {number} opts.x
-   * @param {number} opts.y
-   * @param {number} opts.w
-   * @param {number[]} [opts.colWidths]   Array of fractional widths (sum = 1.0)
    */
   table(slide, opts = {}) {
     const {
       headers = [],
       rows = [],
-      x = MARGIN.left, y = 1.2,
+      x = MARGIN.left, y = CONTENT_AREA.y,
       w = CONTENT_AREA.w,
       colWidths,
     } = opts;
@@ -958,10 +918,9 @@ const blocks = {
       ? colWidths.map(f => f * w)
       : Array(cols).fill(defaultFrac * w);
 
-    const rowH = 0.32;
-    const headerH = 0.38;
+    const rowH = 0.38;
+    const headerH = 0.44;
 
-    // Header row
     if (headers.length > 0) {
       headers.forEach((hdr, ci) => {
         const colX = x + colWArr.slice(0, ci).reduce((a, b) => a + b, 0);
@@ -983,7 +942,6 @@ const blocks = {
       });
     }
 
-    // Data rows
     rows.forEach((row, ri) => {
       const rowY = y + headerH + ri * rowH;
       const isAlt = ri % 2 === 1;
@@ -1008,22 +966,16 @@ const blocks = {
   },
 
   /**
-   * processFlow — horizontal boxes with arrows
-   * @param {object} slide
-   * @param {object} opts
-   * @param {string[]} opts.steps
-   * @param {number} opts.x
-   * @param {number} opts.y
-   * @param {number} opts.w
-   * @param {number} [opts.h]       Box height (default: 0.6)
-   * @param {string} [opts.color]   Box fill color (default: COLORS.blue)
+   * processFlow — horizontal boxes with arrows.
+   * With the wider 13.333" canvas, 8-step labels like "Ion exchange" / "Crystallize"
+   * fit single-line at 10pt — no abbreviations needed.
    */
   processFlow(slide, opts = {}) {
     const {
       steps = [],
-      x = MARGIN.left, y = 2.0,
+      x = MARGIN.left, y = CONTENT_AREA.y,
       w = CONTENT_AREA.w,
-      h = 0.6,
+      h = 0.65,
       color = COLORS.blue,
     } = opts;
 
@@ -1036,7 +988,6 @@ const blocks = {
     steps.forEach((step, i) => {
       const boxX = x + i * (boxW + arrowW);
 
-      // Box
       slide.addShape("roundRect", {
         x: boxX, y,
         w: boxW, h,
@@ -1045,7 +996,6 @@ const blocks = {
         line: { color, width: 0 },
       });
 
-      // Step label
       slide.addText(step, {
         x: boxX + 0.05, y,
         w: boxW - 0.1, h,
@@ -1058,7 +1008,6 @@ const blocks = {
         wrap: true,
       });
 
-      // Arrow between steps (VS-8: triangle arrowhead, darker BlueGrey03 for visibility)
       if (i < steps.length - 1) {
         const arrowX = boxX + boxW;
         slide.addShape("line", {
