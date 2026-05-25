@@ -78,6 +78,20 @@ SIZES = {
 # Safe content zone (inside the chrome card, below title+line, above footer)
 CONTENT_AREA = {"x": 0.92, "y": 1.40, "w": 11.50, "h": 5.30}
 
+# ---------------------------------------------------------------
+# TITLE SAFETY ZONE — DO NOT CHANGE WITHOUT RE-MEASURING THE CHROME
+# The content-frame chrome (image1.png) has the ICHITA logo + X
+# icon embedded in the top-left wedge. SAFE_TITLE_X reserves
+# horizontal space for that block so title text never overlaps,
+# regardless of title length or alignment. Verified 2026-05-25.
+# ---------------------------------------------------------------
+NOTCH_RIGHT      = 3.30           # measured right edge of the logo+X block (inches)
+TITLE_SAFETY_PAD = 0.30           # padding between logo block and title text
+SAFE_TITLE_X     = NOTCH_RIGHT + TITLE_SAFETY_PAD   # = 3.60
+SAFE_TITLE_Y     = 0.32           # below the chrome top edge
+SAFE_TITLE_W     = SLIDE_W - SAFE_TITLE_X - 0.50    # right margin 0.50 => ~9.23"
+SAFE_TITLE_H     = 0.85           # enough vertical room; auto-fit if 24pt
+
 # Layout names → indices in the reference template
 _LAYOUT_NAMES = {
     "Title Slide": 0,
@@ -285,28 +299,32 @@ def add_rich_text(slide, x, y, w, h, paragraphs, *, anchor=MSO_ANCHOR.TOP,
 def _add_title(slide, title_text, *, size=None):
     """Place the Ichita-style title on a slide.
 
-    Positioned at x=2.7" to clear the top-left logo notch. Blue accent
-    underline at y=0.92". Long titles (>45 chars) auto-scale to 24pt.
+    Uses SAFE_TITLE_X (3.60") to guarantee the text box starts clear of the
+    chrome's ICHITA logo + X-mark block (right edge ~3.30"). Blue accent
+    underline at y = SAFE_TITLE_Y + SAFE_TITLE_H + 0.05. Long titles
+    (>45 chars) auto-scale to 24pt.
     """
     if size is None:
         size = 24 if len(title_text) > 45 else 32
     tb = slide.shapes.add_textbox(
-        Inches(2.7), Inches(0.20), Inches(10.0), Inches(0.70))
+        Inches(SAFE_TITLE_X), Inches(SAFE_TITLE_Y),
+        Inches(SAFE_TITLE_W), Inches(SAFE_TITLE_H))
     tf = tb.text_frame
     tf.word_wrap = False
     tf.margin_left = Inches(0.0); tf.margin_right = Inches(0.0)
     tf.margin_top = Inches(0.0); tf.margin_bottom = Inches(0.0)
     p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.LEFT
+    p.alignment = PP_ALIGN.CENTER
     r = p.add_run()
     r.text = title_text
     r.font.name = FONT_AEONIK
     r.font.size = Pt(size)
     r.font.bold = True
     r.font.color.rgb = ICHITA_DARK
-    _force_align(p, PP_ALIGN.LEFT)
-    # Blue underline
-    add_rect(slide, 2.7, 0.92, 10.0, 0.05, ICHITA_BLUE)
+    _force_align(p, PP_ALIGN.CENTER)
+    # Blue underline — starts at SAFE_TITLE_X, same right edge
+    _line_y = SAFE_TITLE_Y + SAFE_TITLE_H + 0.05
+    add_rect(slide, SAFE_TITLE_X, _line_y, SAFE_TITLE_W, 0.05, ICHITA_BLUE)
     return tb
 
 
