@@ -24,9 +24,10 @@ import argparse
 import re
 import os
 import sys
+import math
 from docx import Document
 from docx.shared import Pt, Inches, Cm, RGBColor, Emu
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.section import WD_ORIENT
 from docx.oxml.ns import qn, nsdecls
@@ -68,6 +69,11 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BRAND_FONT = "Avenir Next"  # Closest system match to Aeonik
 THAI_FONT  = "Bai Jamjuree" # Thai font with matched metrics to geometric sans-serif
 THAI_SCALE = 0.9             # Thai 9pt / English 10pt — Bai Jamjuree one size down for visual balance
+# Min EXACT line-spacing ratio (× Thai pt) to clear stacked upper vowel+tone without
+# clipping in Word. Measured from Bai Jamjuree (raqm-shaped): tallest stack ขึ้ reaches
+# 1.21em above baseline; Word seats baseline ~1 font-descent (0.25em) above the box
+# bottom → need ≥ (1.21 + 0.25) = 1.46 × size. (10pt Latin → 9pt Thai → 13pt, matches.)
+THAI_LINE_RATIO = 1.46
 MONO_FONT  = "Courier New"
 TH_AEONIK_MODE = False       # True when TH Aeonik (unified Latin+Thai) is installed
 
@@ -83,26 +89,18 @@ _font_dirs = [
     "/usr/local/share/fonts",
 ]
 
-# Check TH Aeonik first (unified Latin+Thai font — no script splitting needed)
-for _fd in _font_dirs:
-    try:
-        if any("th-aeonik" in f.lower() or "thaeonik" in f.lower()
-               for f in os.listdir(_fd)):
-            BRAND_FONT = "TH Aeonik"
-            THAI_FONT = "TH Aeonik"
-            THAI_SCALE = 1.0
-            TH_AEONIK_MODE = True
-            break
-    except OSError:
-        pass
+# TH Aeonik unified-font mode disabled — always use split fonts
+# (Aeonik for Latin + Bai Jamjuree for Thai). This preserves per-script
+# language tagging so Word's spell checker uses the correct dictionary
+# for each script (en-US for Latin, th-TH for Thai).
+TH_AEONIK_MODE = False
 
-# Then existing Aeonik detection as fallback
-if not TH_AEONIK_MODE:
-    for _fd in _font_dirs:
-        if os.path.isdir(_fd):
-            if any("aeonik" in f.lower() for f in os.listdir(_fd)):
-                BRAND_FONT = "Aeonik"
-                break
+# Aeonik detection for Latin script
+for _fd in _font_dirs:
+    if os.path.isdir(_fd):
+        if any("aeonik" in f.lower() for f in os.listdir(_fd)):
+            BRAND_FONT = "Aeonik"
+            break
 
 # ── Import shared header/footer helpers ─────────────────────────────────────
 try:
@@ -188,23 +186,64 @@ def _add_split_run(paragraph, text, font_name, base_size, color, bold=False,
         run.font.name = THAI_FONT if is_thai else font_name
         run.font.size = thai_size if is_thai else base_size
         run.font.color.rgb = color
-        # Set language tag so Word doesn't spellcheck Thai as English
-        rPr = run._r.get_or_add_rPr()
-        lang = rPr.find(qn('w:lang'))
-        if lang is None:
-            lang = parse_xml(f'<w:lang {nsdecls("w")}/>')
-            rPr.append(lang)
-        if is_thai:
-            lang.set(qn('w:bidi'), 'th-TH')
-        else:
-            lang.set(qn('w:val'), 'en-US')
         if bold:
             run.font.bold = True
         if italic:
             run.font.italic = True
         if underline:
             run.font.underline = True
+        if is_thai:
+            _mark_thai_run(run, THAI_FONT, thai_size, bold=bold, italic=italic)
+        else:
+            _set_run_lang(run, val='en-US')
     return run if text else None
+
+
+def _set_run_lang(run, val=None, bidi=None):
+    """Set <w:lang> on a run (created in schema-valid position — lang is among
+    the last rPr children, so appending is correct)."""
+    rPr = run._r.get_or_add_rPr()
+    lang = rPr.find(qn('w:lang'))
+    if lang is None:
+        lang = parse_xml(f'<w:lang {nsdecls("w")}/>')
+        rPr.append(lang)
+    if val is not None:
+        lang.set(qn('w:val'), val)
+    if bidi is not None:
+        lang.set(qn('w:bidi'), bidi)
+    return lang
+
+
+def _mark_thai_run(run, thai_font, thai_size, bold=False, italic=False):
+    """Tag a run as Thai complex-script so Word proofs it with the Thai
+    dictionary instead of English.
+
+    A run carrying only Latin-category properties (w:rFonts ascii/hAnsi, w:b,
+    w:sz) is spell-checked against the *default* (Latin / inherited en-US)
+    language — which flags every Thai word. Thai is a complex script, so the run
+    must also declare the complex-script font (w:cs), bold (w:bCs), size (w:szCs)
+    and language (w:lang/@w:bidi). We also set w:lang/@w:val to th-TH so the
+    run's default proofing language is Thai too. Child order follows the CT_RPr
+    schema (rFonts → b → bCs → … → sz → szCs → … → lang)."""
+    rPr = run._r.get_or_add_rPr()
+    # complex-script font
+    rFonts = rPr.get_or_add_rFonts()
+    rFonts.set(qn('w:cs'), thai_font)
+    # complex-script bold (order-safe helper inserts right after <w:b>)
+    if bold:
+        rPr.get_or_add_bCs()
+    # complex-script size — insert right after <w:sz> (no get_or_add helper)
+    szCs = rPr.find(qn('w:szCs'))
+    if szCs is None:
+        szCs = parse_xml(f'<w:szCs {nsdecls("w")}/>')
+        sz_el = rPr.find(qn('w:sz'))
+        if sz_el is not None:
+            sz_el.addnext(szCs)
+        else:
+            rPr.append(szCs)
+    szCs.set(qn('w:val'), str(int(round(thai_size.pt * 2))))
+    # proofing language: Thai for both the default and complex-script slots
+    _set_run_lang(run, val='th-TH', bidi='th-TH')
 
 def set_cell_shading(cell, color_hex):
     """Apply background shading to a table cell."""
@@ -227,6 +266,103 @@ def set_table_borders(table, color="788F9C"):
         f'</w:tblBorders>'
     )
     tblPr.append(borders)
+
+
+def set_cell_top_border(cell, color_hex=HEX_BLUE, size=22):
+    """Add only a top accent border to a cell (used by KPI stat cards)."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcPr.append(parse_xml(
+        f'<w:tcBorders {nsdecls("w")}>'
+        f'  <w:top w:val="single" w:sz="{size}" w:space="0" w:color="{color_hex}"/>'
+        f'</w:tcBorders>'
+    ))
+
+
+def set_cell_margins(cell, top=120, bottom=100, left=160, right=160):
+    """Set internal padding (twips) for a single table cell."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcPr.append(parse_xml(
+        f'<w:tcMar {nsdecls("w")}>'
+        f'  <w:top w:w="{top}" w:type="dxa"/>'
+        f'  <w:bottom w:w="{bottom}" w:type="dxa"/>'
+        f'  <w:start w:w="{left}" w:type="dxa"/>'
+        f'  <w:end w:w="{right}" w:type="dxa"/>'
+        f'</w:tcMar>'
+    ))
+
+
+def add_kpi_cards(doc, cards, content_width_in=6.3, number_size=26, compact=False):
+    """Render a row of KPI 'stat cards' — a big Ichita-blue number with a grey
+    label beneath, each card carrying a blue top accent rule and a light
+    background. `cards` = list of (number, label) tuples.
+
+    Numbers are Latin → BRAND_FONT (Aeonik). Labels go through _add_split_run so
+    Thai segments keep Bai Jamjuree + th-TH language tagging (editable + spell-
+    checkable, same as the rest of the document). SINGLE line spacing lets the
+    number grow with its line box so it never clips the top accent rule.
+    """
+    n = len(cards)
+    if n == 0:
+        return
+    if compact:
+        number_size = min(number_size, 21)
+    if n >= 3:                              # narrower columns → smaller number
+        number_size = min(number_size, 17)
+    cols = 2 * n - 1                        # cards interleaved with spacer gutters
+    gutter_in = 0.18
+    card_w = (content_width_in - gutter_in * (n - 1)) / n if n else content_width_in
+
+    table = doc.add_table(rows=1, cols=cols)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = False
+    # Fixed layout so LibreOffice/Word honour the column widths
+    tblPr = table._tbl.tblPr
+    tblPr.append(parse_xml(f'<w:tblLayout {nsdecls("w")} w:type="fixed"/>'))
+
+    for idx, cell in enumerate(table.rows[0].cells):
+        if idx % 2 == 1:                   # spacer column — empty gutter
+            cell.width = Inches(gutter_in)
+            continue
+        value, unit, label = cards[idx // 2]
+        cell.width = Inches(card_w)
+        set_cell_shading(cell, "F8FAFB")
+        set_cell_top_border(cell, HEX_BLUE, size=22)
+        set_cell_margins(cell,
+                         top=70 if compact else 120,
+                         bottom=60 if compact else 100,
+                         left=160, right=160)
+
+        # Big number — Latin, never clips (SINGLE line spacing)
+        pnum = cell.paragraphs[0]
+        pnum.paragraph_format.space_before = Pt(1 if compact else 2)
+        pnum.paragraph_format.space_after = Pt(0)
+        pnum.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        rnum = pnum.add_run(value)
+        rnum.font.name = BRAND_FONT
+        rnum.font.size = Pt(number_size)
+        rnum.font.bold = True
+        rnum.font.color.rgb = ICHITA_BLUE
+        if unit:
+            # unit on its own small line beneath the value (Thai-aware, blue)
+            punit = cell.add_paragraph()
+            punit.paragraph_format.space_before = Pt(0)
+            punit.paragraph_format.space_after = Pt(0)
+            punit.paragraph_format.line_spacing = Pt(12)
+            punit.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+            _add_split_run(punit, unit, BRAND_FONT, Pt(9.5), ICHITA_BLUE, bold=True)
+
+        # Label — grey, Thai-aware (Bai Jamjuree + th-TH tag)
+        plabel = cell.add_paragraph()
+        plabel.paragraph_format.space_before = Pt(1)
+        plabel.paragraph_format.space_after = Pt(2)
+        plabel.paragraph_format.line_spacing = Pt(math.ceil(8.5 * THAI_SCALE * THAI_LINE_RATIO))
+        plabel.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY   # clears Thai marks at label size
+        _add_split_run(plabel, label, BRAND_FONT, Pt(8.5), ICHITA_BLUE_GREY2)
+
+    # Small spacing after the card row
+    sp = doc.add_paragraph()
+    sp.paragraph_format.space_before = Pt(1 if compact else 2)
+    sp.paragraph_format.space_after = Pt(2 if compact else 4)
 
 
 def add_formatted_text(paragraph, text, base_font=None, base_size=Pt(10),
@@ -446,7 +582,7 @@ def add_title_page_band(doc):
 
 # ── Main Conversion ──────────────────────────────────────────────────────────
 
-def convert_md_to_docx(input_path, output_path, logo_path=None):
+def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False):
     """Convert a Markdown file to an Ichita-branded DOCX.
 
     Args:
@@ -468,8 +604,15 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
     font.name = BRAND_FONT
     font.size = Pt(10)
     font.color.rgb = ICHITA_BLUE_GREY3
-    style.paragraph_format.space_after = Pt(5)
-    style.paragraph_format.space_before = Pt(2)
+    style.paragraph_format.space_after = Pt(3 if compact else 5)
+    style.paragraph_format.space_before = Pt(1 if compact else 2)
+    # Line spacing: Thai stacks base + upper vowel + tone mark above the ascent,
+    # which Single spacing clips in Word. Use EXACTLY 13pt for 10pt body text
+    # (= 1.3x) — the value confirmed clean in Word. Exact spacing is per-size, so
+    # headings/labels/numbers set their own exact value below (a fixed box smaller
+    # than the glyph would clip it).
+    style.paragraph_format.line_spacing = Pt(13)
+    style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
     # Set Complex Script font + scaled size on default style
     from docx.oxml import OxmlElement
     rPr = style.element.get_or_add_rPr()
@@ -495,19 +638,32 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
         szCs_el = OxmlElement('w:szCs')
         szCs_el.set(qn('w:val'), scaled_hp)
         rPr.append(szCs_el)
+    # Default proofing language: English for Latin text, Thai for complex script.
+    # Inherited by every run, so even untagged runs (KPI numbers, etc.) proof Thai
+    # with the Thai dictionary instead of English.
+    lang_el = rPr.find(qn('w:lang'))
+    if lang_el is None:
+        lang_el = OxmlElement('w:lang')
+        rPr.append(lang_el)
+    lang_el.set(qn('w:val'), 'en-US')
+    lang_el.set(qn('w:bidi'), 'th-TH')
 
     # ── Heading styles (Ichita branding) ──
     heading_configs = [
-        (1, 22, ICHITA_BLUE_GREY3),     # H1: large, dark
-        (2, 15, ICHITA_BLUE_GREY3),     # H2: section headers
-        (3, 12, ICHITA_BLUE),           # H3: subsections in brand blue
-        (4, 10.5, ICHITA_BLUE),         # H4: minor subsections
+        (1, 18 if compact else 22, ICHITA_BLUE_GREY3),   # H1: large, dark
+        (2, 13 if compact else 15, ICHITA_BLUE_GREY3),   # H2: section headers
+        (3, 11 if compact else 12, ICHITA_BLUE),         # H3: subsections in brand blue
+        (4, 10.5, ICHITA_BLUE),                          # H4: minor subsections
     ]
     for level, size, color in heading_configs:
         hs = doc.styles[f'Heading {level}']
         hs.font.name = BRAND_FONT
         hs.font.size = Pt(size)
         hs.font.color.rgb = color
+        # Exact line spacing = measured Thai clearance ratio × this heading's Thai
+        # size (Latin size × THAI_SCALE), so the box clears stacked upper marks.
+        hs.paragraph_format.line_spacing = Pt(math.ceil(size * THAI_SCALE * THAI_LINE_RATIO))
+        hs.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
         hs.font.bold = True
         # Set Complex Script font + scaled size on heading style
         h_rPr = hs.element.get_or_add_rPr()
@@ -533,17 +689,17 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
             h_szCs.set(qn('w:val'), h_scaled_hp)
             h_rPr.append(h_szCs)
         if level == 1:
-            hs.paragraph_format.space_before = Pt(20)
-            hs.paragraph_format.space_after = Pt(8)
+            hs.paragraph_format.space_before = Pt(10 if compact else 20)
+            hs.paragraph_format.space_after = Pt(5 if compact else 8)
         elif level == 2:
-            hs.paragraph_format.space_before = Pt(16)
-            hs.paragraph_format.space_after = Pt(6)
+            hs.paragraph_format.space_before = Pt(9 if compact else 16)
+            hs.paragraph_format.space_after = Pt(4 if compact else 6)
         elif level == 3:
-            hs.paragraph_format.space_before = Pt(12)
-            hs.paragraph_format.space_after = Pt(5)
+            hs.paragraph_format.space_before = Pt(7 if compact else 12)
+            hs.paragraph_format.space_after = Pt(3 if compact else 5)
         else:
-            hs.paragraph_format.space_before = Pt(8)
-            hs.paragraph_format.space_after = Pt(4)
+            hs.paragraph_format.space_before = Pt(5 if compact else 8)
+            hs.paragraph_format.space_after = Pt(3 if compact else 4)
 
     # ── List Bullet style ──
     if 'List Bullet' in doc.styles:
@@ -553,11 +709,15 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
         lb.font.color.rgb = ICHITA_BLUE_GREY3
 
     # ── Page margins ──
+    v_margin = Cm(1.4) if compact else Cm(2.5)
+    h_margin = Cm(1.6) if compact else Cm(2.5)
     for section in doc.sections:
-        section.top_margin = Cm(2.5)
-        section.bottom_margin = Cm(2.5)
-        section.left_margin = Cm(2.5)
-        section.right_margin = Cm(2.5)
+        section.top_margin = v_margin
+        section.bottom_margin = v_margin
+        section.left_margin = h_margin
+        section.right_margin = h_margin
+    # Content width (inches) for full-bleed elements like KPI cards (A4 = 21cm wide)
+    content_width_in = (21.0 - 2 * (1.6 if compact else 2.5)) / 2.54
 
     # ── Header and footer are added before doc.save() below ──
 
@@ -581,6 +741,28 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
             )
             pPr.append(pBdr)
             i += 1
+            continue
+
+        # ── KPI stat-card block (::: kpi … :::) ──
+        if re.match(r'^:::\s*kpi\b', stripped.strip(), re.I):
+            i += 1
+            cards = []
+            while i < len(lines):
+                row = lines[i].rstrip('\n').strip()
+                if row.startswith(':::'):
+                    i += 1
+                    break
+                if row and '|' in row:
+                    number_part, label = row.split('|', 1)
+                    # optional unit after "::" → "value :: unit | label"
+                    if '::' in number_part:
+                        value, unit = number_part.split('::', 1)
+                    else:
+                        value, unit = number_part, ''
+                    cards.append((value.strip(), unit.strip(), label.strip()))
+                i += 1
+            if cards:
+                add_kpi_cards(doc, cards, content_width_in=content_width_in, compact=compact)
             continue
 
         # ── Code block (```) ──
@@ -634,6 +816,10 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
                 clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', heading_text)
                 _add_split_run(p, clean_text, BRAND_FONT, Pt(26),
                                ICHITA_BLUE_GREY3, bold=True)
+                # Exact line spacing for the ACTUAL title size (26pt → Thai 23.4pt),
+                # so stacked Thai marks (e.g. ต้น) don't clip on a wrapped title line.
+                p.paragraph_format.line_spacing = Pt(math.ceil(26 * THAI_SCALE * THAI_LINE_RATIO))
+                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
                 first_h1 = False
                 i += 1
 
@@ -665,6 +851,11 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
                 for run in p.runs:
                     run.font.color.rgb = colors[level]
                     run.font.bold = True
+                # Exact line spacing matched to the heading's ACTUAL run size
+                # (sizes[level]) so Thai stacked marks clear — the Heading style
+                # default is computed from a different size and would clip.
+                p.paragraph_format.line_spacing = Pt(math.ceil(sizes[level].pt * THAI_SCALE * THAI_LINE_RATIO))
+                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
 
             i += 1
             continue
@@ -784,6 +975,9 @@ def main():
     parser.add_argument("--logo", default=None,
                         help="Path to logo PNG for header "
                              "(default: bundled Ichita wordmark)")
+    parser.add_argument("--compact", action="store_true",
+                        help="Tighter margins, spacing and heading sizes "
+                             "(for dense one-page briefs)")
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
@@ -801,7 +995,7 @@ def main():
 
     print(f"Converting: {os.path.basename(args.input)}")
     print(f"Brand style: ICHITA")
-    convert_md_to_docx(args.input, output, logo_path=logo)
+    convert_md_to_docx(args.input, output, logo_path=logo, compact=args.compact)
 
 
 if __name__ == "__main__":

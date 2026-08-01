@@ -10,8 +10,8 @@ Pipeline steps:
   2. Merge GPOS/GDEF/GSUB tables from Bai Jamjuree (mark positioning)
   3. Apply metadata — RIBBI naming, OS/2 v4, fsType, panose, CFF fontName
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
-  5. Set vertical metrics — usWinAscent/Descent for Thai clipping prevention
-  6. TTX roundtrip — sort coverage tables (Uniscribe compliance)
+  5. Set vertical metrics — hhea/sTypo/usWin agree, Thai-safe descent
+  6. Sort GSUB/GPOS Coverage tables + clean Mac cmap (Uniscribe compliance)
   7. Verify — Thai cmap, Latin match, GPOS, OS/2 bits, metrics
 
 Sources:
@@ -26,7 +26,6 @@ Requires: fontTools >= 4.0
 """
 
 import copy as copy_mod
-import os
 import sys
 import warnings
 from pathlib import Path
@@ -148,11 +147,17 @@ def _add_glyph_to_cff(aeonik_font, bai_font, bai_glyph_name, target_name):
         return False
 
     bai_glyph = bai_glyph_set[bai_glyph_name]
-    pen = T2CharStringPen(bai_glyph.width, bai_glyph_set)
+    # T2CharStringPen encodes the width operand assuming nominalWidthX == 0.
+    # This charstring adopts Aeonik's Private DICT below, so pre-compensate:
+    # the operand must be (width - nominalWidthX) for the rasteriser to decode
+    # the intended advance. Without this every Thai glyph decodes nominalWidthX
+    # units too wide in any consumer that trusts charstring widths over hmtx.
+    priv = top_dict.Private
+    pen = T2CharStringPen(bai_glyph.width - priv.nominalWidthX, bai_glyph_set)
     bai_glyph.draw(pen)
     charstring = pen.getCharString()
 
-    charstring.private = top_dict.Private
+    charstring.private = priv
     charstring.globalSubrs = getattr(cff.cff, "GlobalSubrs", [])
 
     new_index = len(charstrings.charStringsIndex)
@@ -213,12 +218,148 @@ def copy_thai_glyphs(aeonik_font, bai_font):
 # Step 2: Merge GPOS/GDEF/GSUB
 # ---------------------------------------------------------------------------
 
+def _shift_nested_lookups(lookup, offset):
+    """Lookups can invoke other lookups by index; those indices move too."""
+    for sub in lookup.SubTable or []:
+        for field in ("SubstLookupRecord", "PosLookupRecord"):
+            for rec in getattr(sub, field, None) or []:
+                rec.LookupListIndex += offset
+        for rule_set_field in ("ChainSubRuleSet", "SubRuleSet",
+                               "ChainPosRuleSet", "PosRuleSet",
+                               "ChainSubClassSet", "SubClassSet",
+                               "ChainPosClassSet", "PosClassSet"):
+            for rule_set in getattr(sub, rule_set_field, None) or []:
+                if rule_set is None:
+                    continue
+                for attr in ("ChainSubRule", "SubRule", "ChainPosRule", "PosRule",
+                             "ChainSubClassRule", "SubClassRule",
+                             "ChainPosClassRule", "PosClassRule"):
+                    for rule in getattr(rule_set, attr, None) or []:
+                        for field in ("SubstLookupRecord", "PosLookupRecord"):
+                            for rec in getattr(rule, field, None) or []:
+                                rec.LookupListIndex += offset
+
+
+def _union_ot(base_table, add_table, take_scripts):
+    """Append add_table's lookups/features, then adopt only `take_scripts`.
+
+    Aeonik keeps its own glyph IDs (Thai is appended after them), so its
+    GSUB/GPOS stay valid verbatim. Bai Jamjuree's Thai lookups are grafted on
+    top, and only the Thai script record is taken — 'latn' and 'DFLT' stay
+    Aeonik's, so Latin kerning and ligatures survive the merge.
+    """
+    base, add = base_table.table, add_table.table
+    offset = len(base.LookupList.Lookup)
+
+    for lk in add.LookupList.Lookup:
+        new = copy_mod.deepcopy(lk)
+        _shift_nested_lookups(new, offset)
+        base.LookupList.Lookup.append(new)
+    base.LookupList.LookupCount = len(base.LookupList.Lookup)
+
+    feature_map = {}
+    for i, frec in enumerate(add.FeatureList.FeatureRecord):
+        new = copy_mod.deepcopy(frec)
+        new.Feature.LookupListIndex = [x + offset
+                                       for x in new.Feature.LookupListIndex]
+        new.Feature.LookupCount = len(new.Feature.LookupListIndex)
+        base.FeatureList.FeatureRecord.append(new)
+        feature_map[i] = len(base.FeatureList.FeatureRecord) - 1
+    base.FeatureList.FeatureCount = len(base.FeatureList.FeatureRecord)
+
+    def remap(langsys):
+        if langsys is None:
+            return
+        langsys.FeatureIndex = [feature_map[i] for i in langsys.FeatureIndex
+                                if i in feature_map]
+        langsys.FeatureCount = len(langsys.FeatureIndex)
+        if getattr(langsys, "ReqFeatureIndex", 0xFFFF) != 0xFFFF:
+            langsys.ReqFeatureIndex = feature_map.get(
+                langsys.ReqFeatureIndex, 0xFFFF)
+
+    records = base.FeatureList.FeatureRecord
+
+    def absorb(dst, src):
+        """Union src's (already remapped) features into dst, merging by tag.
+
+        A LangSys must not list the same feature tag twice — consumers take
+        the first and ignore the rest. Aeonik's italics register a stub 'mark'
+        feature under 'thai'; appending Bai's real 'mark' beside it would let
+        the stub win and silently kill Thai mark positioning. So same-tag
+        features are combined into a single fresh FeatureRecord.
+        """
+        if dst is None or src is None:
+            return
+        by_tag = {records[i].FeatureTag: i for i in reversed(dst.FeatureIndex)}
+        for i in src.FeatureIndex:
+            tag = records[i].FeatureTag
+            if tag not in by_tag:
+                dst.FeatureIndex.append(i)
+                by_tag[tag] = i
+                continue
+            # Clone rather than mutate: the existing record is likely shared
+            # with the 'latn'/'DFLT' scripts, which must not gain Thai lookups.
+            old = records[by_tag[tag]]
+            merged = copy_mod.deepcopy(old)
+            seen = set(merged.Feature.LookupListIndex)
+            merged.Feature.LookupListIndex += [
+                x for x in records[i].Feature.LookupListIndex if x not in seen]
+            merged.Feature.LookupListIndex.sort()
+            merged.Feature.LookupCount = len(merged.Feature.LookupListIndex)
+            records.append(merged)
+            new_idx = len(records) - 1
+            dst.FeatureIndex = [new_idx if x == by_tag[tag] else x
+                                for x in dst.FeatureIndex]
+            by_tag[tag] = new_idx
+        dst.FeatureIndex.sort()
+        dst.FeatureCount = len(dst.FeatureIndex)
+        base.FeatureList.FeatureCount = len(records)
+        if getattr(dst, "ReqFeatureIndex", 0xFFFF) == 0xFFFF:
+            dst.ReqFeatureIndex = getattr(src, "ReqFeatureIndex", 0xFFFF)
+
+    existing = {sr.ScriptTag: sr for sr in base.ScriptList.ScriptRecord}
+    for srec in add.ScriptList.ScriptRecord:
+        if srec.ScriptTag not in take_scripts:
+            continue
+        new = copy_mod.deepcopy(srec)
+        remap(new.Script.DefaultLangSys)
+        for lsr in new.Script.LangSysRecord or []:
+            remap(lsr.LangSys)
+
+        # Aeonik's italics ship a stub 'thai' ScriptRecord with no Thai glyphs
+        # behind it. Skipping on collision would drop Bai's entire Thai feature
+        # set, so union into the existing record instead of ignoring it.
+        prior = existing.get(srec.ScriptTag)
+        if prior is None:
+            base.ScriptList.ScriptRecord.append(new)
+            continue
+        if prior.Script.DefaultLangSys is None:
+            prior.Script.DefaultLangSys = new.Script.DefaultLangSys
+        else:
+            absorb(prior.Script.DefaultLangSys, new.Script.DefaultLangSys)
+        by_tag = {l.LangSysTag: l for l in prior.Script.LangSysRecord or []}
+        for lsr in new.Script.LangSysRecord or []:
+            if lsr.LangSysTag in by_tag:
+                absorb(by_tag[lsr.LangSysTag].LangSys, lsr.LangSys)
+            else:
+                prior.Script.LangSysRecord = (prior.Script.LangSysRecord or []) + [lsr]
+        if prior.Script.LangSysRecord:
+            prior.Script.LangSysRecord.sort(key=lambda l: l.LangSysTag)
+            prior.Script.LangSysCount = len(prior.Script.LangSysRecord)
+    # ScriptRecords must be sorted by tag
+    base.ScriptList.ScriptRecord.sort(key=lambda r: r.ScriptTag)
+    base.ScriptList.ScriptCount = len(base.ScriptList.ScriptRecord)
+
+
 def merge_ot_tables(aeonik_font, bai_font):
     if "GPOS" not in bai_font:
         return
 
-    aeonik_font["GPOS"] = copy_mod.deepcopy(bai_font["GPOS"])
-    gpos_n = len(bai_font["GPOS"].table.LookupList.Lookup)
+    if "GPOS" in aeonik_font:
+        _union_ot(aeonik_font["GPOS"], bai_font["GPOS"], {"thai"})
+    else:
+        aeonik_font["GPOS"] = copy_mod.deepcopy(bai_font["GPOS"])
+    gpos_n = len(aeonik_font["GPOS"].table.LookupList.Lookup)
     scripts = [sr.ScriptTag for sr in aeonik_font["GPOS"].table.ScriptList.ScriptRecord]
 
     if "GDEF" in bai_font:
@@ -239,8 +380,11 @@ def merge_ot_tables(aeonik_font, bai_font):
 
     gsub_n = 0
     if "GSUB" in bai_font:
-        aeonik_font["GSUB"] = copy_mod.deepcopy(bai_font["GSUB"])
-        gsub_n = len(bai_font["GSUB"].table.LookupList.Lookup)
+        if "GSUB" in aeonik_font:
+            _union_ot(aeonik_font["GSUB"], bai_font["GSUB"], {"thai"})
+        else:
+            aeonik_font["GSUB"] = copy_mod.deepcopy(bai_font["GSUB"])
+        gsub_n = len(aeonik_font["GSUB"].table.LookupList.Lookup)
 
     print(f"     [2] OT tables: GPOS={gpos_n} lookups, GDEF={marks} marks, "
           f"GSUB={gsub_n} lookups, scripts={','.join(scripts)}")
@@ -312,32 +456,145 @@ def set_thai_bits(font):
 # Step 5: Vertical metrics
 # ---------------------------------------------------------------------------
 
+# Line box. Thai ink reaches +987/-364 (Bai) vs Latin +898/-206 (Aeonik), and
+# GPOS mark stacking pushes higher still, so the descent is deepened past both
+# sources. All three metric sets must agree: browsers honour sTypo, Word and
+# most PDF engines honour hhea/usWin. Leaving them to disagree made the same
+# file render at 1.20 em in one and 2.11 em in the other.
+ASCENT, DESCENT, LINEGAP = 1000, -300, 0
+
+# Clipping box — a different thing from the line box. usWinAscent/usWinDescent
+# bound what GDI will draw, so they must contain every glyph's ink, not just the
+# ink of the cmap-reachable ones.
+#
+# These were 1050/400, which did not. The overflow is not theoretical: Bai
+# Jamjuree substitutes small tone-mark variants (uni0E48.small and friends) via
+# GSUB for two-level stacks, and those are reachable only through shaping, never
+# through cmap. Shaping 'น้ำเชื่อม' puts uni0E48.small at +1136 and 'ฟั้น' puts
+# uni0E49.small at +1168 in Bold — 86 and 118 units above the old ceiling, so
+# the top of the tone mark was cut off. Raw glyph ink runs to +1225/-561 across
+# the six weights; the box now clears that with headroom.
+#
+# Raising these does not change line spacing: USE_TYPO_METRICS is set below, so
+# consumers take spacing from the sTypo set above.
+WIN_ASCENT, WIN_DESCENT = 1250, 570
+
+
 def set_vertical_metrics(font):
     os2 = font["OS/2"]
     hhea = font["hhea"]
-    os2.usWinAscent = 1550
-    os2.usWinDescent = 561
-    hhea.ascent = 1550
-    hhea.descent = -561
-    # sTypoAscender/sTypoDescender/sTypoLineGap untouched
-    print(f"     [5] Metrics: winAsc=1550 winDes=561 hhea=1550/-561 "
-          f"(sTypo={os2.sTypoAscender}/{os2.sTypoDescender}/{os2.sTypoLineGap} kept)")
+    os2.usWinAscent = WIN_ASCENT
+    os2.usWinDescent = WIN_DESCENT
+    hhea.ascent, hhea.descent, hhea.lineGap = ASCENT, DESCENT, LINEGAP
+    os2.sTypoAscender, os2.sTypoDescender, os2.sTypoLineGap = ASCENT, DESCENT, LINEGAP
+    os2.fsSelection |= USE_TYPO          # bit 7 — prefer the sTypo set
+    print(f"     [5] Metrics: hhea/sTypo={ASCENT}/{DESCENT}/{LINEGAP} "
+          f"win={WIN_ASCENT}/{WIN_DESCENT} USE_TYPO_METRICS=on")
 
 
 # ---------------------------------------------------------------------------
 # Step 6: TTX roundtrip (sort coverage tables)
 # ---------------------------------------------------------------------------
 
-def ttx_roundtrip(font_path):
-    import tempfile
-    ttx_path = tempfile.mktemp(suffix=".ttx")
-    f = TTFont(str(font_path))
-    f.saveXML(ttx_path)
-    f2 = TTFont()
-    f2.importXML(ttx_path)
-    f2.save(str(font_path))
-    os.unlink(ttx_path)
-    print(f"     [6] TTX roundtrip: coverage tables sorted")
+def _cov_perm(cov, gid):
+    """Permutation sorting cov.glyphs by GID, or None if already ascending."""
+    ids = [gid[g] for g in cov.glyphs]
+    if ids == sorted(ids):
+        return None
+    return sorted(range(len(ids)), key=lambda i: ids[i])
+
+
+def _cov_apply(cov, perm, *parallel):
+    """Reorder cov.glyphs, and every Coverage-index-parallel array identically."""
+    cov.glyphs = [cov.glyphs[i] for i in perm]
+    for lst in parallel:
+        if lst is not None:
+            lst[:] = [lst[i] for i in perm]
+
+
+def sort_coverage(font):
+    """Restore ascending glyph-ID order in every GSUB/GPOS Coverage table.
+
+    GSUB/GPOS are copied wholesale from Bai Jamjuree, where each Coverage was
+    sorted against *Bai's* glyph IDs. Re-parented onto Aeonik's glyph order
+    those lists are no longer ascending, which violates the OpenType spec:
+    consumers binary-search Coverage. HarfBuzz tolerates it, Uniscribe and
+    DirectWrite do not, so Thai shaping breaks only on Windows.
+
+    Several subtables index a sibling array by Coverage index (MarkArray,
+    BaseArray, PairSet, ...). Those must be permuted with the Coverage or the
+    sort silently reattaches marks to the wrong anchors.
+    """
+    gid = {g: i for i, g in enumerate(font.getGlyphOrder())}
+    fixed = 0
+
+    for tag in ("GSUB", "GPOS"):
+        if tag not in font:
+            continue
+        for lookup in font[tag].table.LookupList.Lookup:
+            for st in lookup.SubTable or []:
+                kind = type(st).__name__
+
+                # --- Coverage index selects a parallel record: permute both
+                if kind == "MarkBasePos":
+                    pairs = ((st.MarkCoverage, st.MarkArray.MarkRecord),
+                             (st.BaseCoverage, st.BaseArray.BaseRecord))
+                elif kind == "MarkMarkPos":
+                    pairs = ((st.Mark1Coverage, st.Mark1Array.MarkRecord),
+                             (st.Mark2Coverage, st.Mark2Array.Mark2Record))
+                elif kind == "MarkLigPos":
+                    pairs = ((st.MarkCoverage, st.MarkArray.MarkRecord),
+                             (st.LigatureCoverage, st.LigatureArray.LigatureAttach))
+                elif kind == "PairPos":
+                    # format 2 is class-based and has no PairSet
+                    pairs = ((st.Coverage, getattr(st, "PairSet", None)),)
+                elif kind == "SinglePos":
+                    pairs = ((st.Coverage, getattr(st, "Value", None)),)
+                elif kind == "CursivePos":
+                    pairs = ((st.Coverage, getattr(st, "EntryExitRecord", None)),)
+                else:
+                    pairs = None
+
+                if pairs is not None:
+                    for cov, arr in pairs:
+                        perm = _cov_perm(cov, gid)
+                        if perm:
+                            _cov_apply(cov, perm, arr)
+                            fixed += 1
+                    continue
+
+                # --- pure sets: membership only, order carries no meaning
+                for field in ("BacktrackCoverage", "InputCoverage",
+                              "LookAheadCoverage"):
+                    for cov in getattr(st, field, None) or []:
+                        perm = _cov_perm(cov, gid)
+                        if perm:
+                            _cov_apply(cov, perm)
+                            fixed += 1
+                cov = getattr(st, "Coverage", None)
+                if cov is not None and hasattr(cov, "glyphs"):
+                    perm = _cov_perm(cov, gid)
+                    if perm:
+                        _cov_apply(cov, perm)
+                        fixed += 1
+
+    return fixed
+
+
+def fix_mac_cmap(font):
+    """Drop codes >255 from the (1,0) subtable — it is a single-byte platform.
+
+    The merge wrote raw Thai codepoints (up to U+0E5B) into the Macintosh
+    subtable, where only 0-255 is addressable.
+    """
+    dropped = 0
+    for t in font["cmap"].tables:
+        if (t.platformID, t.platEncID) == (1, 0):
+            over = [c for c in t.cmap if c > 255]
+            for c in over:
+                del t.cmap[c]
+            dropped += len(over)
+    return dropped
 
 
 # ---------------------------------------------------------------------------
@@ -453,11 +710,13 @@ def build_font(weight_name, aeonik_file, bai_file):
     # Step 5: Vertical metrics
     set_vertical_metrics(aeonik)
 
-    # Save (before TTX roundtrip)
-    aeonik.save(str(output_path))
+    # Step 6: Spec compliance — Coverage ordering + single-byte Mac cmap
+    n_cov = sort_coverage(aeonik)
+    n_mac = fix_mac_cmap(aeonik)
+    print(f"     [6] Coverage tables re-sorted: {n_cov} | "
+          f"Mac cmap codes >255 dropped: {n_mac}")
 
-    # Step 6: TTX roundtrip
-    ttx_roundtrip(output_path)
+    aeonik.save(str(output_path))
 
     size_kb = output_path.stat().st_size / 1024
     print(f"     Saved: {output_path.name} ({size_kb:.0f} KB)")
