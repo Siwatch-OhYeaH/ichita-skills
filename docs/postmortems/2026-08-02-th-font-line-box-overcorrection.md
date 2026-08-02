@@ -212,3 +212,115 @@ build already observed clean, but that is inference, not measurement.
   Aeonik + Bai and does not use these fonts. (Open.)
 - **Full Slussen source is still missing** — 4 faces available, the old build had 10.
   Do not synthesise italics by shearing. (Open.)
+
+---
+
+# Addendum — Thai upper marks fused into the consonant in Word
+
+**Same day, after the line box was corrected.**
+
+## Summary
+
+Siwatch's next QC pass reported the Latin was now close but "Thai is broken along
+with Bai Jamjuree itself", pointing at Sarabun as correctly engineered. It was a
+clearance defect: the gap between a consonant and the vowel or tone above it was
+under one screen pixel at text sizes, so Word fused them. Fixed by measuring every
+base/mark pair and lifting the short anchors to a 72/1000 em floor, plus rejecting
+glyphs that FontForge deformed during the weight match. All 18 faces now measure
+71–72 against Sarabun's 73.
+
+## Symptom
+
+At 11 pt in Word, `กลิ่น`, `เพื่อ` and `สิทธิ์` render as dark blobs — the vowel and
+tone merge into the consonant below. Sarabun at the same size stays legible. The
+exported PDF looks better than the screen, which is what made it read as a Word
+rendering bug.
+
+## Root cause
+
+Minimum clearance between consonant ink and upper-mark ink, in 1/1000 em, measured
+against the consonant body (10th percentile across 46 bases):
+
+| font | p10 | median |
+|---|---|---|
+| Sarabun (reference) | 73.0 | 86.3 |
+| Bai Jamjuree | 65.7 | 80.0 |
+| TH-Aeonik Regular | 58.5 | 67.1 |
+| TH-Aeonik Medium | 31.1 | 48.3 |
+| TH-Aeonik Bold | 5.4 | 24.0 |
+| TH-Aeonik Black | 0.0 | 0.6 |
+
+One em is 14.7 px at 11 pt on a 96 dpi screen, so **68/1000 em is one pixel**. Bai
+starts tight — 66 is under a pixel already, which is why Siwatch saw the same fault
+in Bai — and this pipeline makes it worse in two ways:
+
+1. **Scale then embolden.** Thai is scaled to the Latin x-height (~0.87 for Aeonik),
+   which shrinks the gap proportionally, then emboldened to match the Latin stem,
+   which grows the consonant and the mark toward each other. Clearance tracks the
+   embolden monotonically across the whole ladder.
+
+2. **FontForge deformation.** `changeWeight(-9.5)` on `BaiJamjuree-ExtraLightItalic`
+   returned `๊` stretched from y659 down to y418 — 241 units, below its own anchor.
+   `TH-Aeonik-ThinItalic` shipped with it and measured a p10 of 2.4 where the upright
+   `Thin` measured 87.
+
+## Fix
+
+`scripts/th_mark_clearance.py`. For every base/mark pair the shaper can actually
+produce, measure the true 2-D distance between outlines and lift each short anchor
+to `TARGET = 72`.
+
+Three details that were each wrong on the first attempt:
+
+- **Mark classes.** A mark attaches only to the `BaseAnchor` at its own
+  `MarkRecord.Class`. Pairing every mark with every anchor reported collisions the
+  shaper never produces.
+- **The metric.** A column-wise vertical measure reads `ป` + `ํ` as a deep collision
+  because the mark shares columns with the ascender while actually sitting in the
+  open space beside it — Sarabun scores the same false negative, which is the tell.
+  Clearance is measured in 2-D and against the consonant *body*, excluding ascender
+  ink, which is also the only distance raising the anchor changes.
+- **Iteration.** The nearest point is often diagonal, so lifting by `d` buys less
+  than `d` of distance. A single pass computed from the shortfall stalled
+  TH-Slussen-Bold at 60 against a target of 72; raising the per-anchor cap changed
+  nothing, which proved the cap was never the constraint.
+
+`th_thai_prep._graft_outlines` now rejects Thai glyphs whose bounding box moved
+further than the weight change can account for, keeping the source outline.
+Contour count was tried as a second signal and dropped: thinning legitimately
+closes the loop of `ข` `ค` `ง` from two contours to one, and screening on it
+rejected ~100 Thai glyphs per weight, leaving the consonants at source weight and
+undoing the stem match.
+
+## Scope of "identical to the source"
+
+Siwatch narrowed this explicitly: **identical means the Latin outlines and the line
+box.** Thai is deliberately not identical to Bai Jamjuree — it is rescaled,
+reweighted, and now its marks are lifted. Recorded at the top of `qc_th_fonts.py`
+so the next person does not restore the old invariant.
+
+## Validation
+
+Measured on Linux.
+
+- `qc_th_fonts.py` — **16/16**, including new check 8 (clearance floor 60/1000 em,
+  38 for Black/BlackItalic which are source-limited).
+- All 18 faces measure worst 71.3–71.4, p10 72.0, median 72.0. Sarabun 56/73/86,
+  Bai 57/66/80.
+- Rendered at 15 px/em (11 pt @ 96 dpi): `เพื่อ`, `กลิ่น`, `ครั้ง` show separated
+  marks where they previously fused.
+- `qc_check_th_font_doc.py` — 4/4. Line box unchanged, still equal to the Latin's.
+- Only three glyphs rejected by the deformation guard across 18 faces:
+  `uni0E5B` (Air), `uni0E14` (Regular), `uni0E4A` (ThinItalic).
+
+**Not validated in Word.** Windows still carries an older build; Office was open so
+`--apply-system` was not run. The screen-ppem render predicts the fix but is
+FreeType, not the Windows rasteriser.
+
+## Action items
+
+- Reinstall on Windows with Office closed and re-check `กลิ่น` / `เพื่อ` / `สิทธิ์`
+  at 11 pt on screen, not only in the PDF. (Siwatch.)
+- The correction levels every face to exactly the 72 floor, where Sarabun's
+  distribution runs up to 86. If the Thai reads mechanically even at text sizes,
+  the lever is `TARGET`, not per-glyph edits. (Open.)
