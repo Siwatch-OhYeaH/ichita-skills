@@ -69,11 +69,29 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BRAND_FONT = "Avenir Next"  # Closest system match to Aeonik
 THAI_FONT  = "Bai Jamjuree" # Thai font with matched metrics to geometric sans-serif
 THAI_SCALE = 0.9             # Thai 9pt / English 10pt — Bai Jamjuree one size down for visual balance
-# Min EXACT line-spacing ratio (× Thai pt) to clear stacked upper vowel+tone without
-# clipping in Word. Measured from Bai Jamjuree (raqm-shaped): tallest stack ขึ้ reaches
-# 1.21em above baseline; Word seats baseline ~1 font-descent (0.25em) above the box
-# bottom → need ≥ (1.21 + 0.25) = 1.46 × size. (10pt Latin → 9pt Thai → 13pt, matches.)
-THAI_LINE_RATIO = 1.46
+
+# ── Thai line spacing ────────────────────────────────────────────────────────
+# Minimum baseline-to-baseline pitch, as a multiple of the *Thai* point size,
+# that keeps the below-vowel of one line clear of the upper vowel + tone of the
+# next. Siwatch's acceptance test, 2026-08-03: `สูง` on one line, `ซึ่ง` directly
+# below, "ต้องเว้นวรรคมากพอแบบชัดเจน".
+#
+# No Thai font clears this at its own line box — not Bai, and not Sarabun, which
+# needs 1.657 against a box of 1.300. The clearance has to come from the
+# document, because the alternatives are to break the rule that the merged line
+# box equals the Latin source's (that was the 42% leading defect) or to shrink
+# the marks back toward the fusing th_mark_clearance.py just fixed.
+#
+# Regenerate after any font rebuild — the mark-clearance pass moves these:
+#     python3 scripts/thai_line_pitch.py --check
+THAI_LINE_RATIO = 1.64       # Bai Jamjuree worst face, × Thai pt (= 0.9 × Latin pt)
+TH_LINE_RATIO   = 1.60       # TH-Aeonik 1.534 / TH-Slussen 1.597, × Latin pt
+
+# `atLeast`, never `Exactly`. Exactly is a fixed box and is where Word genuinely
+# clips marks; atLeast lets the line grow instead. The previous 1.46 ratio was
+# derived from one stack in isolation and paired with Exactly, so it both sat
+# ~2pt too tight and clipped when it was exceeded.
+# docs/postmortems/2026-08-02-th-font-line-box-overcorrection.md
 MONO_FONT  = "Courier New"
 TH_AEONIK_MODE = False       # True when TH Aeonik (unified Latin+Thai) is installed
 
@@ -101,6 +119,18 @@ for _fd in _font_dirs:
         if any("aeonik" in f.lower() for f in os.listdir(_fd)):
             BRAND_FONT = "Aeonik"
             break
+
+
+def thai_line_pt(latin_pt):
+    """Smallest `atLeast` line spacing that keeps two Thai lines visibly apart.
+
+    Takes the run's *Latin* size, since that is what every caller already has,
+    and applies the ratio to whichever size the Thai actually renders at — the
+    same size in unified mode, one step down in split mode.
+    """
+    if TH_AEONIK_MODE:
+        return Pt(math.ceil(latin_pt * TH_LINE_RATIO))
+    return Pt(math.ceil(latin_pt * THAI_SCALE * THAI_LINE_RATIO))
 
 # ── Import shared header/footer helpers ─────────────────────────────────────
 try:
@@ -347,16 +377,16 @@ def add_kpi_cards(doc, cards, content_width_in=6.3, number_size=26, compact=Fals
             punit = cell.add_paragraph()
             punit.paragraph_format.space_before = Pt(0)
             punit.paragraph_format.space_after = Pt(0)
-            punit.paragraph_format.line_spacing = Pt(12)
-            punit.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+            punit.paragraph_format.line_spacing = thai_line_pt(9.5)
+            punit.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
             _add_split_run(punit, unit, BRAND_FONT, Pt(9.5), ICHITA_BLUE, bold=True)
 
         # Label — grey, Thai-aware (Bai Jamjuree + th-TH tag)
         plabel = cell.add_paragraph()
         plabel.paragraph_format.space_before = Pt(1)
         plabel.paragraph_format.space_after = Pt(2)
-        plabel.paragraph_format.line_spacing = Pt(math.ceil(8.5 * THAI_SCALE * THAI_LINE_RATIO))
-        plabel.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY   # clears Thai marks at label size
+        plabel.paragraph_format.line_spacing = thai_line_pt(8.5)
+        plabel.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST   # clears Thai marks at label size
         _add_split_run(plabel, label, BRAND_FONT, Pt(8.5), ICHITA_BLUE_GREY2)
 
     # Small spacing after the card row
@@ -606,13 +636,12 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False):
     font.color.rgb = ICHITA_BLUE_GREY3
     style.paragraph_format.space_after = Pt(3 if compact else 5)
     style.paragraph_format.space_before = Pt(1 if compact else 2)
-    # Line spacing: Thai stacks base + upper vowel + tone mark above the ascent,
-    # which Single spacing clips in Word. Use EXACTLY 13pt for 10pt body text
-    # (= 1.3x) — the value confirmed clean in Word. Exact spacing is per-size, so
-    # headings/labels/numbers set their own exact value below (a fixed box smaller
-    # than the glyph would clip it).
-    style.paragraph_format.line_spacing = Pt(13)
-    style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+    # Line spacing: Thai stacks base + upper vowel + tone above the ascent, and
+    # hangs a below-vowel under the baseline, so a Latin line box cannot hold two
+    # consecutive Thai lines apart. Sized from the fonts by scripts/thai_line_pitch.py.
+    # Per-size, so headings/labels/numbers set their own value below.
+    style.paragraph_format.line_spacing = thai_line_pt(10)
+    style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
     # Set Complex Script font + scaled size on default style
     from docx.oxml import OxmlElement
     rPr = style.element.get_or_add_rPr()
@@ -660,10 +689,10 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False):
         hs.font.name = BRAND_FONT
         hs.font.size = Pt(size)
         hs.font.color.rgb = color
-        # Exact line spacing = measured Thai clearance ratio × this heading's Thai
-        # size (Latin size × THAI_SCALE), so the box clears stacked upper marks.
-        hs.paragraph_format.line_spacing = Pt(math.ceil(size * THAI_SCALE * THAI_LINE_RATIO))
-        hs.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+        # Measured Thai clearance ratio at this heading's actual size, so a
+        # wrapped heading keeps its two lines apart.
+        hs.paragraph_format.line_spacing = thai_line_pt(size)
+        hs.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
         hs.font.bold = True
         # Set Complex Script font + scaled size on heading style
         h_rPr = hs.element.get_or_add_rPr()
@@ -816,10 +845,10 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False):
                 clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', heading_text)
                 _add_split_run(p, clean_text, BRAND_FONT, Pt(26),
                                ICHITA_BLUE_GREY3, bold=True)
-                # Exact line spacing for the ACTUAL title size (26pt → Thai 23.4pt),
-                # so stacked Thai marks (e.g. ต้น) don't clip on a wrapped title line.
-                p.paragraph_format.line_spacing = Pt(math.ceil(26 * THAI_SCALE * THAI_LINE_RATIO))
-                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+                # Sized for the ACTUAL title size, so a wrapped title keeps its
+                # two lines apart (e.g. ต้น over a below-vowel).
+                p.paragraph_format.line_spacing = thai_line_pt(26)
+                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
                 first_h1 = False
                 i += 1
 
@@ -851,11 +880,10 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False):
                 for run in p.runs:
                     run.font.color.rgb = colors[level]
                     run.font.bold = True
-                # Exact line spacing matched to the heading's ACTUAL run size
-                # (sizes[level]) so Thai stacked marks clear — the Heading style
-                # default is computed from a different size and would clip.
-                p.paragraph_format.line_spacing = Pt(math.ceil(sizes[level].pt * THAI_SCALE * THAI_LINE_RATIO))
-                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+                # Matched to the heading's ACTUAL run size (sizes[level]) — the
+                # Heading style default is computed from a different size.
+                p.paragraph_format.line_spacing = thai_line_pt(sizes[level].pt)
+                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
 
             i += 1
             continue

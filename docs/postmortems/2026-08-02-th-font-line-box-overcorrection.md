@@ -179,7 +179,9 @@ cares about — does a paragraph reflow when I switch fonts — had no test.
 
 ## Validation
 
-Measured on Linux (fontTools, uharfbuzz, LibreOffice rendering):
+Measured on Linux (fontTools, uharfbuzz, LibreOffice rendering). **Figures below are
+the state at this fix**; the addenda that follow move some of them — `qc_th_fonts.py`
+grows to 16 checks and `usWin` grows to 1240/560 and 1390/590.
 
 - `scripts/qc_th_fonts.py` — **14/14** across 18 faces. Check 3 now asserts line box
   == Latin source's; check 5 bounds shaped stacks against `usWin`.
@@ -327,3 +329,131 @@ FreeType, not the Windows rasteriser.
 - The correction levels every face to exactly the 72 floor, where Sarabun's
   distribution runs up to 86. If the Thai reads mechanically even at text sizes,
   the lever is `TARGET`, not per-glyph edits. (Open.)
+
+---
+
+# Addendum 2 — two consecutive Thai lines collided, and the font could not fix it
+
+**2026-08-03, after the mark-clearance fix shipped.**
+
+## Summary
+
+Siwatch set the acceptance test: `สูง` on one line, `ซึ่ง` directly below,
+*"สระอู กับ อึ่ง จะต้องไม่ชนกัน ต้องเว้นวรรคมากพอแบบชัดเจน"*. TH-Aeonik failed it —
+at 11 pt the below-vowel of the first line fused with the vowel + tone of the second.
+So did Bai, and so did **Sarabun**, the font nominated as the correct reference. The
+clearance cannot come from the font without reopening a defect we had just closed, so
+it comes from the document: `md_to_docx.py` now sets `w:lineRule="atLeast"` at a pitch
+computed from the fonts by `scripts/thai_line_pitch.py`.
+
+## Symptom
+
+At 11 pt in Word, consecutive Thai lines touch. A row projection of Siwatch's own
+screenshot finds no white scanline between lines 2–4 of the TH-Aeonik paragraph — the
+block is one connected mass of ink.
+
+## Root cause
+
+Baseline-to-baseline pitch against the worst stack the shaper can produce, in
+1/1000 em. `need` is the tallest upper stack plus the deepest below-baseline tail:
+
+| font | line box | need | spare |
+|---|---|---|---|
+| Leelawadee UI | 1330 | 1255 | **+75** |
+| TH-Slussen | 1512 | 1522 | −10 |
+| TH-Aeonik | 1200 | 1459 | −259 |
+| Sarabun | 1300 | 1582 | −282 |
+| Bai Jamjuree | 1250 | 1564 | −314 |
+
+**Only one font in the table clears its own line box, and it is not the reference.**
+Sarabun is geometrically the worst of the five; it survives casual inspection only
+because `ส` and `ซ` differ in width, so the marks miss each other sideways rather
+than by design. Leelawadee UI clears by drawing markedly smaller marks — upper vowel
+201 units tall against TH-Aeonik's 273, tone 129 against 158, below-vowel 182 deep
+against 269 — not by a taller box.
+
+TH-Aeonik is worse than Bai in *spare* because it inherited Bai's mark proportions
+and then took Aeonik's 1.20 em line box, which is 50 units tighter than Bai's own.
+
+## Why the font could not fix it
+
+Three levers, all previously spent:
+
+- **Raise the line box.** That is the 42% leading defect this post-mortem is about.
+  Clearing at Word's Single spacing needs ~1.55 em, +29% over Aeonik on every
+  paragraph including pure-Latin ones.
+- **Shrink the marks.** Toward Leelawadee proportions this reaches ~1220 units —
+  still short of 1200 — and walks back the clearance the addendum above just bought.
+- **Scale the Thai down.** Fixed by the pairing rule: `ก` matches the Latin x-height.
+
+The vertical budget is genuinely oversubscribed. A Latin line box cannot hold a Thai
+three-level stack over a below-vowel, which is why no Thai text font in the table
+attempts it.
+
+## Fix
+
+`scripts/thai_line_pitch.py` measures each family and emits the ratio:
+
+```
+required_pitch = worst_upper_stack + |worst_lower_tail| + MARGIN
+MARGIN = 75          # Leelawadee UI's own spare, and ~1 px at 11 pt / 96 dpi
+```
+
+| family | worst face | ratio × Thai pt |
+|---|---|---|
+| TH-Aeonik | Black | 1.534 |
+| TH-Slussen | SemiBold | 1.597 |
+| Bai Jamjuree | Bold | 1.639 |
+
+`md_to_docx.py` carries 1.60 for unified mode and 1.64 for split mode, applied
+through `thai_line_pt(latin_pt)` at every call site. Body text at 10 pt Latin moves
+from `Exactly 13 pt` to `atLeast 15 pt`.
+
+Two things changed, and the rule change matters as much as the number:
+
+- **`Exactly` → `atLeast` everywhere.** `Exactly` is a fixed box and is where Word
+  genuinely clips marks — the mechanism this post-mortem identified in its opening
+  section and then left in place in the generator. `atLeast` lets a line grow.
+- **The old 1.46 ratio was derived from one stack in isolation** (`ขึ้` plus an
+  assumed descent), not from a shaped worst case over the whole script, and it never
+  accounted for the *lower* line's below-vowel at all. It was ~2 pt too tight.
+
+## Why it slipped through
+
+**Nothing tested two lines.** Every clearance measure in this codebase — check 8,
+`th_mark_clearance.py`, the whole of the addendum above — measures *within* a
+syllable: base to mark, mark to mark. The interaction that Siwatch's benchmark
+targets is between adjacent lines, and no test, font-side or document-side, had ever
+looked at it. The font QC suite was 16/16 green throughout.
+
+**The reference was trusted past the property it was verified for.** Sarabun was
+correctly nominated for within-syllable engineering, where it measures p10 73 against
+Bai's 66, and correctly used to set the 72-unit target. Carrying that authority over
+to line spacing was never checked, and it does not survive the check.
+
+## Validation
+
+Measured on Linux.
+
+- `scripts/thai_line_pitch.py --check` — OK, all three families fit the ratios
+  compiled into `md_to_docx.py`.
+- Generated a mixed Thai/Latin document and rendered the LibreOffice PDF export at
+  200 dpi: every consecutive line pair separated by white scanlines, where the same
+  content previously projected as one connected band.
+- `scripts/qc_th_fonts.py` 16/16, `scripts/qc_check_th_font_doc.py` 4/4 — the fonts
+  are untouched by this change, and the line box still equals the Latin source's.
+- Latin-only and `--compact` generator paths both build clean.
+
+**Not validated in Word.** Windows still carries the current TH-Aeonik build (verified
+by hash) but a stale TH-Slussen, and LibreOffice's `atLeast` handling is not Word's.
+
+## Action items
+
+- Confirm in Word that `สูง` over `ซึ่ง` clears at 11 pt on screen. (Siwatch.)
+- **Documents get ~15% taller** where Thai body text dominates — 13 pt to 15 pt at
+  10 pt body. Expected and necessary; flag if it breaks a fixed-page layout. (Open.)
+- KPI card unit and label lines also take the ratio, so cards grow a few points.
+  They rarely wrap, but sizing them below the ratio would collide if they ever did.
+  (Open.)
+- `thai_line_pitch.py` needs `uharfbuzz`, so it runs under `venv_fonts/bin/python`,
+  not the system python3 the other QC scripts use. (Open.)
