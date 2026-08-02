@@ -203,11 +203,32 @@ if [ "$MODE" != apply-system ]; then
 fi
 
 # --------------------------------------------------------------------- apply
-if tasklist.exe 2>/dev/null | tr -d '\r' | grep -qiE '^(WINWORD|EXCEL|POWERPNT|OUTLOOK)\.EXE'; then
+# Office blocks this only when it actually holds a document open. Matching on
+# process name alone is wrong: Outlook lives in the tray, and a crashed Word
+# leaves a windowless WINWORD.EXE behind for days. Both were flagged as "open"
+# on a machine where the user had neither on screen. Check for a real window.
+OFFICE_WINDOWED="$(powershell.exe -NoProfile -Command "
+  Get-Process WINWORD,EXCEL,POWERPNT,OUTLOOK -ErrorAction SilentlyContinue |
+    Where-Object { \$_.MainWindowHandle -ne 0 -and \$_.MainWindowTitle } |
+    ForEach-Object { \"\$(\$_.Name) [\$(\$_.Id)] \$(\$_.MainWindowTitle)\" }" 2>/dev/null | tr -d '\r' | grep -v '^$')"
+
+if [ -n "$OFFICE_WINDOWED" ]; then
     echo
-    echo "!! Office is running. Close Word/Excel/PowerPoint/Outlook and re-run —" >&2
-    echo "   it locks the font files and caches font data per process." >&2
+    echo "!! Office has a document open — close it and re-run. It locks the font" >&2
+    echo "   files and caches font data for the life of the process:" >&2
+    echo "$OFFICE_WINDOWED" | sed 's/^/     /' >&2
     exit 1
+fi
+
+OFFICE_HEADLESS="$(powershell.exe -NoProfile -Command "
+  Get-Process WINWORD,EXCEL,POWERPNT,OUTLOOK -ErrorAction SilentlyContinue |
+    ForEach-Object { \"\$(\$_.Name) [\$(\$_.Id)] started \$(\$_.StartTime)\" }" 2>/dev/null | tr -d '\r' | grep -v '^$')"
+if [ -n "$OFFICE_HEADLESS" ]; then
+    echo
+    echo "Note: Office processes are running with no open document —"
+    echo "$OFFICE_HEADLESS" | sed 's/^/     /'
+    echo "  Proceeding. Every file deletion is verified individually below, so a"
+    echo "  lock shows up as STILL PRESENT rather than as a silent no-op."
 fi
 
 # Stage the current build somewhere the elevated session can read without
@@ -244,6 +265,37 @@ PS1="$STAGE/apply.ps1"
         printf 'New-ItemProperty -Path $K -Name "%s" -Value "%s" -PropertyType String -Force | Out-Null\n' "$name" "$src"
         printf 'L ("file+ %-34s " + $(if (Test-Path "C:\\Windows\\Fonts\\%s") {"ok"} else {"FAILED"}))\n' "$src" "$src"
     done
+    # Windows memory-maps loaded font files, so Remove-Item cannot delete a face
+    # the session has already touched — measured 2026-08-02: 20 of 38 survived,
+    # including the exact pre-fix TH-Aeonik-Regular.otf (sha f64d54df4fb6) that
+    # every bad print embedded. Unregistering does not release the mapping.
+    # MoveFileEx with MOVEFILE_DELAY_UNTIL_REBOOT (0x4) and a NULL destination
+    # queues the delete in PendingFileRenameOperations, which the kernel executes
+    # at boot before any font is loaded. It is the only thing that works short of
+    # safe mode.
+    echo 'Add-Type @"'
+    echo 'using System;using System.Runtime.InteropServices;'
+    echo 'public class MV{[DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode)]'
+    echo 'public static extern bool MoveFileEx(string a,string b,int f);}'
+    echo '"@'
+    echo '$pending=0'
+    # ONLY files that are not part of the current build. Iterating SYS_FILES here
+    # would queue the ten fonts installed moments earlier for deletion at boot,
+    # because by the second run they are themselves present in C:\Windows\Fonts.
+    # Queue nothing that INSTALL_ROWS is about to put back.
+    for f in "${SYS_FILES[@]}"; do
+        b="$(basename "$f")"
+        keep=0
+        for row in "${INSTALL_ROWS[@]}"; do
+            [ "$b" = "$(basename "${row%%$'\t'*}")" ] && keep=1 && break
+        done
+        [ "$keep" = 1 ] && continue
+        # [NullString]::Value, not $null: PowerShell marshals $null to an EMPTY
+        # STRING for a .NET string parameter, so MoveFileEx(path,"",4) fails and
+        # silently queues nothing. Measured — every call returned false.
+        printf 'if (Test-Path "C:\\Windows\\Fonts\\%s") { if ([MV]::MoveFileEx("C:\\Windows\\Fonts\\%s",[NullString]::Value,4)) { $pending++; L "reboot-del %s" } else { L "FAILED to queue %s (err $([ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error()).Message))" } }\n' "$b" "$b" "$b" "$b"
+    done
+    echo 'if ($pending -gt 0) { L "" ; L "$pending file(s) were locked and are queued for deletion at next boot." ; L "REBOOT REQUIRED, then re-run fix-th-fonts.sh to confirm." } else { L "" ; L "No locked files remained." }'
     echo 'Start-Service FontCache -ErrorAction SilentlyContinue'
     echo 'Add-Type @"'
     echo 'using System;using System.Runtime.InteropServices;'
@@ -258,9 +310,13 @@ PS1="$STAGE/apply.ps1"
 echo
 echo "--- elevating (accept the UAC prompt) ---"
 rm -f "$STAGE/apply.log"
-powershell.exe -NoProfile -Command \
-    "Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${STAGE_WIN}\\apply.ps1'" \
-    2>/dev/null
+# NOT -WindowStyle Hidden: it can suppress or hide the UAC dialog entirely, which
+# looks identical to the user declining it. Keep the console visible, and report
+# the real error rather than inferring one.
+ELEV_ERR="$(powershell.exe -NoProfile -Command \
+    "try { \$p = Start-Process powershell -Verb RunAs -Wait -PassThru -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${STAGE_WIN}\\apply.ps1'; \"exit=\$(\$p.ExitCode)\" } catch { \"ERROR: \$(\$_.Exception.Message)\" }" \
+    2>&1 | tr -d '\r' | grep -v '^$')"
+echo "  elevation: ${ELEV_ERR:-（no output）}"
 
 echo
 if [ -f "$STAGE/apply.log" ]; then
@@ -276,6 +332,9 @@ echo "Re-run '$0' to confirm every file reads [current] and the count is ${#BUIL
 echo "Then fully restart Word, reprint, and verify with:"
 echo "  python3 scripts/check_print_pdf.py <newly-printed.pdf>"
 echo
-echo "If a fresh print STILL embeds a stale font, the remaining suspect is layer 3:"
+echo "If any file was queued for reboot-deletion above, REBOOT before judging"
+echo "anything — the stale file is still on disk and still enumerable until then."
+echo
+echo "If a fresh print STILL embeds a stale font after that, the remaining suspect is layer 3:"
 echo "  FNTCACHE.DAT — stop the FontCache service, delete"
 echo "  C:\\Windows\\ServiceProfiles\\LocalService\\AppData\\Local\\FontCache\\*, reboot."
