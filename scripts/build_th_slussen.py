@@ -11,7 +11,7 @@ Pipeline steps:
   2. Union GPOS/GDEF/GSUB from Bai Jamjuree onto Slussen's own (mark positioning)
   3. Apply metadata — RIBBI naming, OS/2
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
-  5. Vertical metrics — Slussen's line box preserved, clipping box widened for Thai
+  5. Vertical metrics — one box for hhea/sTypo/usWin, asserted to contain the ink
   6. Sort GSUB/GPOS Coverage tables + clean Mac cmap (Uniscribe compliance)
   7. Verify — Thai cmap, Latin match, GPOS, OS/2 bits, metrics
 
@@ -19,13 +19,14 @@ Sources:
   Latin: Slussen OTF (OneDrive path preferred, fallback assets/fonts/slussen/)
   Thai:  Bai Jamjuree (local assets preferred, fallback system fonts)
 
-Slussen line box (preserved exactly — do not retune, it sets document line spacing):
-  sTypoAscender=1074  sTypoDescender=-272  sTypoLineGap=166
-  hhea ascent=1074  hhea descent=-272  hhea lineGap=166
-  fsSelection: Regular/Medium/Semibold=0x00C0, Bold=0x00A0 (USE_TYPO_METRICS on)
+Line box (hhea = sTypo = usWin = 1280/-590/0):
+  Sized to contain the merged ink, not to reproduce Slussen's original box.
+  Preserving Slussen's 1074/-272 clipped Thai, whose ink runs -564..1255.
 
-Acceptance test: scripts/compare_th_slussen.py — the merge is only correct if it
-is invisible (Thai renders as Bai Jamjuree, Latin renders as Slussen).
+Acceptance test: scripts/compare_th_slussen.py — checks Thai against the LATIN
+it shares a line with (x-height, stem weight, ink containment). The previous
+test asserted Thai was pixel-identical to Bai Jamjuree, which is the unscaled,
+weight-mismatched state this pipeline exists to correct.
 
 Usage:
   python3 build_th_slussen.py                    # Build all 4 weights
@@ -44,6 +45,10 @@ from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont, newTable
+
+sys.path.insert(0, str(Path(__file__).parent))
+from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E402
+                          fix_thai_gdef, prepare_bai)
 
 warnings.filterwarnings("ignore")
 
@@ -67,34 +72,26 @@ USE_TYPO = 1 << 7
 MAC_BOLD = 1 << 0
 MAC_ITALIC = 1 << 1
 
-# Vertical metrics.
+# Vertical metrics. Slussen's own 1074/-272/166 was preserved here on the theory that
+# document line spacing must never change. That theory clipped Thai: the box is
+# 1512 tall but the merged ink runs -564..1255, so tone marks and below-vowels
+# fell outside it. Word takes its line height AND its clip from hhea, so the
+# box has to contain the ink — see build_th_aeonik.py for the measurement that
+# established this (25.30 pt -> 15.60 pt, exactly the hhea ratio).
 #
-# The line box stays exactly as Slussen shipped it: hhea and sTypo already agree
-# with each other, USE_TYPO_METRICS is set on every weight, and these numbers
-# decide line spacing in every existing document. They are not retuned.
-#
-# usWinAscent/usWinDescent are a different thing — the GDI *clipping* box, not
-# the line box. Merged ink reaches +1255/-561 (Slussen tops out at +1255, Bai
-# Jamjuree bottoms out at -561), so the shipped usWinDescent of 334 cut the
-# descenders off Thai below-vowels on Windows. Widened to clear the ink; because
-# USE_TYPO_METRICS is on, consumers still take spacing from sTypo, so this
-# changes what is visible without changing how far apart the lines sit.
-ORIG_TYPO_ASC = 1074
-ORIG_TYPO_DES = -272
-ORIG_TYPO_GAP = 166
-ORIG_HHEA_ASC = 1074
-ORIG_HHEA_DES = -272
-ORIG_HHEA_GAP = 166
+# Every weight shares these, otherwise bolding a word changes the line height.
+ASCENT, DESCENT, LINEGAP = 1280, -590, 0
+WIN_ASCENT, WIN_DESCENT = ASCENT, -DESCENT
 
-WIN_ASCENT = 1262    # clears merged ink top    (+1255)
-WIN_DESCENT = 570    # clears merged ink bottom (-561); was 334, which clipped
-
-# Weight mapping: output_name -> (slussen_file, bai_file)
+# Weight mapping: output_name -> slussen_file
+# Latin source only. Thai pairing lives in th_thai_prep.BUILD_TABLE: matching
+# by weight name put Bai Regular next to Slussen Regular and left Thai 25%
+# lighter than the Latin beside it.
 WEIGHTS = {
-    "Regular":  ("Slussen-Regular.otf",  "BaiJamjuree-Regular.ttf"),
-    "Medium":   ("Slussen-Medium.otf",   "BaiJamjuree-Medium.ttf"),
-    "SemiBold": ("Slussen-Semibold.otf", "BaiJamjuree-SemiBold.ttf"),
-    "Bold":     ("Slussen-Bold.otf",     "BaiJamjuree-Bold.ttf"),
+    "Regular":  "Slussen-Regular.otf",
+    "Medium":   "Slussen-Medium.otf",
+    "SemiBold": "Slussen-Semibold.otf",
+    "Bold":     "Slussen-Bold.otf",
 }
 
 # Per-weight metadata config (Windows RIBBI model).
@@ -563,26 +560,41 @@ def set_thai_bits(font):
 # ---------------------------------------------------------------------------
 
 def set_vertical_metrics(font):
-    """Keep Slussen's line box; widen the clipping box so Thai is not cut off."""
+    """One box for hhea, sTypo and usWin, proven to contain the ink."""
     os2 = font["OS/2"]
     hhea = font["hhea"]
 
-    # Line box — Slussen's, exactly. Never retune: this is document line spacing.
-    os2.sTypoAscender = ORIG_TYPO_ASC
-    os2.sTypoDescender = ORIG_TYPO_DES
-    os2.sTypoLineGap = ORIG_TYPO_GAP
-    hhea.ascent = ORIG_HHEA_ASC
-    hhea.descent = ORIG_HHEA_DES
-    hhea.lineGap = ORIG_HHEA_GAP
+    lo, hi = _ink_bounds(font)
+    if hi > ASCENT or lo < DESCENT:
+        raise SystemExit(
+            f"     !! ink {lo:.0f}..{hi:.0f} escapes the line box "
+            f"{DESCENT}..{ASCENT} — raise ASCENT/DESCENT, do not ship this")
 
-    # Clipping box — must cover merged ink, Latin and Thai alike.
+    os2.sTypoAscender, os2.sTypoDescender, os2.sTypoLineGap = ASCENT, DESCENT, LINEGAP
+    hhea.ascent, hhea.descent, hhea.lineGap = ASCENT, DESCENT, LINEGAP
     os2.usWinAscent = WIN_ASCENT
     os2.usWinDescent = WIN_DESCENT
-    os2.fsSelection |= USE_TYPO          # bit 7 — spacing comes from sTypo
+    os2.fsSelection |= USE_TYPO          # bit 7 — prefer the sTypo set
 
-    print(f"     [5] Metrics: sTypo/hhea={ORIG_TYPO_ASC}/{ORIG_TYPO_DES}/{ORIG_TYPO_GAP} "
-          f"(Slussen, preserved) win={WIN_ASCENT}/{WIN_DESCENT} "
-          f"(widened for Thai ink) USE_TYPO_METRICS=on")
+    print(f"     [5] Metrics: hhea/sTypo/win={ASCENT}/{DESCENT}/{LINEGAP} "
+          f"(line {ASCENT - DESCENT + LINEGAP}) ink {lo:.0f}..{hi:.0f} fits")
+
+
+def _ink_bounds(font):
+    from fontTools.pens.boundsPen import BoundsPen
+    gs = font.getGlyphSet()
+    lo = hi = None
+    for gn in font.getGlyphOrder():
+        bp = BoundsPen(gs)
+        try:
+            gs[gn].draw(bp)
+        except Exception:
+            continue
+        if not bp.bounds:
+            continue
+        lo = bp.bounds[1] if lo is None or bp.bounds[1] < lo else lo
+        hi = bp.bounds[3] if hi is None or bp.bounds[3] > hi else hi
+    return lo, hi
 
 
 # ---------------------------------------------------------------------------
@@ -765,20 +777,24 @@ def verify_font(weight_name, slussen_file):
                         f"win={os2.usWinAscent}/{os2.usWinDescent} "
                         f"vs ink {head.yMax:+}/{head.yMin:+}")
 
-    # 3. hhea ascent/descent exact
-    hhea_ok = (hhea.ascent == ORIG_HHEA_ASC and hhea.descent == ORIG_HHEA_DES)
+    # 3. hhea is the box every weight must share, and it must equal sTypo.
+    # These were checked against Slussen's original 1074/-272 while the Thai
+    # ink ran to -564..1255 — the assertion passed on a font that clipped.
+    hhea_ok = (hhea.ascent == ASCENT and hhea.descent == DESCENT
+               and hhea.lineGap == LINEGAP)
     checks.append(f"hhea={hhea.ascent}/{hhea.descent}({'OK' if hhea_ok else 'FAIL'})")
     if not hhea_ok:
-        failures.append(f"hhea mismatch: {hhea.ascent}/{hhea.descent}")
+        failures.append(f"hhea mismatch: {hhea.ascent}/{hhea.descent}/{hhea.lineGap}"
+                        f" != {ASCENT}/{DESCENT}/{LINEGAP}")
 
-    # 4. sTypo exact
-    typo_ok = (os2.sTypoAscender == ORIG_TYPO_ASC and
-               os2.sTypoDescender == ORIG_TYPO_DES and
-               os2.sTypoLineGap == ORIG_TYPO_GAP)
+    # 4. sTypo must agree with hhea, so the pitch does not depend on renderer.
+    typo_ok = (os2.sTypoAscender == ASCENT and
+               os2.sTypoDescender == DESCENT and
+               os2.sTypoLineGap == LINEGAP)
     checks.append(f"sTypo={os2.sTypoAscender}/{os2.sTypoDescender}/{os2.sTypoLineGap}"
                   f"({'OK' if typo_ok else 'FAIL'})")
     if not typo_ok:
-        failures.append(f"sTypo mismatch")
+        failures.append("sTypo mismatch: must equal hhea")
 
     # 5. Naming: nameID1 per RIBBI config, nameID16 always the shared family
     n1 = nt.getName(1, 3, 1, 0x0409)
@@ -830,25 +846,24 @@ def verify_font(weight_name, slussen_file):
 # Build pipeline
 # ---------------------------------------------------------------------------
 
-def build_font(weight_name, slussen_file, bai_file):
+def build_font(weight_name, slussen_file, bai_file=None):
     """Build a single TH-Slussen weight."""
     print(f"\n  === {weight_name} ===")
 
     slussen_path = find_slussen(slussen_file)
-    bai_path = find_bai(bai_file)
-
     if not slussen_path:
         print(f"     !! Slussen not found: {slussen_file}")
         return False
-    if not bai_path:
-        print(f"     !! Bai Jamjuree not found: {bai_file}")
-        return False
 
+    bai_src, embolden = BUILD_TABLE["TH-Slussen"][weight_name]
     print(f"     Latin: {slussen_path}")
-    print(f"     Thai:  {bai_path}")
+    print(f"     Thai:  {bai_src}  (scale {THAI_SCALE['TH-Slussen']}, "
+          f"embolden +{embolden:.1f}u)")
 
     slussen = TTFont(str(slussen_path))
-    bai = TTFont(str(bai_path))
+    # Scaled to the Latin x-height and weight-matched before any glyph is
+    # copied, so GPOS anchors and the ink assertion all see final-size Thai.
+    bai = prepare_bai("TH-Slussen", weight_name, latin_font=slussen)
 
     if "CFF " not in slussen:
         print(f"     !! Slussen is not CFF format — cannot merge CFF glyphs")
@@ -867,6 +882,18 @@ def build_font(weight_name, slussen_file, bai_file):
 
     # Step 3: Metadata (naming, fsSelection, CFF fontName)
     apply_metadata(slussen, weight_name)
+
+    # Step 3b: Uniscribe needs an explicit GDEF class on every Thai glyph,
+    # and a dotted circle to hang orphaned marks on. Bai supplies neither,
+    # which is why an isolated or repeated 'า' would not type.
+    n_base, n_mark = fix_thai_gdef(slussen)
+    from fontTools.pens.boundsPen import BoundsPen as _BP
+    _gs = slussen.getGlyphSet(); _bp = _BP(_gs)
+    _gs[slussen.getBestCmap()[ord('x')]].draw(_bp)
+    _xh = _bp.bounds[3] - _bp.bounds[1]
+    added = add_dotted_circle(slussen, _xh)
+    print(f"     [3b] GDEF: {n_base} Thai -> BASE, {n_mark} -> MARK | "
+          f"U+25CC dotted circle: {'synthesised' if added else 'already present'}")
 
     # Step 4: Thai OS/2 bits
     set_thai_bits(slussen)
@@ -931,8 +958,8 @@ def main():
 
     success = 0
     results = {}
-    for wn, (sf, bf) in weights.items():
-        ok = build_font(wn, sf, bf)
+    for wn, sf in weights.items():
+        ok = build_font(wn, sf)
         results[wn] = ok
         if ok:
             success += 1

@@ -8,14 +8,14 @@ OpenType support for Thai text shaping on Windows.
 OUTPUT IS TRUETYPE (`glyf`), NOT CFF. This is the load-bearing design choice
 and it is not cosmetic:
 
-  * Thai is rendered from Bai Jamjuree's own outlines, copied verbatim. That
-    makes Thai *pixel-identical* to Bai Jamjuree, which a CFF build cannot be.
-    Measured over 13 sizes: CFF base gave 8.36% of pixels differing (mean delta
-    6.83/255); glyf base gives 0.00%. The residue in the CFF build was never
-    curve approximation — outlines matched to 0.7071 units, and rebuilding at
-    cu2qu max_err 1.0 / 0.5 / 0.1 produced byte-identical deltas. It was
-    FreeType's Adobe CFF engine versus its TrueType engine. The only lever is
-    which format the binary *is*.
+  * Thai comes from Bai Jamjuree's own `glyf` outlines rather than being
+    re-expressed as CFF, so the only transforms applied to them are the
+    deliberate ones: the scale to the Latin x-height and the weight match.
+    A CFF base added a rasteriser difference on top — 8.36% of pixels, mean
+    delta 6.83/255 — that was FreeType's Adobe CFF engine versus its TrueType
+    engine, not curve approximation (max_err 1.0 / 0.5 / 0.1 gave byte-
+    identical deltas). NOTE: Thai is deliberately NOT identical to Bai any
+    more. Bai's Thai is drawn for Bai's own Latin; see scripts/th_thai_prep.py.
 
   * `glyf` has no width operand, so the defect that made every printed PDF
     unreadable — CFF charstring widths disagreeing with `hmtx`, which Microsoft
@@ -32,7 +32,8 @@ TH-Slussen is the same pipeline but Slussen *is* hinted; see its build script.
 
 Pipeline steps:
   0. Convert the Latin base from CFF to `glyf` — before any Thai is added
-  1. Copy Thai glyphs + variants from Bai Jamjuree (glyf outlines, verbatim)
+  0b. Scale + weight-match Bai to this Latin weight (scripts/th_thai_prep.py)
+  1. Copy Thai glyphs + variants from Bai Jamjuree (glyf outlines)
   2. Merge GPOS/GDEF/GSUB tables from Bai Jamjuree (mark positioning)
   3. Apply metadata — RIBBI naming, OS/2 v4, fsType, panose
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
@@ -45,7 +46,7 @@ Sources:
   Thai:  Bai Jamjuree (system fonts preferred, fallback assets/fonts/bai-jamjuree/)
 
 Usage:
-  python3 build_th_aeonik.py                    # Build all 6 weights
+  python3 build_th_aeonik.py                    # Build all 14 faces
   python3 build_th_aeonik.py --weights Bold,Light  # Build specific weights
 
 Requires: fontTools >= 4.0
@@ -61,6 +62,10 @@ from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont, newTable
+
+sys.path.insert(0, str(Path(__file__).parent))
+from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E402
+                          fix_thai_gdef, prepare_bai)
 
 warnings.filterwarnings("ignore")
 
@@ -85,17 +90,62 @@ MAC_BOLD = 1 << 0
 MAC_ITALIC = 1 << 1
 
 # Weight mapping: output_name -> (aeonik_file, bai_file)
+# Latin source per weight. The Thai source is NOT chosen here — Bai's weight
+# ladder does not align with Aeonik's, so the pairing (and the emboldening that
+# closes the residual) lives in th_thai_prep.BUILD_TABLE. Pairing by matching
+# names is what left Thai 18% lighter than the Latin beside it.
 WEIGHTS = {
-    "Regular":       ("Aeonik-Regular.otf",        "BaiJamjuree-Regular.ttf"),
-    "Bold":          ("Aeonik-Bold.otf",            "BaiJamjuree-Bold.ttf"),
-    "Light":         ("Aeonik-Light.otf",           "BaiJamjuree-Light.ttf"),
-    "RegularItalic": ("Aeonik-RegularItalic.otf",   "BaiJamjuree-Italic.ttf"),
-    "BoldItalic":    ("Aeonik-BoldItalic.otf",      "BaiJamjuree-BoldItalic.ttf"),
-    "LightItalic":   ("Aeonik-LightItalic.otf",     "BaiJamjuree-LightItalic.ttf"),
+    "Air":           "Aeonik-Air.otf",
+    "Thin":          "Aeonik-Thin.otf",
+    "Light":         "Aeonik-Light.otf",
+    "Regular":       "Aeonik-Regular.otf",
+    "Medium":        "Aeonik-Medium.otf",
+    "Bold":          "Aeonik-Bold.otf",
+    "Black":         "Aeonik-Black.otf",
+    "AirItalic":     "Aeonik-AirItalic.otf",
+    "ThinItalic":    "Aeonik-ThinItalic.otf",
+    "LightItalic":   "Aeonik-LightItalic.otf",
+    "RegularItalic": "Aeonik-RegularItalic.otf",
+    "MediumItalic":  "Aeonik-MediumItalic.otf",
+    "BoldItalic":    "Aeonik-BoldItalic.otf",
+    "BlackItalic":   "Aeonik-BlackItalic.otf",
 }
 
 # Per-weight metadata config (Windows RIBBI model)
+#
+# nameID2 may only be Regular / Bold / Italic / Bold Italic, so one nameID1 can
+# carry at most those four faces. Aeonik has seven weights, so Air, Thin, Light,
+# Medium and Black each take their own nameID1 and pair their italic through
+# nameID2='Italic'. nameID16/17 put all fourteen back together as one 'TH
+# Aeonik' family wherever they are read. Same scheme as TH Slussen Medium and
+# SemiBold, which is what made those two selectable in Word.
+def _nonribbi(label, slug, weight_class, panose, italic=False):
+    """Config for a weight that has no RIBBI slot of its own."""
+    return {
+        "nameID1": f"TH Aeonik {label}",
+        "nameID2": "Italic" if italic else "Regular",
+        "nameID4": f"TH Aeonik {label}" + (" Italic" if italic else ""),
+        "nameID6": f"TH-Aeonik-{slug}" + ("Italic" if italic else ""),
+        "nameID16": "TH Aeonik",
+        "nameID17": f"{label} Italic" if italic else label,
+        "fsSelection": (ITALIC if italic else REGULAR) | USE_TYPO,
+        "macStyle": MAC_ITALIC if italic else 0,
+        "weightClass": weight_class, "panose_bWeight": panose,
+    }
+
+
 WEIGHT_CONFIG = {
+    "Air":          _nonribbi("Air", "Air", 100, 2),
+    "AirItalic":    _nonribbi("Air", "Air", 100, 2, italic=True),
+    "Thin":         _nonribbi("Thin", "Thin", 200, 3),
+    "ThinItalic":   _nonribbi("Thin", "Thin", 200, 3, italic=True),
+    "Medium":       _nonribbi("Medium", "Medium", 500, 6),
+    "MediumItalic": _nonribbi("Medium", "Medium", 500, 6, italic=True),
+    "Black":        _nonribbi("Black", "Black", 900, 9),
+    "BlackItalic":  _nonribbi("Black", "Black", 900, 9, italic=True),
+}
+
+WEIGHT_CONFIG.update({
     "Regular": {
         "nameID1": "TH Aeonik", "nameID2": "Regular",
         "nameID4": "TH Aeonik", "nameID6": "TH-Aeonik-Regular",
@@ -138,7 +188,7 @@ WEIGHT_CONFIG = {
         "fsSelection": ITALIC | USE_TYPO, "macStyle": MAC_ITALIC,
         "weightClass": 300, "panose_bWeight": 4,
     },
-}
+})
 
 
 # ---------------------------------------------------------------------------
@@ -577,7 +627,23 @@ def set_thai_bits(font):
 # sources. All three metric sets must agree: browsers honour sTypo, Word and
 # most PDF engines honour hhea/usWin. Leaving them to disagree made the same
 # file render at 1.20 em in one and 2.11 em in the other.
-ASCENT, DESCENT, LINEGAP = 1000, -300, 0
+# Line box. This must CONTAIN the ink, not merely describe an intended leading.
+#
+# The 2026-08-02 build set these to 1000/-300 on the reasoning — recorded in the
+# comment below — that USE_TYPO_METRICS made only the sTypo set matter for
+# spacing. It does not. Word leads off hhea, and the evidence is direct: the old
+# .otf declared hhea 1550/-561 and printed at 25.30 pt, this build declared
+# 1000/-300 and printed the same document at 15.60 pt. 2111/1300 = 1.624;
+# 25.30/15.60 = 1.622. A 38% collapse, predicted by the hhea ratio alone.
+#
+# The same undersized box clipped Thai. usWinAscent/Descent were already 1250/570
+# and did contain the ink, yet tone marks were still cut off — so the clip is
+# taken against the hhea line box, and raising usWin alone cannot fix it.
+#
+# Values below clear the measured union of Latin and scaled-Thai ink
+# (-527..1134) with headroom. Every weight in the family MUST share them, or
+# bolding a word would change the line height.
+ASCENT, DESCENT, LINEGAP = 1160, -550, 0
 
 # Clipping box — a different thing from the line box. usWinAscent/usWinDescent
 # bound what GDI will draw, so they must contain every glyph's ink, not just the
@@ -593,19 +659,55 @@ ASCENT, DESCENT, LINEGAP = 1000, -300, 0
 #
 # Raising these does not change line spacing: USE_TYPO_METRICS is set below, so
 # consumers take spacing from the sTypo set above.
-WIN_ASCENT, WIN_DESCENT = 1250, 570
+WIN_ASCENT, WIN_DESCENT = ASCENT, -DESCENT
 
 
 def set_vertical_metrics(font):
+    """Set all three metric sets to the same containing box, then prove it.
+
+    hhea, sTypo and usWin are deliberately identical. Renderers disagree about
+    which set to read — Word takes hhea, LibreOffice and browsers take sTypo
+    when USE_TYPO_METRICS is on, GDI clips against usWin — and the previous
+    build shipped three different answers, so the same document reflowed
+    differently in each. One box everywhere means the line pitch is a property
+    of the font rather than of whoever opens it.
+    """
     os2 = font["OS/2"]
     hhea = font["hhea"]
+
+    # Fail the build rather than ship a font that clips. The overflow is never
+    # in the cmap-reachable glyphs — it is the shaping-only tone-mark variants
+    # (uni0E48.small and friends) that GSUB substitutes into two-level stacks.
+    lo, hi = _ink_bounds(font)
+    if hi > ASCENT or lo < DESCENT:
+        raise SystemExit(
+            f"     !! ink {lo:.0f}..{hi:.0f} escapes the line box "
+            f"{DESCENT}..{ASCENT} — raise ASCENT/DESCENT, do not ship this")
+
     os2.usWinAscent = WIN_ASCENT
     os2.usWinDescent = WIN_DESCENT
     hhea.ascent, hhea.descent, hhea.lineGap = ASCENT, DESCENT, LINEGAP
     os2.sTypoAscender, os2.sTypoDescender, os2.sTypoLineGap = ASCENT, DESCENT, LINEGAP
     os2.fsSelection |= USE_TYPO          # bit 7 — prefer the sTypo set
-    print(f"     [5] Metrics: hhea/sTypo={ASCENT}/{DESCENT}/{LINEGAP} "
-          f"win={WIN_ASCENT}/{WIN_DESCENT} USE_TYPO_METRICS=on")
+    print(f"     [5] Metrics: hhea/sTypo/win={ASCENT}/{DESCENT}/{LINEGAP} "
+          f"(line {ASCENT - DESCENT + LINEGAP}) ink {lo:.0f}..{hi:.0f} fits")
+
+
+def _ink_bounds(font):
+    from fontTools.pens.boundsPen import BoundsPen
+    gs = font.getGlyphSet()
+    lo = hi = None
+    for gn in font.getGlyphOrder():
+        bp = BoundsPen(gs)
+        try:
+            gs[gn].draw(bp)
+        except Exception:
+            continue
+        if not bp.bounds:
+            continue
+        lo = bp.bounds[1] if lo is None or bp.bounds[1] < lo else lo
+        hi = bp.bounds[3] if hi is None or bp.bounds[3] > hi else hi
+    return lo, hi
 
 
 # ---------------------------------------------------------------------------
@@ -793,24 +895,24 @@ def verify_font(weight_name):
 # Build pipeline
 # ---------------------------------------------------------------------------
 
-def build_font(weight_name, aeonik_file, bai_file):
+def build_font(weight_name, aeonik_file, bai_file=None):
     print(f"\n  === {weight_name} ===")
 
     aeonik_path = find_aeonik(aeonik_file)
-    bai_path = find_bai(bai_file)
-
     if not aeonik_path:
         print(f"     !! Aeonik not found: {aeonik_file}")
         return False
-    if not bai_path:
-        print(f"     !! Bai Jamjuree not found: {bai_file}")
-        return False
 
+    bai_src, embolden = BUILD_TABLE["TH-Aeonik"][weight_name]
     print(f"     Latin: {aeonik_path}")
-    print(f"     Thai:  {bai_path}")
+    print(f"     Thai:  {bai_src}  (scale {THAI_SCALE['TH-Aeonik']}, "
+          f"embolden +{embolden:.1f}u)")
 
     aeonik = TTFont(str(aeonik_path))
-    bai = TTFont(str(bai_path))
+    # Scaled to the Latin x-height and weight-matched before a single glyph is
+    # copied, so everything downstream — GPOS anchors, ink bounds, the metrics
+    # assertion — sees the Thai at its final size.
+    bai = prepare_bai("TH-Aeonik", weight_name, latin_font=aeonik)
 
     if "CFF " not in aeonik:
         print(f"     !! Aeonik is not CFF format")
@@ -829,6 +931,18 @@ def build_font(weight_name, aeonik_file, bai_file):
 
     # Step 3: Metadata
     apply_metadata(aeonik, weight_name)
+
+    # Step 3b: Uniscribe needs an explicit GDEF class on every Thai
+    # glyph, and a dotted circle to hang orphaned marks on. Bai supplies
+    # neither, which is why an isolated or repeated 'า' would not type.
+    n_base, n_mark = fix_thai_gdef(aeonik)
+    from fontTools.pens.boundsPen import BoundsPen as _BP
+    _gs = aeonik.getGlyphSet(); _bp = _BP(_gs)
+    _gs[aeonik.getBestCmap()[ord('x')]].draw(_bp)
+    _xh = _bp.bounds[3] - _bp.bounds[1]
+    added = add_dotted_circle(aeonik, _xh)
+    print(f"     [3b] GDEF: {n_base} Thai -> BASE, {n_mark} -> MARK | "
+          f"U+25CC dotted circle: {'synthesised' if added else 'already present'}")
 
     # Step 4: Thai range bits
     set_thai_bits(aeonik)
@@ -898,8 +1012,8 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     success = 0
-    for wn, (af, bf) in weights.items():
-        if build_font(wn, af, bf):
+    for wn, af in weights.items():
+        if build_font(wn, af):
             success += 1
 
     total = len(weights)
