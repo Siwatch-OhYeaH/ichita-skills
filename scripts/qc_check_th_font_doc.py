@@ -306,21 +306,28 @@ def check_pitch():
             fails.append(f"{label}: renderer does not follow the declared "
                          f"metrics (predicted {pred:.2f}, got {got:.2f})")
 
-    # Informational, NOT a failure. The merged line box is deliberately taller
-    # than the Latin source's: it has to contain Thai tone marks and
-    # below-vowels, which the Latin never had. Requiring it to match the source
-    # is what produced the clipping — the box was held at Aeonik's 1.20 em
-    # while the ink ran to 1.71 em, so the marks were cut off. Line spacing for
-    # documents is pinned in the template, not inherited from the font.
+    # The merged line box must EQUAL the Latin source's, so a paragraph does not
+    # reflow when it is switched between Aeonik and TH-Aeonik.
+    #
+    # This was informational, on the reasoning that the box had to grow to
+    # contain Thai ink. It does not: the line box sets baseline pitch, the clip
+    # box (usWin) bounds what gets drawn, and Thai marks are meant to overflow
+    # the former into the leading above. Treating them as one box put TH-Aeonik
+    # at 1.71 em against Aeonik's 1.20 em, and the 2026-08-02 QC caught it as
+    # 42% of extra leading on the same paragraph.
     rows.append("")
-    rows.append("line box vs the Latin source (informational — the merged box "
-                "must be taller, it contains Thai ink):")
+    rows.append("line box vs the Latin source (must match — a merged face that "
+                "leads differently reflows every mixed document):")
     for label, src_rel in SOURCE_OF.items():
         em_m, _ = effective_line_em(ROOT / FONT_FILES[label])
         em_s, _ = effective_line_em(ROOT / src_rel)
         delta = (em_m - em_s) / em_s * 100
+        ok = abs(em_m - em_s) < 1e-4
         rows.append(f"  {label:<16} {em_m:.4f} em vs source {em_s:.4f} em   "
-                    f"{delta:+6.1f}%")
+                    f"{delta:+6.1f}%  {'ok' if ok else 'MISMATCH'}")
+        if not ok:
+            fails.append(f"{label}: line box {em_m:.4f} em != Latin source "
+                         f"{em_s:.4f} em ({delta:+.1f}%)")
 
     # Within a block, Thai lines must not push apart relative to Latin lines.
     rows.append("")

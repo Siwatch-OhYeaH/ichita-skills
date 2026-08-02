@@ -622,75 +622,104 @@ def set_thai_bits(font):
 # Step 5: Vertical metrics
 # ---------------------------------------------------------------------------
 
-# Line box. Thai ink reaches +987/-364 (Bai) vs Latin +898/-206 (Aeonik), and
-# GPOS mark stacking pushes higher still, so the descent is deepened past both
-# sources. All three metric sets must agree: browsers honour sTypo, Word and
-# most PDF engines honour hhea/usWin. Leaving them to disagree made the same
-# file render at 1.20 em in one and 2.11 em in the other.
-# Line box. This must CONTAIN the ink, not merely describe an intended leading.
+# There are two boxes here and they answer different questions. Conflating them
+# is what produced the 2026-08-02 defects at both extremes.
 #
-# The 2026-08-02 build set these to 1000/-300 on the reasoning — recorded in the
-# comment below — that USE_TYPO_METRICS made only the sTypo set matter for
-# spacing. It does not. Word leads off hhea, and the evidence is direct: the old
-# .otf declared hhea 1550/-561 and printed at 25.30 pt, this build declared
-# 1000/-300 and printed the same document at 15.60 pt. 2111/1300 = 1.624;
-# 25.30/15.60 = 1.622. A 38% collapse, predicted by the hhea ratio alone.
+#   LINE BOX  (hhea, sTypo)  — how far apart consecutive baselines sit.
+#   CLIP BOX  (usWin)        — how much ink GDI is willing to draw.
 #
-# The same undersized box clipped Thai. usWinAscent/Descent were already 1250/570
-# and did contain the ink, yet tone marks were still cut off — so the clip is
-# taken against the hhea line box, and raising usWin alone cannot fix it.
+# The line box is NOT required to contain the ink. No Thai font sizes it that
+# way. Measured, on this machine:
 #
-# Values below clear the measured union of Latin and scaled-Thai ink
-# (-527..1134) with headroom. Every weight in the family MUST share them, or
-# bolding a word would change the line height.
-ASCENT, DESCENT, LINEGAP = 1160, -550, 0
+#     Bai Jamjuree   line 1250   worst shaped stack needs 1552   overflows 302
+#     Leelawadee UI  line 1330
+#     Tahoma         line 1207
+#     Leelawadee     line 1196
+#
+# Thai marks are meant to overflow into the leading of the line above, where the
+# Latin ascenders leave the space empty. Proof this is safe in the target
+# renderer: printpdf4.pdf (Word 2024 -> PDF, TH-Aeonik at line 1300, shaped ink
+# needing 1552) renders every stack in น้ำเชื่อม / ทั้งนี้ / ซึ่ง / ประสิทธิภาพ
+# complete, with no clipping and no collision with the line above.
+#
+# So the earlier reasoning here — "usWin already contained the ink yet marks
+# still clipped, therefore Word clips at hhea" — was wrong. Word does not clip
+# at hhea in body text. Sizing the line box to contain the mark stack cost 42%
+# of extra leading and is the reason TH-Aeonik set 1.71 em against Aeonik's
+# 1.20 em on the same paragraph.
+#
+# The line box is therefore the Latin source's line box, exactly. That is the
+# ICHITA pairing rule applied to leading: Latin is the reference for size,
+# weight and spacing alike, so a paragraph must not reflow when it is switched
+# between Aeonik and TH-Aeonik. Asserted against the source in
+# assert_line_box_matches_latin() so a font update cannot silently drift.
+ASCENT, DESCENT, LINEGAP = 1000, -200, 0        # == Aeonik-Regular.otf hhea
 
-# Clipping box — a different thing from the line box. usWinAscent/usWinDescent
-# bound what GDI will draw, so they must contain every glyph's ink, not just the
-# ink of the cmap-reachable ones.
+# Clipping box. usWinAscent/usWinDescent bound what GDI will draw, so these must
+# contain every glyph's ink — including the ones reachable only through shaping.
+# The overflow is not theoretical: Bai Jamjuree substitutes small tone-mark
+# variants (uni0E48.small and friends) via GSUB for two-level stacks, and those
+# have no cmap entry at all.
 #
-# These were 1050/400, which did not. The overflow is not theoretical: Bai
-# Jamjuree substitutes small tone-mark variants (uni0E48.small and friends) via
-# GSUB for two-level stacks, and those are reachable only through shaping, never
-# through cmap. Shaping 'น้ำเชื่อม' puts uni0E48.small at +1136 and 'ฟั้น' puts
-# uni0E49.small at +1168 in Bold — 86 and 118 units above the old ceiling, so
-# the top of the tone mark was cut off. Raw glyph ink runs to +1225/-561 across
-# the six weights; the box now clears that with headroom.
+# Measured static ink across all 14 faces is -503..+1106 (deepest
+# TH-Aeonik-Bold:uni0E38.small, highest TH-Aeonik-AirItalic:uni0E4C.small), and
+# the worst shaped stack lands inside that at +1088 (อึ๋ม) / -331 (ทุก). The box
+# below clears both with ~55 units of headroom.
 #
-# Raising these does not change line spacing: USE_TYPO_METRICS is set below, so
-# consumers take spacing from the sTypo set above.
-WIN_ASCENT, WIN_DESCENT = ASCENT, -DESCENT
+# Widening this does not touch line spacing — Word leads off hhea and
+# LibreOffice off sTypo, neither of which is usWin.
+WIN_ASCENT, WIN_DESCENT = 1160, 560
+
+
+def assert_line_box_matches_latin(latin_src):
+    """The line box must be the Latin source's, to the unit.
+
+    A merged face that leads differently from the face it was merged into makes
+    every mixed document reflow on a font switch. This is the check that keeps
+    ASCENT/DESCENT/LINEGAP honest if Aeonik is ever updated.
+    """
+    h = latin_src["hhea"]
+    upem = latin_src["head"].unitsPerEm
+    got = (round(h.ascender * 1000 / upem),
+           round(h.descender * 1000 / upem),
+           round(h.lineGap * 1000 / upem))
+    if got != (ASCENT, DESCENT, LINEGAP):
+        raise SystemExit(
+            f"     !! Aeonik declares hhea {got[0]}/{got[1]}/{got[2]} but this "
+            f"build hardcodes {ASCENT}/{DESCENT}/{LINEGAP}. The merged line box "
+            f"must equal the Latin source's — update the constants.")
 
 
 def set_vertical_metrics(font):
-    """Set all three metric sets to the same containing box, then prove it.
+    """Line box from the Latin source; clip box from the measured ink.
 
-    hhea, sTypo and usWin are deliberately identical. Renderers disagree about
-    which set to read — Word takes hhea, LibreOffice and browsers take sTypo
-    when USE_TYPO_METRICS is on, GDI clips against usWin — and the previous
-    build shipped three different answers, so the same document reflowed
-    differently in each. One box everywhere means the line pitch is a property
-    of the font rather than of whoever opens it.
+    hhea and sTypo are set to the same values so the line pitch does not depend
+    on which metric set the renderer prefers — Word takes hhea, LibreOffice and
+    browsers take sTypo when USE_TYPO_METRICS is on. usWin is deliberately
+    larger: it is the clip bound, not a spacing hint.
     """
     os2 = font["OS/2"]
     hhea = font["hhea"]
 
-    # Fail the build rather than ship a font that clips. The overflow is never
-    # in the cmap-reachable glyphs — it is the shaping-only tone-mark variants
-    # (uni0E48.small and friends) that GSUB substitutes into two-level stacks.
+    # Fail the build rather than ship a font that clips. This is checked against
+    # the CLIP box, not the line box — ink above the line box is normal and is
+    # what every Thai font does.
     lo, hi = _ink_bounds(font)
-    if hi > ASCENT or lo < DESCENT:
+    if hi > WIN_ASCENT or lo < -WIN_DESCENT:
         raise SystemExit(
-            f"     !! ink {lo:.0f}..{hi:.0f} escapes the line box "
-            f"{DESCENT}..{ASCENT} — raise ASCENT/DESCENT, do not ship this")
+            f"     !! ink {lo:.0f}..{hi:.0f} escapes the clip box "
+            f"{-WIN_DESCENT}..{WIN_ASCENT} — raise WIN_ASCENT/WIN_DESCENT")
 
     os2.usWinAscent = WIN_ASCENT
     os2.usWinDescent = WIN_DESCENT
     hhea.ascent, hhea.descent, hhea.lineGap = ASCENT, DESCENT, LINEGAP
     os2.sTypoAscender, os2.sTypoDescender, os2.sTypoLineGap = ASCENT, DESCENT, LINEGAP
     os2.fsSelection |= USE_TYPO          # bit 7 — prefer the sTypo set
-    print(f"     [5] Metrics: hhea/sTypo/win={ASCENT}/{DESCENT}/{LINEGAP} "
-          f"(line {ASCENT - DESCENT + LINEGAP}) ink {lo:.0f}..{hi:.0f} fits")
+    over_up, over_dn = max(0, hi - ASCENT), max(0, -lo + DESCENT)
+    print(f"     [5] Metrics: line(hhea=sTypo)={ASCENT}/{DESCENT}/{LINEGAP} "
+          f"({ASCENT - DESCENT + LINEGAP}) clip(usWin)={WIN_ASCENT}/{WIN_DESCENT} "
+          f"ink {lo:.0f}..{hi:.0f} (overflows line box by {over_up:.0f}/{over_dn:.0f}, "
+          f"expected)")
 
 
 def _ink_bounds(font):
@@ -909,6 +938,10 @@ def build_font(weight_name, aeonik_file, bai_file=None):
           f"embolden +{embolden:.1f}u)")
 
     aeonik = TTFont(str(aeonik_path))
+    # Read the line box off the Latin before anything is merged into it. The
+    # merged face must lead exactly as Aeonik does, or switching a paragraph
+    # between the two reflows the document.
+    assert_line_box_matches_latin(aeonik)
     # Scaled to the Latin x-height and weight-matched before a single glyph is
     # copied, so everything downstream — GPOS anchors, ink bounds, the metrics
     # assertion — sees the Thai at its final size.

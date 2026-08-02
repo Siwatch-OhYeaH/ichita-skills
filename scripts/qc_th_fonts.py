@@ -13,7 +13,7 @@ The reference here is the LATIN the Thai actually shares a line with:
 
   1  size    ก height == Latin x-height
   2  weight  Thai stem == Latin stem
-  3  box     hhea == sTypo == usWin, and contains every glyph's ink
+  3  box     line box (hhea == sTypo) == the Latin's; clip box (usWin) holds ink
   4  family  all weights share one line box
   5  shaping real words with stacked vowels+tones stay inside the box,
              including the GSUB-only .small mark variants that no cmap walk
@@ -60,7 +60,10 @@ FAMILIES = {
             "BoldItalic": "Aeonik-BoldItalic.otf",
             "BlackItalic": "Aeonik-BlackItalic.otf",
         },
-        "box": (1160, -550, 0),
+        # LINE box — must equal Aeonik's own hhea, to the unit.
+        "box": (1000, -200, 0),
+        # CLIP box — usWinAscent/usWinDescent, sized to the ink, not the line.
+        "clip": (1160, 560),
     },
     "TH-Slussen": {
         "dir": ROOT / "assets/fonts/slussen-th",
@@ -71,7 +74,8 @@ FAMILIES = {
             "SemiBold": "Slussen-Semibold.otf",
             "Bold": "Slussen-Bold.otf",
         },
-        "box": (1280, -590, 0),
+        "box": (1074, -272, 166),
+        "clip": (1310, 590),
     },
 }
 
@@ -212,11 +216,21 @@ def check_size_and_weight(fam, cfg):
 
 
 def check_box(fam, cfg):
-    """3 + 4 — one box per family, identical everywhere, containing the ink."""
+    """3 + 4 — line box equals the Latin's; clip box contains the ink.
+
+    These are two different boxes and the earlier version of this check
+    conflated them, demanding usWin == hhea and that hhea contain the ink. That
+    forced TH-Aeonik to 1710 units against Aeonik's 1200, so the same paragraph
+    gained 42% of leading the moment it was switched to the merged face. No Thai
+    font sizes its line box to the mark stack — Bai Jamjuree ships 1250 against
+    1552 of ink, Leelawadee UI 1330, Tahoma 1207 — and Word renders the overflow
+    intact (printpdf4.pdf, line 1300, all stacks complete).
+    """
     asc, desc, gap = cfg["box"]
+    win_asc, win_desc = cfg["clip"]
     rows, bad = [], []
     seen = set()
-    for w in cfg["pairs"]:
+    for w, latin_file in cfg["pairs"].items():
         p = cfg["dir"] / f"{fam}-{w}.ttf"
         if not p.exists():
             continue
@@ -225,21 +239,45 @@ def check_box(fam, cfg):
         lo, hi = ink(f)
         box = (hh.ascender, hh.descender, hh.lineGap)
         seen.add(box)
-        agree = (box == (asc, desc, gap)
-                 and (os2.sTypoAscender, os2.sTypoDescender,
-                      os2.sTypoLineGap) == (asc, desc, gap)
-                 and os2.usWinAscent == asc and os2.usWinDescent == -desc)
-        fits = hi <= asc and lo >= desc
-        rows.append(f"{w:<14} box {box[0]}/{box[1]}/{box[2]}  "
+
+        # a) line box is the Latin source's, so a paragraph does not reflow
+        #    when it is switched between the two faces.
+        lp = cfg["latin_dir"] / latin_file
+        latin_box = None
+        if lp.exists():
+            lf = TTFont(lp, lazy=True)
+            u = lf["head"].unitsPerEm
+            latin_box = (round(lf["hhea"].ascender * 1000 / u),
+                         round(lf["hhea"].descender * 1000 / u),
+                         round(lf["hhea"].lineGap * 1000 / u))
+            lf.close()
+            if latin_box != box:
+                bad.append(f"{w}: line box {box} != Latin {latin_box}")
+
+        # b) hhea and sTypo must agree, so pitch does not depend on renderer.
+        if box != (asc, desc, gap):
+            bad.append(f"{w}: hhea {box} != expected {(asc, desc, gap)}")
+        if (os2.sTypoAscender, os2.sTypoDescender,
+                os2.sTypoLineGap) != (asc, desc, gap):
+            bad.append(f"{w}: sTypo disagrees with hhea")
+
+        # c) clip box must contain every glyph's ink, or GDI cuts marks off.
+        clipped = hi > win_asc or lo < -win_desc
+        if clipped:
+            bad.append(f"{w}: ink {lo:.0f}..{hi:.0f} escapes clip box "
+                       f"{-win_desc}..{win_asc} — WILL CLIP")
+        if os2.usWinAscent != win_asc or os2.usWinDescent != win_desc:
+            bad.append(f"{w}: usWin {os2.usWinAscent}/{os2.usWinDescent} "
+                       f"!= expected {win_asc}/{win_desc}")
+
+        rows.append(f"{w:<14} line {box[0]}/{box[1]}/{box[2]}"
+                    f"{'' if latin_box == box else ' (LATIN MISMATCH)'}  "
+                    f"clip {os2.usWinAscent}/{os2.usWinDescent}  "
                     f"ink {lo:.0f}..{hi:.0f}  "
-                    f"{'agree' if agree else 'MISMATCH'} "
-                    f"{'fits' if fits else 'OVERFLOWS'}")
-        if not agree:
-            bad.append(f"{w}: hhea/sTypo/usWin disagree")
-        if not fits:
-            bad.append(f"{w}: ink {lo:.0f}..{hi:.0f} escapes {desc}..{asc}")
+                    f"overflows line by {max(0, hi - asc):.0f}/"
+                    f"{max(0, -lo + desc):.0f} (expected)")
         f.close()
-    record(f"3. {fam} hhea == sTypo == usWin, contains ink", not bad,
+    record(f"3. {fam} line box == Latin's, clip box contains ink", not bad,
            "\n".join(rows + bad))
     record(f"4. {fam} all weights share one line box",
            len(seen) == 1,
@@ -252,6 +290,10 @@ def check_shaping(fam, cfg):
     Walking the cmap is not enough. Bai substitutes .small tone-mark variants
     through GSUB for two-level stacks, and those are reachable only by shaping;
     they are exactly the glyphs that overflowed and got clipped.
+
+    Bounded against the CLIP box. A shaped stack that rises above the LINE box
+    is normal Thai typography, not a defect — it sits in the leading of the line
+    above, where the Latin ascenders leave the space empty.
     """
     try:
         import uharfbuzz as hb
@@ -260,6 +302,7 @@ def check_shaping(fam, cfg):
                "SKIPPED — uharfbuzz not installed under this interpreter")
         return
     asc, desc, _ = cfg["box"]
+    win_asc, win_desc = cfg["clip"]
     bad, worst = [], []
     for w in cfg["pairs"]:
         p = cfg["dir"] / f"{fam}-{w}.ttf"
@@ -290,11 +333,14 @@ def check_shaping(fam, cfg):
                 hi = top if hi is None or top > hi else hi
                 lo = bot if lo is None or bot < lo else lo
         tt.close()
-        worst.append(f"{w:<14} shaped ink {lo:.0f}..{hi:.0f}  box {desc}..{asc}")
-        if hi > asc or lo < desc:
+        worst.append(f"{w:<14} shaped ink {lo:.0f}..{hi:.0f}  "
+                     f"clip {-win_desc}..{win_asc}  "
+                     f"(line {desc}..{asc}, overflow "
+                     f"{max(0, hi - asc):.0f}/{max(0, -lo + desc):.0f} expected)")
+        if hi > win_asc or lo < -win_desc:
             bad.append(f"{w}: shaped stack reaches {lo:.0f}..{hi:.0f}, "
-                       f"outside {desc}..{asc} — WILL CLIP")
-    record(f"5. {fam} shaped stacks stay inside the box "
+                       f"outside clip box {-win_desc}..{win_asc} — WILL CLIP")
+    record(f"5. {fam} shaped stacks stay inside the clip box "
            f"({len(TEST_WORDS)} words)", not bad, "\n".join(worst + bad))
 
 

@@ -19,9 +19,10 @@ Sources:
   Latin: Slussen OTF (OneDrive path preferred, fallback assets/fonts/slussen/)
   Thai:  Bai Jamjuree (local assets preferred, fallback system fonts)
 
-Line box (hhea = sTypo = usWin = 1280/-590/0):
-  Sized to contain the merged ink, not to reproduce Slussen's original box.
-  Preserving Slussen's 1074/-272 clipped Thai, whose ink runs -564..1255.
+Line box (hhea = sTypo = 1074/-272/166) — Slussen's own, to the unit, so a
+  paragraph does not reflow when switched between Slussen and TH-Slussen.
+Clip box (usWin = 1310/590) — sized to contain the merged ink, which overflows
+  the line box by design. Every Thai font does this; see build_th_aeonik.py.
 
 Acceptance test: scripts/compare_th_slussen.py — checks Thai against the LATIN
 it shares a line with (x-height, stem weight, ink containment). The previous
@@ -72,16 +73,37 @@ USE_TYPO = 1 << 7
 MAC_BOLD = 1 << 0
 MAC_ITALIC = 1 << 1
 
-# Vertical metrics. Slussen's own 1074/-272/166 was preserved here on the theory that
-# document line spacing must never change. That theory clipped Thai: the box is
-# 1512 tall but the merged ink runs -564..1255, so tone marks and below-vowels
-# fell outside it. Word takes its line height AND its clip from hhea, so the
-# box has to contain the ink — see build_th_aeonik.py for the measurement that
-# established this (25.30 pt -> 15.60 pt, exactly the hhea ratio).
+# Two boxes, two purposes — see the long note in build_th_aeonik.py for the
+# measurements. Short version: the LINE box (hhea/sTypo) sets baseline pitch and
+# is NOT required to contain the ink; the CLIP box (usWin) bounds what GDI will
+# draw and must contain all of it. Thai marks overflow the line box in every
+# Thai font shipped (Bai Jamjuree 1250 vs 1552 of ink, Leelawadee UI 1330,
+# Tahoma 1207) and Word renders them intact.
+#
+# Slussen's own 1074/-272/166 was restored here. Raising it to 1280/-590 to
+# "contain the ink" bought nothing and cost 24% of extra leading.
 #
 # Every weight shares these, otherwise bolding a word changes the line height.
-ASCENT, DESCENT, LINEGAP = 1280, -590, 0
-WIN_ASCENT, WIN_DESCENT = ASCENT, -DESCENT
+ASCENT, DESCENT, LINEGAP = 1074, -272, 166      # == Slussen-Regular.otf hhea
+
+# Clip box. Measured static ink across the four faces is -535..+1255 (deepest
+# TH-Slussen-SemiBold:uni0E38.small, highest TH-Slussen-Bold:Aringacute); the
+# worst shaped stack lands at +1142 (อึ๋ม) / -349 (ทุก). Cleared with headroom.
+WIN_ASCENT, WIN_DESCENT = 1310, 590
+
+
+def assert_line_box_matches_latin(latin_src):
+    """The line box must be the Latin source's, to the unit."""
+    h = latin_src["hhea"]
+    upem = latin_src["head"].unitsPerEm
+    got = (round(h.ascender * 1000 / upem),
+           round(h.descender * 1000 / upem),
+           round(h.lineGap * 1000 / upem))
+    if got != (ASCENT, DESCENT, LINEGAP):
+        raise SystemExit(
+            f"     !! Slussen declares hhea {got[0]}/{got[1]}/{got[2]} but this "
+            f"build hardcodes {ASCENT}/{DESCENT}/{LINEGAP}. The merged line box "
+            f"must equal the Latin source's — update the constants.")
 
 # Weight mapping: output_name -> slussen_file
 # Latin source only. Thai pairing lives in th_thai_prep.BUILD_TABLE: matching
@@ -560,15 +582,16 @@ def set_thai_bits(font):
 # ---------------------------------------------------------------------------
 
 def set_vertical_metrics(font):
-    """One box for hhea, sTypo and usWin, proven to contain the ink."""
+    """Line box from the Latin source; clip box from the measured ink."""
     os2 = font["OS/2"]
     hhea = font["hhea"]
 
+    # Checked against the CLIP box. Ink above the line box is normal.
     lo, hi = _ink_bounds(font)
-    if hi > ASCENT or lo < DESCENT:
+    if hi > WIN_ASCENT or lo < -WIN_DESCENT:
         raise SystemExit(
-            f"     !! ink {lo:.0f}..{hi:.0f} escapes the line box "
-            f"{DESCENT}..{ASCENT} — raise ASCENT/DESCENT, do not ship this")
+            f"     !! ink {lo:.0f}..{hi:.0f} escapes the clip box "
+            f"{-WIN_DESCENT}..{WIN_ASCENT} — raise WIN_ASCENT/WIN_DESCENT")
 
     os2.sTypoAscender, os2.sTypoDescender, os2.sTypoLineGap = ASCENT, DESCENT, LINEGAP
     hhea.ascent, hhea.descent, hhea.lineGap = ASCENT, DESCENT, LINEGAP
@@ -576,8 +599,11 @@ def set_vertical_metrics(font):
     os2.usWinDescent = WIN_DESCENT
     os2.fsSelection |= USE_TYPO          # bit 7 — prefer the sTypo set
 
-    print(f"     [5] Metrics: hhea/sTypo/win={ASCENT}/{DESCENT}/{LINEGAP} "
-          f"(line {ASCENT - DESCENT + LINEGAP}) ink {lo:.0f}..{hi:.0f} fits")
+    over_up, over_dn = max(0, hi - ASCENT), max(0, -lo + DESCENT)
+    print(f"     [5] Metrics: line(hhea=sTypo)={ASCENT}/{DESCENT}/{LINEGAP} "
+          f"({ASCENT - DESCENT + LINEGAP}) clip(usWin)={WIN_ASCENT}/{WIN_DESCENT} "
+          f"ink {lo:.0f}..{hi:.0f} (overflows line box by {over_up:.0f}/{over_dn:.0f}, "
+          f"expected)")
 
 
 def _ink_bounds(font):
@@ -777,9 +803,10 @@ def verify_font(weight_name, slussen_file):
                         f"win={os2.usWinAscent}/{os2.usWinDescent} "
                         f"vs ink {head.yMax:+}/{head.yMin:+}")
 
-    # 3. hhea is the box every weight must share, and it must equal sTypo.
-    # These were checked against Slussen's original 1074/-272 while the Thai
-    # ink ran to -564..1255 — the assertion passed on a font that clipped.
+    # 3. hhea is the box every weight must share, and it must equal sTypo AND
+    # the Latin source's. It is NOT required to contain the ink — that is what
+    # check 2 (usWin) is for. Conflating the two is what inflated this family to
+    # 1280/-590 and added 24% of leading to every Slussen document.
     hhea_ok = (hhea.ascent == ASCENT and hhea.descent == DESCENT
                and hhea.lineGap == LINEGAP)
     checks.append(f"hhea={hhea.ascent}/{hhea.descent}({'OK' if hhea_ok else 'FAIL'})")
@@ -861,6 +888,8 @@ def build_font(weight_name, slussen_file, bai_file=None):
           f"embolden +{embolden:.1f}u)")
 
     slussen = TTFont(str(slussen_path))
+    # Read the line box off the Latin before anything is merged into it.
+    assert_line_box_matches_latin(slussen)
     # Scaled to the Latin x-height and weight-matched before any glyph is
     # copied, so GPOS anchors and the ink assertion all see final-size Thai.
     bai = prepare_bai("TH-Slussen", weight_name, latin_font=slussen)
