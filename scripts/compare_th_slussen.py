@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+"""DEPRECATED — this test asserts the defect it was meant to catch.
+
+It compares merged Thai against Bai Jamjuree and passes when the two are
+pixel-identical. That is the wrong reference. Bai's Thai is drawn to sit beside
+Bai's OWN Latin; dropped unscaled into Aeonik/Slussen it renders 9% too large
+and 18-25% too light. "Identical to Bai" is therefore the broken state, and
+this test could only pass while the font was wrong. It was cited in two
+post-mortems as proof the merge was correct.
+
+Replaced by scripts/qc_th_fonts.py, which measures Thai against the LATIN it
+shares a line with: x-height match, stem match, ink containment, and shaping of
+real stacked words.
+
+Kept only for the raster-diff plumbing. Do not use its verdict.
+"""
+
 """
 Acceptance test for TH-Slussen.
 
