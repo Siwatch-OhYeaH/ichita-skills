@@ -45,13 +45,25 @@ PATTERN='TH Aeonik|TH Slussen'
 WINFONTS=/mnt/c/Windows/Fonts
 
 MODE=check
-case "${1:-}" in
-    --apply) MODE=apply ;;
-    --apply-system) MODE=apply-system ;;
-    --check|"") MODE=check ;;
-    -h|--help) sed -n '2,45p' "$0"; exit 0 ;;
-    *) echo "unknown option: $1 (use --apply, --apply-system, --check)" >&2; exit 2 ;;
-esac
+RESTART=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --apply) MODE=apply ;;
+        --apply-system) MODE=apply-system ;;
+        --check) MODE=check ;;
+        # Restart from inside the script, immediately after the queue read-back
+        # passes. The gap between queueing and boot is not dead time: on
+        # 2026-08-02 the 20 queued entries were gone by the next boot with every
+        # file still on disk, and the only writers in that window were an Office
+        # Click-to-Run reconfigure (11:49, 12:04) and an SFX installer (12:07).
+        # Boot type was 0x0 both times, so the queue was not skipped — it was
+        # destroyed. Closing the window is the fix.
+        --restart) RESTART=1 ;;
+        -h|--help) sed -n '2,45p' "$0"; exit 0 ;;
+        *) echo "unknown option: $1 (use --apply, --apply-system, --check, --restart)" >&2; exit 2 ;;
+    esac
+    shift
+done
 
 command -v reg.exe >/dev/null 2>&1 || {
     echo "reg.exe not reachable — WSL interop is required (is interop disabled?)" >&2
@@ -324,6 +336,58 @@ if [ -f "$STAGE/apply.log" ]; then
 else
     echo "  !! no log produced — UAC was probably declined." >&2
     exit 1
+fi
+
+echo
+# Read the queue back out of the registry, independently of what the elevated
+# script reported about itself. Measured 2026-08-02: the previous run reported
+# exit=0 having queued nothing (bug 2), and a later run queued 20 entries that
+# were gone by the next boot with every file still on disk. The script's own
+# $pending counter comes from the same call it is measuring, so it is not
+# evidence. This is.
+echo "--- verifying the reboot queue (independent read-back) ---"
+QUEUE="$(powershell.exe -NoProfile -Command \
+    "\$p = Get-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue; if (\$p) { \$p.PendingFileRenameOperations -join \"\`n\" }" \
+    2>/dev/null | tr -d '\r')"
+q_th="$(printf '%s\n' "$QUEUE" | grep -c 'TH-' || true)"
+q_ttf="$(printf '%s\n' "$QUEUE" | grep -c 'TH-.*\.ttf' || true)"
+echo "  queued TH- entries: ${q_th}    (of which .ttf: ${q_ttf})"
+
+if [ "$q_ttf" -ne 0 ]; then
+    echo "  !! FAIL: the CURRENT build is queued for deletion at boot. DO NOT REBOOT." >&2
+    echo "     Clear the queue before restarting, or you will boot with no fonts." >&2
+    exit 1
+fi
+
+if [ "$q_th" -gt 0 ]; then
+    cat <<EOF
+
+  ${q_th} stale file(s) are queued for deletion at boot.
+
+  RESTART NOW — do not leave the queue sitting.
+  This is not about how you restart. On 2026-08-02 the user restarted correctly
+  from the Start menu and Kernel-Boot event 27 recorded boot type 0x0 (a full
+  boot) twice, so the Session Manager pass definitely ran; the queue was gone
+  and all 20 files were still on disk. The entries were destroyed before the
+  boot, not skipped at it. The only writers in that two-hour window were an
+  Office Click-to-Run reconfigure and an SFX installer, and installers do clear
+  this value to reset the "reboot required" state.
+
+  So the window between queueing and boot is the hazard. Close it:
+
+      powershell.exe -Command "shutdown /r /t 0"
+
+  or re-run with --restart to have this script do it the moment the read-back
+  above passes. Then re-run '$0' — it must report 0 stale files.
+EOF
+    if [ "$RESTART" = 1 ]; then
+        echo
+        echo "  --restart given: restarting now."
+        powershell.exe -NoProfile -Command "shutdown /r /t 0" 2>&1 | tr -d '\r'
+    fi
+else
+    echo "  nothing queued — either nothing was locked, or the queue call failed."
+    echo "  If the plan above listed stale files, this is a FAILURE, not a success."
 fi
 
 echo
