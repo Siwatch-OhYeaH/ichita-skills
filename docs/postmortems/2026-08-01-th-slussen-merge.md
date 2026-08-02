@@ -200,3 +200,33 @@ it against its siblings before assuming they are still green.
 - **`compare_th_slussen.py` needs `uharfbuzz`, `freetype-py`** — installed into
   `venv_fonts/`, still recorded in no requirements file.
 - **Nothing is committed.** All work is uncommitted on `docs/ichita-proposal-design`.
+
+---
+
+# Addendum, 2026-08-02 — TH-Slussen is now TrueType
+
+TH-Slussen was rebuilt on a `glyf` base alongside TH-Aeonik. The full reasoning,
+measurements and the two new defects (stale `hmtx` lsb; the GSUB-only test gap)
+are in the companion addendum to
+[`2026-08-01-th-aeonik-merge.md`](2026-08-01-th-aeonik-merge.md). Slussen-specific
+points only:
+
+**Thai is now byte-identical to Bai Jamjuree** — all 124 reachable glyphs,
+verified by `check_thai_verbatim()`, with 0 raster differences over 4 weights ×
+13 sizes. Latin's residue is *smaller* than Aeonik's: mean Δ p50 2.69, p99 9.05,
+**max 11.51/255**, zero advance mismatches (Aeonik's max is 16.12).
+
+**Slussen's CFF stem hints are gone, and this family is the one that had them.**
+Measured before the change: 2–6 hint operators on `A`/`a`/`o`/`n`. Aeonik carries
+zero, so it gave up nothing; Slussen gave up real hinting and no TrueType
+instructions replace it. `compare_th_slussen.py` runs FreeType unhinted and
+therefore **cannot see this** — it is a Windows question at 9–11 pt, and it is the
+single most likely place this change is noticed. It is listed as an open item for
+that reason.
+
+**Defect 7 (stale lsb) was worse here than in Aeonik:** 42–49 glyphs per weight
+needed `hmtx` lsb re-synced to `xMin`, against 0–2 on the Aeonik uprights.
+
+**Output is `TH-Slussen-*.ttf`.** The extension change is deliberate: it makes a
+new build impossible to confuse with a pre-fix `.otf` still sitting in
+`C:\Windows\Fonts`.

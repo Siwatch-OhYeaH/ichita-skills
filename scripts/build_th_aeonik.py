@@ -5,10 +5,36 @@ Build TH-Aeonik font family — unified pipeline.
 Merges Aeonik (Latin) + Bai Jamjuree (Thai) into TH-Aeonik with complete
 OpenType support for Thai text shaping on Windows.
 
+OUTPUT IS TRUETYPE (`glyf`), NOT CFF. This is the load-bearing design choice
+and it is not cosmetic:
+
+  * Thai is rendered from Bai Jamjuree's own outlines, copied verbatim. That
+    makes Thai *pixel-identical* to Bai Jamjuree, which a CFF build cannot be.
+    Measured over 13 sizes: CFF base gave 8.36% of pixels differing (mean delta
+    6.83/255); glyf base gives 0.00%. The residue in the CFF build was never
+    curve approximation — outlines matched to 0.7071 units, and rebuilding at
+    cu2qu max_err 1.0 / 0.5 / 0.1 produced byte-identical deltas. It was
+    FreeType's Adobe CFF engine versus its TrueType engine. The only lever is
+    which format the binary *is*.
+
+  * `glyf` has no width operand, so the defect that made every printed PDF
+    unreadable — CFF charstring widths disagreeing with `hmtx`, which Microsoft
+    Print to PDF turns into the PDF /W array — becomes impossible to express.
+
+  * Print to PDF already declares /Subtype /CIDFontType2 + /FontFile2 for these
+    fonts. Shipping `glyf` makes that declaration truthful and clears poppler's
+    "Mismatch between font type and embedded font file" warnings.
+
+The cost, accepted knowingly: Latin is no longer pixel-exact to Aeonik (10.16%
+of pixels, mean delta 3.90/255 — lower amplitude than the Thai error it
+replaces). Aeonik carries zero hint operators, so nothing is lost structurally.
+TH-Slussen is the same pipeline but Slussen *is* hinted; see its build script.
+
 Pipeline steps:
-  1. Copy Thai glyphs + variants from Bai Jamjuree (CFF charstrings)
+  0. Convert the Latin base from CFF to `glyf` — before any Thai is added
+  1. Copy Thai glyphs + variants from Bai Jamjuree (glyf outlines, verbatim)
   2. Merge GPOS/GDEF/GSUB tables from Bai Jamjuree (mark positioning)
-  3. Apply metadata — RIBBI naming, OS/2 v4, fsType, panose, CFF fontName
+  3. Apply metadata — RIBBI naming, OS/2 v4, fsType, panose
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
   5. Set vertical metrics — hhea/sTypo/usWin agree, Thai-safe descent
   6. Sort GSUB/GPOS Coverage tables + clean Mac cmap (Uniscribe compliance)
@@ -30,9 +56,11 @@ import sys
 import warnings
 from pathlib import Path
 
-from fontTools.pens.recordingPen import RecordingPen
-from fontTools.pens.t2CharStringPen import T2CharStringPen
-from fontTools.ttLib import TTFont
+from fontTools.pens.boundsPen import ControlBoundsPen
+from fontTools.pens.cu2quPen import Cu2QuPen
+from fontTools.pens.recordingPen import DecomposingRecordingPen
+from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib import TTFont, newTable
 
 warnings.filterwarnings("ignore")
 
@@ -134,44 +162,105 @@ def find_bai(filename):
 
 
 # ---------------------------------------------------------------------------
+# Step 0: Convert the Latin base from CFF to glyf
+# ---------------------------------------------------------------------------
+
+# Cubic -> quadratic error bound, in font units. Deliberately NOT a tuning knob:
+# 1.0, 0.5 and 0.1 were measured to produce byte-identical rasters, because the
+# residual Latin difference is FreeType's CFF engine versus its TrueType engine,
+# not curve approximation. Anyone tightening this to chase the drift is chasing
+# the wrong variable.
+CU2QU_MAX_ERR = 0.5
+
+SKIP_GLYPHS = {".notdef", ".null", "NULL", "nonmarkingreturn", "CR"}
+
+
+def convert_to_glyf(font):
+    """Re-express the Latin base's CFF outlines as `glyf`, in place.
+
+    Must run BEFORE any Thai is added. `_union_ot()` is only valid because the
+    Latin font keeps its own glyph IDs — Thai is appended after them, so its
+    GSUB/GPOS survive the merge verbatim. Converting while the glyph set is
+    still purely Latin preserves that invariant exactly.
+    """
+    glyph_set = font.getGlyphSet()
+    glyf = newTable("glyf")
+    glyf.glyphOrder = list(font.getGlyphOrder())
+    glyf.glyphs = {}
+    for gn in glyf.glyphOrder:
+        pen = TTGlyphPen(None)
+        glyph_set[gn].draw(Cu2QuPen(pen, CU2QU_MAX_ERR, reverse_direction=True))
+        glyf[gn] = pen.glyph()
+
+    font["glyf"] = glyf
+    font["loca"] = newTable("loca")
+    font["maxp"].tableVersion = 0x00010000
+    for attr, default in [("maxZones", 1), ("maxTwilightPoints", 0),
+                          ("maxStorage", 0), ("maxFunctionDefs", 0),
+                          ("maxInstructionDefs", 0), ("maxStackElements", 0),
+                          ("maxSizeOfInstructions", 0),
+                          ("maxComponentElements", 0), ("maxComponentDepth", 0)]:
+        setattr(font["maxp"], attr, default)
+    font["head"].indexToLocFormat = 0
+
+    # Without this the file keeps the 'OTTO' tag and every consumer rejects it —
+    # FreeType fails with "SFNT font table missing", which names the symptom and
+    # not the cause.
+    font.sfntVersion = "\000\001\000\000"
+
+    del font["CFF "]
+    for tag in ("FFTM", "VORG"):
+        if tag in font:
+            del font[tag]
+
+    print(f"     [0] CFF -> glyf: {len(glyf.glyphOrder)} Latin glyphs "
+          f"(cu2qu max_err={CU2QU_MAX_ERR})")
+
+
+# ---------------------------------------------------------------------------
 # Step 1: Copy Thai glyphs
 # ---------------------------------------------------------------------------
 
-def _add_glyph_to_cff(aeonik_font, bai_font, bai_glyph_name, target_name):
-    cff = aeonik_font["CFF "]
-    top_dict = cff.cff.topDictIndex[0]
-    charstrings = top_dict.CharStrings
+def _copy_glyph(target_font, bai_font, bai_glyph_name, target_name, verbatim_ok):
+    """Append one Bai Jamjuree glyph to the merged font.
 
-    bai_glyph_set = bai_font.getGlyphSet()
-    if bai_glyph_name not in bai_glyph_set:
+    Copied verbatim when it can be — that is where pixel-identical Thai comes
+    from. A composite may only be copied verbatim if every component it names is
+    also being copied from Bai; otherwise the component name resolves against
+    the *Latin* font and the glyph is silently rebuilt out of the wrong parts.
+
+    Measured on Aeonik: of 362 Bai glyphs copied, 175 are composite and 212
+    component references collide with a Latin glyph the base already owns
+    (uni1EAE -> A, uni1EB6 -> uni0306, ...). Those are decomposed. All 8 Thai
+    composites (uni0E4D0E48..uni0E4D0E4B and their .narrow forms) are
+    translate-only and reference only Bai glyphs, so Thai stays verbatim.
+    """
+    bai_glyf = bai_font["glyf"]
+    if bai_glyph_name not in bai_glyf.glyphs:
         return False
 
-    bai_glyph = bai_glyph_set[bai_glyph_name]
-    # T2CharStringPen encodes the width operand assuming nominalWidthX == 0.
-    # This charstring adopts Aeonik's Private DICT below, so pre-compensate:
-    # the operand must be (width - nominalWidthX) for the rasteriser to decode
-    # the intended advance. Without this every Thai glyph decodes nominalWidthX
-    # units too wide in any consumer that trusts charstring widths over hmtx.
-    priv = top_dict.Private
-    pen = T2CharStringPen(bai_glyph.width - priv.nominalWidthX, bai_glyph_set)
-    bai_glyph.draw(pen)
-    charstring = pen.getCharString()
+    src = bai_glyf[bai_glyph_name]
+    if src.isComposite() and not all(
+            c.glyphName in verbatim_ok for c in src.components):
+        pen = TTGlyphPen(None)
+        rec = DecomposingRecordingPen(bai_font.getGlyphSet())
+        bai_font.getGlyphSet()[bai_glyph_name].draw(rec)
+        rec.replay(pen)
+        glyph = pen.glyph()
+    else:
+        glyph = copy_mod.deepcopy(src)
 
-    charstring.private = priv
-    charstring.globalSubrs = getattr(cff.cff, "GlobalSubrs", [])
+    target_font["glyf"].glyphs[target_name] = glyph
 
-    new_index = len(charstrings.charStringsIndex)
-    charstrings.charStringsIndex.append(charstring)
-    charstrings.charStrings[target_name] = new_index
-
-    glyph_order = aeonik_font.getGlyphOrder()
+    glyph_order = target_font.getGlyphOrder()
     if target_name not in glyph_order:
         glyph_order.append(target_name)
-        aeonik_font.setGlyphOrder(glyph_order)
+        target_font.setGlyphOrder(glyph_order)
+        target_font["glyf"].glyphOrder = glyph_order
 
-    hmtx = aeonik_font["hmtx"]
     if bai_glyph_name in bai_font["hmtx"].metrics:
-        hmtx.metrics[target_name] = bai_font["hmtx"].metrics[bai_glyph_name]
+        target_font["hmtx"].metrics[target_name] = \
+            bai_font["hmtx"].metrics[bai_glyph_name]
 
     return True
 
@@ -182,35 +271,62 @@ def copy_thai_glyphs(aeonik_font, bai_font):
         print("     !! No cmap in Bai Jamjuree")
         return 0
 
-    # Cmap-mapped Thai codepoints (U+0E01-0E5B)
+    have = set(aeonik_font.getGlyphOrder())
+
+    # Cmap-mapped Thai codepoints (U+0E01-0E5B) land under uniXXXX names; every
+    # other Bai glyph keeps its own name. Both sets are known up front so
+    # composite components can be resolved before the first glyph is written.
     thai_mappings = {
         cp: gn for cp, gn in bai_cmap.items() if 0x0E01 <= cp <= 0x0E5B
+    }
+    renamed = {gn: f"uni{cp:04X}" for cp, gn in thai_mappings.items()}
+    verbatim_ok = {
+        gn for gn in bai_font.getGlyphOrder()
+        if gn not in SKIP_GLYPHS and (gn in renamed or gn not in have)
     }
 
     added = 0
     for cp, bai_gn in sorted(thai_mappings.items()):
-        if _add_glyph_to_cff(aeonik_font, bai_font, bai_gn, f"uni{cp:04X}"):
+        if _copy_glyph(aeonik_font, bai_font, bai_gn, f"uni{cp:04X}", verbatim_ok):
             added += 1
 
-    # Update cmap
-    charstrings = aeonik_font["CFF "].cff.topDictIndex[0].CharStrings
+    glyphs = aeonik_font["glyf"].glyphs
     for table in aeonik_font["cmap"].tables:
         if hasattr(table, "cmap") and table.cmap is not None:
             for cp in thai_mappings:
                 tn = f"uni{cp:04X}"
-                if tn in charstrings.charStrings:
+                if tn in glyphs:
                     table.cmap[cp] = tn
 
     # Add ALL remaining Bai glyphs (variants + non-Thai for GPOS/GSUB integrity)
     extra = 0
-    skip = {".notdef", ".null", "NULL", "nonmarkingreturn", "CR"}
     for gn in bai_font.getGlyphOrder():
-        if gn in charstrings.charStrings or gn in skip:
+        if gn in glyphs or gn in SKIP_GLYPHS:
             continue
-        if _add_glyph_to_cff(aeonik_font, bai_font, gn, gn):
+        if _copy_glyph(aeonik_font, bai_font, gn, gn, verbatim_ok):
             extra += 1
 
-    print(f"     [1] Glyphs: {added} Thai cmap + {extra} extra (GPOS/GSUB)")
+    aeonik_font["maxp"].numGlyphs = len(aeonik_font.getGlyphOrder())
+
+    # `gasp` is what tells GDI/DirectWrite to grid-fit and antialias a TrueType
+    # face. CFF needs none, so neither Latin source ships one; Bai does.
+    if "gasp" in bai_font:
+        aeonik_font["gasp"] = copy_mod.deepcopy(bai_font["gasp"])
+
+    # post 3.0 stores no glyph names. The CFF build got them from the charset;
+    # `glyf` has no such fallback, so every consumer — and every acceptance
+    # test that compares by name — would see glyph00001. Format 2.0 keeps them.
+    aeonik_font["post"].formatType = 2.0
+    aeonik_font["post"].extraNames = []
+    aeonik_font["post"].mapping = {}
+    aeonik_font["post"].glyphOrder = aeonik_font.getGlyphOrder()
+
+    verbatim = sum(1 for gn in bai_font.getGlyphOrder()
+                   if not bai_font["glyf"][gn].isComposite()
+                   or all(c.glyphName in verbatim_ok
+                          for c in bai_font["glyf"][gn].components))
+    print(f"     [1] Glyphs: {added} Thai cmap + {extra} extra (GPOS/GSUB) | "
+          f"{verbatim} copyable verbatim, rest decomposed")
     return added + extra
 
 
@@ -603,7 +719,7 @@ def fix_mac_cmap(font):
 
 def verify_font(weight_name):
     cfg = WEIGHT_CONFIG[weight_name]
-    path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.otf"
+    path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.ttf"
     if not path.exists():
         return
 
@@ -620,7 +736,11 @@ def verify_font(weight_name):
     if any(0x0E5C <= cp <= 0x0E7F for cp in thai):
         checks.append("spurious!!")
 
-    # Latin match
+    # Latin match. Segment-by-segment comparison is meaningless now that the
+    # merged font is quadratic and Aeonik is cubic — it would report 0% on a
+    # perfect build. Compare what survives the conversion instead: advance width
+    # and control box, both of which must be exact. Visual fidelity is the
+    # acceptance test's job (compare_th_aeonik.py), not this smoke check.
     aeonik_path = find_aeonik(WEIGHTS[weight_name][0])
     if aeonik_path:
         aeonik_src = TTFont(str(aeonik_path))
@@ -631,10 +751,13 @@ def verify_font(weight_name):
             mg, ag = cmap.get(cp), ac.get(cp)
             if mg and ag and mg in gs_m and ag in gs_a:
                 total += 1
-                pm, pa = RecordingPen(), RecordingPen()
+                pm, pa = ControlBoundsPen(gs_m), ControlBoundsPen(gs_a)
                 gs_m[mg].draw(pm)
                 gs_a[ag].draw(pa)
-                if pm.value == pa.value:
+                same_box = (pm.bounds is None) == (pa.bounds is None) and (
+                    pm.bounds is None
+                    or all(abs(x - y) <= 1 for x, y in zip(pm.bounds, pa.bounds)))
+                if same_box and gs_m[mg].width == gs_a[ag].width:
                     match += 1
         pct = 100 * match / total if total else 0
         checks.append(f"Latin={pct:.0f}%")
@@ -693,7 +816,10 @@ def build_font(weight_name, aeonik_file, bai_file):
         print(f"     !! Aeonik is not CFF format")
         return False
 
-    output_path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.otf"
+    output_path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.ttf"
+
+    # Step 0: CFF -> glyf, while the glyph set is still purely Latin
+    convert_to_glyf(aeonik)
 
     # Step 1: Copy Thai glyphs
     copy_thai_glyphs(aeonik, bai)
@@ -715,6 +841,31 @@ def build_font(weight_name, aeonik_file, bai_file):
     n_mac = fix_mac_cmap(aeonik)
     print(f"     [6] Coverage tables re-sorted: {n_cov} | "
           f"Mac cmap codes >255 dropped: {n_mac}")
+
+    # maxPoints / maxContours / maxComponent* are read by Windows to size its
+    # rasteriser buffers. They must describe the final glyph set, not the Latin
+    # one convert_to_glyf() left behind. Glyphs built by TTGlyphPen carry no
+    # bounds until asked, and maxp.recalc reads xMin off every one of them.
+    glyf_table = aeonik["glyf"]
+    hmtx = aeonik["hmtx"]
+    shifted = 0
+    for gn in aeonik.getGlyphOrder():
+        glyph = glyf_table[gn]
+        glyph.recalcBounds(glyf_table)
+        # `glyf` renderers place the outline at (lsb - xMin), so a stale lsb
+        # silently translates the whole glyph. CFF ignores hmtx lsb entirely,
+        # which is why Aeonik ships some that disagree with their own outlines —
+        # BoldItalic '9' declares lsb 33 against an xMin of 31, and inheriting
+        # that shifted every point of the glyph 2 units right. Harmless in the
+        # source, a visible defect the moment the font becomes TrueType.
+        advance, lsb = hmtx.metrics[gn]
+        x_min = getattr(glyph, "xMin", 0)
+        if lsb != x_min:
+            hmtx.metrics[gn] = (advance, x_min)
+            shifted += 1
+    aeonik["maxp"].recalc(aeonik)
+    if shifted:
+        print(f"     [6b] lsb re-synced to xMin on {shifted} glyph(s)")
 
     aeonik.save(str(output_path))
 

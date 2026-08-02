@@ -357,14 +357,14 @@ def main() -> int:
 
     # ── TH-Aeonik (full validation) ───────────────────────────────────────────
     th_aeonik_dir = font_dir / "aeonik-th"
-    th_aeonik_fonts = sorted(th_aeonik_dir.glob("TH-Aeonik-*.otf")) if th_aeonik_dir.is_dir() else []
+    th_aeonik_fonts = sorted(th_aeonik_dir.glob("TH-Aeonik-*.ttf")) if th_aeonik_dir.is_dir() else []
 
     print(f"\n{'=' * 80}")
     print(f"TH-AEONIK VALIDATION ({len(th_aeonik_fonts)} fonts)")
     print(f"{'=' * 80}")
 
     if not th_aeonik_fonts:
-        print(f"  WARNING: No TH-Aeonik-*.otf files found in {th_aeonik_dir}", file=sys.stderr)
+        print(f"  WARNING: No TH-Aeonik-*.ttf files found in {th_aeonik_dir}", file=sys.stderr)
 
     th_results: dict[str, dict] = {}
     for font_path in th_aeonik_fonts:

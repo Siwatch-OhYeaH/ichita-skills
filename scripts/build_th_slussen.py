@@ -6,9 +6,10 @@ Merges Slussen (Latin) + Bai Jamjuree (Thai) into TH-Slussen with complete
 OpenType support for Thai text shaping on Windows.
 
 Pipeline steps:
-  1. Copy Thai glyphs + variants from Bai Jamjuree (CFF charstrings via T2CharStringPen)
+  0. Convert the Latin base from CFF to `glyf` — before any Thai is added
+  1. Copy Thai glyphs + variants from Bai Jamjuree (glyf outlines, verbatim)
   2. Union GPOS/GDEF/GSUB from Bai Jamjuree onto Slussen's own (mark positioning)
-  3. Apply metadata — RIBBI naming, OS/2, CFF fontName
+  3. Apply metadata — RIBBI naming, OS/2
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
   5. Vertical metrics — Slussen's line box preserved, clipping box widened for Thai
   6. Sort GSUB/GPOS Coverage tables + clean Mac cmap (Uniscribe compliance)
@@ -38,9 +39,11 @@ import sys
 import warnings
 from pathlib import Path
 
-from fontTools.pens.recordingPen import RecordingPen
-from fontTools.pens.t2CharStringPen import T2CharStringPen
-from fontTools.ttLib import TTFont
+from fontTools.pens.boundsPen import ControlBoundsPen
+from fontTools.pens.cu2quPen import Cu2QuPen
+from fontTools.pens.recordingPen import DecomposingRecordingPen
+from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib import TTFont, newTable
 
 warnings.filterwarnings("ignore")
 
@@ -161,82 +164,154 @@ def find_bai(filename):
 # Step 1: Copy Thai glyphs (glyph by glyph, NOT bulk)
 # ---------------------------------------------------------------------------
 
-def _add_glyph_to_cff(slussen_font, bai_font, bai_glyph_name, target_name):
-    """Add a single glyph from bai_font into slussen_font's CFF table."""
-    cff = slussen_font["CFF "]
-    top_dict = cff.cff.topDictIndex[0]
-    charstrings = top_dict.CharStrings
+# Cubic -> quadratic error bound, in font units. Deliberately NOT a tuning knob:
+# 1.0, 0.5, 0.1 and 0.001 were all measured to produce byte-identical rasters.
+# The residual Latin difference is FreeType's CFF engine versus its TrueType
+# engine, not curve approximation.
+CU2QU_MAX_ERR = 0.5
 
-    bai_glyph_set = bai_font.getGlyphSet()
-    if bai_glyph_name not in bai_glyph_set:
+SKIP_GLYPHS = {".notdef", ".null", "NULL", "nonmarkingreturn", "CR"}
+
+
+def convert_to_glyf(font):
+    """Re-express Slussen's CFF outlines as `glyf`, in place.
+
+    Must run BEFORE any Thai is added, so Slussen keeps its own glyph IDs and
+    _union_ot() stays valid verbatim.
+
+    Unlike Aeonik, Slussen IS hinted — 2-6 stem hints per Latin glyph. Those are
+    CFF-only and are discarded here; no TrueType instructions replace them. That
+    is the accepted cost of making Thai bit-identical to Bai Jamjuree, and it is
+    the one thing about this family that needs looking at on Windows at small
+    sizes, where grid-fitting matters.
+    """
+    glyph_set = font.getGlyphSet()
+    glyf = newTable("glyf")
+    glyf.glyphOrder = list(font.getGlyphOrder())
+    glyf.glyphs = {}
+    for gn in glyf.glyphOrder:
+        pen = TTGlyphPen(None)
+        glyph_set[gn].draw(Cu2QuPen(pen, CU2QU_MAX_ERR, reverse_direction=True))
+        glyf[gn] = pen.glyph()
+
+    font["glyf"] = glyf
+    font["loca"] = newTable("loca")
+    font["maxp"].tableVersion = 0x00010000
+    for attr, default in [("maxZones", 1), ("maxTwilightPoints", 0),
+                          ("maxStorage", 0), ("maxFunctionDefs", 0),
+                          ("maxInstructionDefs", 0), ("maxStackElements", 0),
+                          ("maxSizeOfInstructions", 0),
+                          ("maxComponentElements", 0), ("maxComponentDepth", 0)]:
+        setattr(font["maxp"], attr, default)
+    font["head"].indexToLocFormat = 0
+
+    # Without this the file keeps the 'OTTO' tag and consumers reject it —
+    # FreeType reports "SFNT font table missing", naming the symptom not the cause.
+    font.sfntVersion = "\000\001\000\000"
+
+    del font["CFF "]
+    for tag in ("FFTM", "VORG"):
+        if tag in font:
+            del font[tag]
+
+    print(f"     [0] CFF -> glyf: {len(glyf.glyphOrder)} Latin glyphs "
+          f"(cu2qu max_err={CU2QU_MAX_ERR}; Slussen's CFF stem hints dropped)")
+
+
+def _copy_glyph(target_font, bai_font, bai_glyph_name, target_name, verbatim_ok):
+    """Append one Bai Jamjuree glyph, verbatim where possible.
+
+    Verbatim copying is where pixel-identical Thai comes from. A composite may
+    only be copied verbatim if every component it names is also coming from Bai;
+    otherwise the name resolves against the *Latin* font and the glyph is
+    silently rebuilt out of the wrong parts. Measured on Slussen: 291 glyphs
+    copied, 135 composite, 180 component references colliding (uni1EAE -> A,
+    uni1EB6 -> dotbelowcomb, ...). All 8 Thai composites are translate-only and
+    reference only Bai glyphs, so Thai stays verbatim.
+    """
+    bai_glyf = bai_font["glyf"]
+    if bai_glyph_name not in bai_glyf.glyphs:
         return False
 
-    bai_glyph = bai_glyph_set[bai_glyph_name]
-    # T2CharStringPen encodes the width operand assuming nominalWidthX == 0.
-    # This charstring adopts Slussen's Private DICT below, so pre-compensate:
-    # the operand must be (width - nominalWidthX) for the rasteriser to decode
-    # the intended advance. Without this every Thai glyph decodes nominalWidthX
-    # units too wide (616 Regular / 632 Bold / ...) in any consumer that trusts
-    # charstring widths over hmtx — which Microsoft Print to PDF does. Word
-    # looks fine because Word lays out from hmtx; the printed PDF does not.
-    priv = top_dict.Private
-    pen = T2CharStringPen(bai_glyph.width - priv.nominalWidthX, bai_glyph_set)
-    bai_glyph.draw(pen)
-    charstring = pen.getCharString()
+    src = bai_glyf[bai_glyph_name]
+    if src.isComposite() and not all(
+            c.glyphName in verbatim_ok for c in src.components):
+        pen = TTGlyphPen(None)
+        rec = DecomposingRecordingPen(bai_font.getGlyphSet())
+        bai_font.getGlyphSet()[bai_glyph_name].draw(rec)
+        rec.replay(pen)
+        glyph = pen.glyph()
+    else:
+        glyph = copy_mod.deepcopy(src)
 
-    charstring.private = priv
-    charstring.globalSubrs = getattr(cff.cff, "GlobalSubrs", [])
+    target_font["glyf"].glyphs[target_name] = glyph
 
-    new_index = len(charstrings.charStringsIndex)
-    charstrings.charStringsIndex.append(charstring)
-    charstrings.charStrings[target_name] = new_index
-
-    glyph_order = slussen_font.getGlyphOrder()
+    glyph_order = target_font.getGlyphOrder()
     if target_name not in glyph_order:
         glyph_order.append(target_name)
-        slussen_font.setGlyphOrder(glyph_order)
+        target_font.setGlyphOrder(glyph_order)
+        target_font["glyf"].glyphOrder = glyph_order
 
-    hmtx = slussen_font["hmtx"]
     if bai_glyph_name in bai_font["hmtx"].metrics:
-        hmtx.metrics[target_name] = bai_font["hmtx"].metrics[bai_glyph_name]
+        target_font["hmtx"].metrics[target_name] = \
+            bai_font["hmtx"].metrics[bai_glyph_name]
 
     return True
 
 
 def copy_thai_glyphs(slussen_font, bai_font):
-    """Copy Thai glyphs from BaiJamjuree into Slussen CFF font."""
+    """Copy Thai glyphs from BaiJamjuree into the (now glyf-based) Slussen."""
     bai_cmap = bai_font.getBestCmap()
     if not bai_cmap:
         print("     !! No cmap in Bai Jamjuree")
         return 0
 
+    have = set(slussen_font.getGlyphOrder())
+
     # Cmap-mapped Thai codepoints (U+0E01-0E7F)
     thai_mappings = {
         cp: gn for cp, gn in bai_cmap.items() if 0x0E01 <= cp <= 0x0E7F
     }
+    renamed = {gn: f"uni{cp:04X}" for cp, gn in thai_mappings.items()}
+    verbatim_ok = {
+        gn for gn in bai_font.getGlyphOrder()
+        if gn not in SKIP_GLYPHS and (gn in renamed or gn not in have)
+    }
 
     added = 0
     for cp, bai_gn in sorted(thai_mappings.items()):
-        if _add_glyph_to_cff(slussen_font, bai_font, bai_gn, f"uni{cp:04X}"):
+        if _copy_glyph(slussen_font, bai_font, bai_gn, f"uni{cp:04X}", verbatim_ok):
             added += 1
 
-    # Update cmap for Thai range
-    charstrings = slussen_font["CFF "].cff.topDictIndex[0].CharStrings
+    glyphs = slussen_font["glyf"].glyphs
     for table in slussen_font["cmap"].tables:
         if hasattr(table, "cmap") and table.cmap is not None:
             for cp in thai_mappings:
                 tn = f"uni{cp:04X}"
-                if tn in charstrings.charStrings:
+                if tn in glyphs:
                     table.cmap[cp] = tn
 
     # Add ALL remaining Bai glyphs (variants + non-Thai needed for GPOS/GSUB integrity)
     extra = 0
-    skip = {".notdef", ".null", "NULL", "nonmarkingreturn", "CR"}
     for gn in bai_font.getGlyphOrder():
-        if gn in charstrings.charStrings or gn in skip:
+        if gn in glyphs or gn in SKIP_GLYPHS:
             continue
-        if _add_glyph_to_cff(slussen_font, bai_font, gn, gn):
+        if _copy_glyph(slussen_font, bai_font, gn, gn, verbatim_ok):
             extra += 1
+
+    slussen_font["maxp"].numGlyphs = len(slussen_font.getGlyphOrder())
+
+    # `gasp` tells GDI/DirectWrite to grid-fit and antialias a TrueType face.
+    # CFF needs none, so Slussen ships none; Bai does.
+    if "gasp" in bai_font:
+        slussen_font["gasp"] = copy_mod.deepcopy(bai_font["gasp"])
+
+    # post 3.0 stores no glyph names; the CFF build got them from the charset,
+    # `glyf` has no such fallback and every consumer would see glyph00001.
+    slussen_font["post"].formatType = 2.0
+    slussen_font["post"].extraNames = []
+    slussen_font["post"].mapping = {}
+    slussen_font["post"].glyphOrder = slussen_font.getGlyphOrder()
 
     print(f"     [1] Glyphs: {added} Thai cmap + {extra} extra (GPOS/GSUB)")
     return added + extra
@@ -634,7 +709,7 @@ def fix_mac_cmap(font):
 def verify_font(weight_name, slussen_file):
     """Run full validation and print report. Returns True if all checks pass."""
     cfg = WEIGHT_CONFIG[weight_name]
-    path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.otf"
+    path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.ttf"
     if not path.exists():
         print(f"     [7] FAIL: Output file not found: {path}")
         return False
@@ -647,7 +722,13 @@ def verify_font(weight_name, slussen_file):
     failures = []
     checks = []
 
-    # 1. Latin outlines identical (RecordingPen compare: H, a, o)
+    # 1. Latin geometry preserved (H, a, o).
+    #
+    # Segment-by-segment comparison is meaningless now that the merged font is
+    # quadratic and Slussen is cubic — it reports CHANGED on a perfect build.
+    # Compare what must survive the conversion instead: advance width and
+    # control box. Visual fidelity is compare_th_slussen.py's job, not this
+    # smoke check.
     slussen_path = find_slussen(slussen_file)
     if slussen_path:
         slussen_src = TTFont(str(slussen_path))
@@ -659,13 +740,17 @@ def verify_font(weight_name, slussen_file):
             mg = cmap.get(cp)
             ag = sc.get(cp) if sc else None
             if mg and ag and mg in gs_m and ag in gs_s:
-                pm, ps = RecordingPen(), RecordingPen()
+                pm, ps = ControlBoundsPen(gs_m), ControlBoundsPen(gs_s)
                 gs_m[mg].draw(pm)
                 gs_s[ag].draw(ps)
-                ok = pm.value == ps.value
-                if not ok:
+                box_ok = (pm.bounds is None) == (ps.bounds is None) and (
+                    pm.bounds is None
+                    or all(abs(x - y) <= 1 for x, y in zip(pm.bounds, ps.bounds)))
+                if not (box_ok and gs_m[mg].width == gs_s[ag].width):
                     latin_ok = False
-                    failures.append(f"Latin '{name}' CHANGED")
+                    failures.append(
+                        f"Latin '{name}' CHANGED (box {pm.bounds} vs {ps.bounds}, "
+                        f"width {gs_m[mg].width} vs {gs_s[ag].width})")
         checks.append(f"Latin={'OK' if latin_ok else 'FAIL'}")
     else:
         checks.append("Latin=SKIP(src not found)")
@@ -769,7 +854,10 @@ def build_font(weight_name, slussen_file, bai_file):
         print(f"     !! Slussen is not CFF format — cannot merge CFF glyphs")
         return False
 
-    output_path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.otf"
+    output_path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.ttf"
+
+    # Step 0: CFF -> glyf, while the glyph set is still purely Latin
+    convert_to_glyf(slussen)
 
     # Step 1: Copy Thai glyphs (glyph by glyph)
     copy_thai_glyphs(slussen, bai)
@@ -791,6 +879,25 @@ def build_font(weight_name, slussen_file, bai_file):
     n_mac = fix_mac_cmap(slussen)
     print(f"     [6] Coverage tables re-sorted: {n_cov} | "
           f"Mac cmap codes >255 dropped: {n_mac}")
+
+    # `glyf` renderers place an outline at (lsb - xMin), so a stale lsb silently
+    # translates the whole glyph. CFF ignores lsb entirely, so Slussen ships some
+    # that disagree with their own outlines — harmless there, a visible shift the
+    # moment the font becomes TrueType. maxp.recalc also needs real bounds.
+    glyf_table = slussen["glyf"]
+    hmtx = slussen["hmtx"]
+    shifted = 0
+    for gn in slussen.getGlyphOrder():
+        glyph = glyf_table[gn]
+        glyph.recalcBounds(glyf_table)
+        advance, lsb = hmtx.metrics[gn]
+        x_min = getattr(glyph, "xMin", 0)
+        if lsb != x_min:
+            hmtx.metrics[gn] = (advance, x_min)
+            shifted += 1
+    slussen["maxp"].recalc(slussen)
+    if shifted:
+        print(f"     [6b] lsb re-synced to xMin on {shifted} glyph(s)")
 
     slussen.save(str(output_path))
 
@@ -836,7 +943,7 @@ def main():
     print(f"  {status}: {success}/{total} fonts built")
     print(f"  Output: {OUTPUT_DIR}")
     for wn, ok in results.items():
-        print(f"    {'OK' if ok else 'FAIL'}: TH-Slussen-{wn}.otf")
+        print(f"    {'OK' if ok else 'FAIL'}: TH-Slussen-{wn}.ttf")
     print(f"{'=' * 70}\n")
 
     return 0 if success == total else 1

@@ -26,12 +26,12 @@ OUT = ROOT / "test-output" / "th-font-specimen.html"
 
 # (css family, weight, style, path)
 FACES = [
-    ("THAeonik", 300, "normal", A / "aeonik-th/TH-Aeonik-Light.otf"),
-    ("THAeonik", 300, "italic", A / "aeonik-th/TH-Aeonik-LightItalic.otf"),
-    ("THAeonik", 400, "normal", A / "aeonik-th/TH-Aeonik-Regular.otf"),
-    ("THAeonik", 400, "italic", A / "aeonik-th/TH-Aeonik-RegularItalic.otf"),
-    ("THAeonik", 700, "normal", A / "aeonik-th/TH-Aeonik-Bold.otf"),
-    ("THAeonik", 700, "italic", A / "aeonik-th/TH-Aeonik-BoldItalic.otf"),
+    ("THAeonik", 300, "normal", A / "aeonik-th/TH-Aeonik-Light.ttf"),
+    ("THAeonik", 300, "italic", A / "aeonik-th/TH-Aeonik-LightItalic.ttf"),
+    ("THAeonik", 400, "normal", A / "aeonik-th/TH-Aeonik-Regular.ttf"),
+    ("THAeonik", 400, "italic", A / "aeonik-th/TH-Aeonik-RegularItalic.ttf"),
+    ("THAeonik", 700, "normal", A / "aeonik-th/TH-Aeonik-Bold.ttf"),
+    ("THAeonik", 700, "italic", A / "aeonik-th/TH-Aeonik-BoldItalic.ttf"),
 
     ("Aeonik", 300, "normal", A / "aeonik/Aeonik-Light.otf"),
     ("Aeonik", 300, "italic", A / "aeonik/Aeonik-LightItalic.otf"),
@@ -40,10 +40,10 @@ FACES = [
     ("Aeonik", 700, "normal", A / "aeonik/Aeonik-Bold.otf"),
     ("Aeonik", 700, "italic", A / "aeonik/Aeonik-BoldItalic.otf"),
 
-    ("THSlussen", 400, "normal", A / "slussen-th/TH-Slussen-Regular.otf"),
-    ("THSlussen", 500, "normal", A / "slussen-th/TH-Slussen-Medium.otf"),
-    ("THSlussen", 600, "normal", A / "slussen-th/TH-Slussen-SemiBold.otf"),
-    ("THSlussen", 700, "normal", A / "slussen-th/TH-Slussen-Bold.otf"),
+    ("THSlussen", 400, "normal", A / "slussen-th/TH-Slussen-Regular.ttf"),
+    ("THSlussen", 500, "normal", A / "slussen-th/TH-Slussen-Medium.ttf"),
+    ("THSlussen", 600, "normal", A / "slussen-th/TH-Slussen-SemiBold.ttf"),
+    ("THSlussen", 700, "normal", A / "slussen-th/TH-Slussen-Bold.ttf"),
 
     ("Slussen", 400, "normal", A / "slussen/Slussen-Regular.otf"),
     ("Slussen", 500, "normal", A / "slussen/Slussen-Medium.otf"),
@@ -74,6 +74,20 @@ SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 24, 36, 48, 72]
 
 PANGRAM_LATIN = "The quick brown fox jumps over the lazy dog"
 PANGRAM_THAI = "เป็นมนุษย์สุดประเสริฐเลิศคุณค่า กว่าบรรดาฝูงสัตว์เดรัจฉาน"
+
+# Space-free Thai, for the graded pixel-diff panels only.
+#
+# `space` is a SHARED glyph and deliberately comes from the Latin source, not
+# from Bai Jamjuree — mixed Thai/Latin text needs the Latin one. The advances
+# genuinely differ (Bai Regular 260 vs Aeonik 262 vs Slussen 276; Bai Bold 288
+# vs TH-Aeonik Bold 248), and browsers round each advance to a whole pixel, so
+# one space can shift the rest of the string by a full pixel and light up every
+# edge after it. That is not a merge defect and it must not be graded as one:
+# a TH-Slussen panel with 11 spaces read 11px wider than Bai purely from this.
+# compare_th_*.py excludes `space` from the Thai comparison for the same reason.
+PANGRAM_THAI_NOSPACE = "เป็นมนุษย์สุดประเสริฐเลิศคุณค่ากว่าบรรดาฝูงสัตว์เดรัจฉาน"
+STACKS_NOSPACE = "น้ำเชื่อมผู้ที่ซึ่งหนึ่ง"
+TONE_RAMP_NOSPACE = "ก่ก้ก๊ก๋ก์กักิกีกึกืกุกู"
 MIXED = "ICHITA อิชิตะ — รายงาน Q3 ปี 2026 (Revenue +12.5%)"
 
 # Words that force two-level Thai stacks: consonant + upper vowel + tone mark.
@@ -161,13 +175,13 @@ def overlay(text, top, bottom, size, weight=400, lang="en"):
     difference can be counted rather than eyeballed.
     """
     import html as _h
-    # Latin is CFF copied verbatim into CFF, so it must be pixel-identical and is
-    # graded pass/fail. Thai is TrueType converted to CFF; browsers hint and round
-    # the two outline formats differently, which shifts a long string by about a
-    # pixel and lights up every edge. That is a rasterisation artefact, not a merge
-    # defect, so Thai is reported informationally — compare_th_*.py is the
-    # authority there, comparing advances and positions exactly at 13 sizes.
-    exact = "1" if bottom != "Bai" else "0"
+    # THIS IS THE OPPOSITE WAY ROUND FROM THE OLD CFF BUILD. The merged families
+    # now ship as TrueType, so Bai Jamjuree's Thai outlines are copied verbatim:
+    # THAI is graded pass/fail and must be pixel-identical. Latin is what now
+    # carries the cubic->quadratic conversion and the engine change, so browsers
+    # rasterise it slightly differently — reported, not graded. compare_th_*.py
+    # is the authority on the bound (measured max 16.1/255).
+    exact = "1" if bottom == "Bai" else "0"
     return (f'<div class="diff" data-exact="{exact}" '
             f'data-text="{_h.escape(text, quote=True)}" '
             f'data-a="{top}" data-b="{bottom}" data-size="{size}" '
@@ -244,24 +258,38 @@ DIFF_SCRIPT = r"""<script>
     const wa = wof(a), wb = wof(b);
 
     if (n.dataset.exact === '1') {
-      // Latin: CFF charstrings copied verbatim — anything but 0 is a defect.
+      // Thai: Bai Jamjuree's glyf outlines are copied byte-for-byte, so the
+      // stored shapes are identical and compare_th_*.py proves it directly.
+      //
+      // A browser can still differ by a hair, and it is worth knowing why before
+      // reading red here as a defect. Browsers grid-fit (hint); FreeType's
+      // autohinter derives its zones from the whole font, and a MERGED font's
+      // glyph set can never equal either source's. One glyph lands on a rounding
+      // boundary because of it: uni0E47.narrow (the tone mark after ป) is 10 rows
+      // tall in both merged families and 9 in Bai at 26px. Unhinted, all three
+      // agree exactly. The old CFF build had the identical 1px offset, so this is
+      // inherent to merging, not to the format.
       const verdict = ndiff === 0
         ? '<b class="good">PIXEL-IDENTICAL</b>'
-        : '<b class="bad">DIFFERS</b> — Latin is copied verbatim, so any difference is a defect';
+        : (pct < 2.0
+           ? '<b>grid-fit residue</b> — browser hinting, not a merge defect'
+           : '<b class="bad">DIFFERS</b> — too large for grid-fitting; investigate');
       cap.innerHTML = `${a} vs ${b} @${s}px — ${verdict} · ` +
-        `${ndiff.toLocaleString()} differing subpixels, max Δ ${max}/255 · ` +
-        `advance ${wa.toFixed(1)}px vs ${wb.toFixed(1)}px`;
+        `${ndiff.toLocaleString()} differing subpixels (${pct.toFixed(1)}% of inked), ` +
+        `max Δ ${max}/255 · advance ${wa.toFixed(1)}px vs ${wb.toFixed(1)}px · ` +
+        `outline equality is proven byte-for-byte over all 124 Thai-reachable ` +
+        `glyphs by <code>compare_th_*.py</code>`;
     } else {
-      // Thai: TrueType outlines converted to CFF. The browser hints and rounds the
-      // two formats differently, so a long string drifts ~1px and every edge lights
-      // up. Report it, do not grade it.
+      // Latin: Aeonik/Slussen cubics approximated as quadratics, then rendered by
+      // the TrueType engine instead of the CFF one. Edges drift; advances do not.
+      // Report it, do not grade it.
       cap.innerHTML = `${a} vs ${b} @${s}px — <b>rasterisation comparison</b> ` +
         `(informational): ${ndiff.toLocaleString()} differing subpixels ` +
         `(${pct.toFixed(1)}% of inked), max Δ ${max}/255 · ` +
         `advance ${wa.toFixed(1)}px vs ${wb.toFixed(1)}px ` +
-        `(Δ ${(wa - wb).toFixed(1)}px). Thai outlines were converted TrueType→CFF; ` +
-        `browsers rasterise the two formats differently, so red here is expected. ` +
-        `Shape and advance equality is asserted exactly by ` +
+        `(Δ ${(wa - wb).toFixed(1)}px). Latin cubics were converted to quadratics ` +
+        `and now render through the TrueType engine, so faint red here is expected. ` +
+        `The bound (mean ≤20/255, advances exact) is asserted by ` +
         `<code>compare_th_*.py</code>, not by this panel.`;
     }
   }
@@ -453,10 +481,17 @@ background:#fff;padding:6px 14px;border-radius:99px;cursor:pointer;color:var(--g
   "from Aeonik/Slussen, Thai indistinguishable from Bai Jamjuree.",
   """<div class="note ok"><b>Difference overlays.</b> The black panels stack the merged
   font directly on top of its source using <code>mix-blend-mode:difference</code>.
-  <b>Pure black means pixel-identical.</b> Any white ghosting is a mismatch. Faint
-  grey edges on Thai are expected — the outlines were converted from TrueType
-  quadratics to CFF cubics, which changes antialiasing by up to 17/255 without
-  moving a single advance or position.</div>
+  <b>Pure black means pixel-identical.</b> Any white ghosting is a mismatch.
+  <b>Thai must be pure black</b> — the merged families ship as TrueType and carry
+  Bai Jamjuree's outlines verbatim. Faint grey edges are now expected on
+  <b>Latin</b> instead: Aeonik/Slussen cubics are approximated as quadratics and
+  rendered by a different engine, which moves antialiasing by up to 16/255
+  without moving a single advance or position. Thai panels may show a trace of
+  red from browser <i>grid-fitting</i>: the autohinter's zones are derived from
+  the whole font, and a merged font's glyph set cannot equal either source's.
+  That is a rasteriser artefact — the stored Thai outlines are verified
+  byte-for-byte against Bai Jamjuree across all 124 reachable glyphs, including
+  the GSUB-only tone-mark variants no cmap-based test can reach.</div>
   <div class="note"><b>Two defects cannot be seen here.</b> Coverage-table ordering
   only affects Uniscribe/DirectWrite on Windows, and the family-naming fix only
   shows up in a font picker. Browsers use HarfBuzz and their own font matching, so
@@ -464,16 +499,16 @@ background:#fff;padding:6px 14px;border-radius:99px;cursor:pointer;color:var(--g
 
 {sec("aeonik", "TH Aeonik", "Aeonik + Bai Jamjuree",
   "Six weights: Light, Regular and Bold, each upright and italic.",
-  triptych("Latin — must match Aeonik exactly", PANGRAM_LATIN, "THAeonik", "Aeonik", "Bai", 19)
-  + triptych("Thai — must match Bai Jamjuree exactly", PANGRAM_THAI, "THAeonik", "Aeonik", "Bai", 19,
+  triptych("Latin — must match Aeonik within the conversion bound", PANGRAM_LATIN, "THAeonik", "Aeonik", "Bai", 19)
+  + triptych("Thai — must be PIXEL-IDENTICAL to Bai Jamjuree", PANGRAM_THAI, "THAeonik", "Aeonik", "Bai", 19,
              note="the Aeonik cell has no Thai — that is the point of the merge")
   + triptych("Mixed", MIXED, "THAeonik", "Aeonik", "Bai", 19)
   + '<h3>Difference overlay — Latin, TH Aeonik over Aeonik</h3>'
   + overlay(PANGRAM_LATIN, "THAeonik", "Aeonik", 26)
   + overlay("Hamburgefonstiv AVATAR 0123456789", "THAeonik", "Aeonik", 26, 700)
   + '<h3>Difference overlay — Thai, TH Aeonik over Bai Jamjuree</h3>'
-  + overlay(PANGRAM_THAI, "THAeonik", "Bai", 26, 400, "th")
-  + overlay("น้ำเชื่อม ผู้ ที่ ซึ่ง หนึ่ง", "THAeonik", "Bai", 26, 700, "th"))}
+  + overlay(PANGRAM_THAI_NOSPACE, "THAeonik", "Bai", 26, 400, "th")
+  + overlay(STACKS_NOSPACE, "THAeonik", "Bai", 26, 700, "th"))}
 
 {sec("aeonik-chars", "TH Aeonik — every character", "inventory",
   "Merged font on the first row of each pair, source font on the second. "
@@ -495,14 +530,14 @@ background:#fff;padding:6px 14px;border-radius:99px;cursor:pointer;color:var(--g
 
 {sec("slussen", "TH Slussen", "Slussen + Bai Jamjuree",
   "Four weights: Regular, Medium, SemiBold, Bold. No italics.",
-  triptych("Latin — must match Slussen exactly", PANGRAM_LATIN, "THSlussen", "Slussen", "Bai", 19)
-  + triptych("Thai — must match Bai Jamjuree exactly", PANGRAM_THAI, "THSlussen", "Slussen", "Bai", 19)
+  triptych("Latin — must match Slussen within the conversion bound", PANGRAM_LATIN, "THSlussen", "Slussen", "Bai", 19)
+  + triptych("Thai — must be PIXEL-IDENTICAL to Bai Jamjuree", PANGRAM_THAI, "THSlussen", "Slussen", "Bai", 19)
   + triptych("Mixed", MIXED, "THSlussen", "Slussen", "Bai", 19)
   + '<h3>Difference overlay — Latin, TH Slussen over Slussen</h3>'
   + overlay(PANGRAM_LATIN, "THSlussen", "Slussen", 26)
   + overlay("Hamburgefonstiv AVATAR 0123456789", "THSlussen", "Slussen", 26, 700)
   + '<h3>Difference overlay — Thai, TH Slussen over Bai Jamjuree</h3>'
-  + overlay(PANGRAM_THAI, "THSlussen", "Bai", 26, 400, "th"))}
+  + overlay(PANGRAM_THAI_NOSPACE, "THSlussen", "Bai", 26, 400, "th"))}
 
 {sec("slussen-chars", "TH Slussen — every character", "inventory",
   "Same layout: merged font first, source second.",
@@ -541,8 +576,8 @@ by 20–50 units.</p>
 <p class="lede">If the CFF charstring widths disagree with <code>hmtx</code>, marks
 gain a real advance and detach from their consonant. This is the defect that made
 printed PDFs unreadable.</p>
-{overlay("ก่ ก้ ก๊ ก๋ ก์ กั กิ กี กึ กื กุ กู", "THAeonik", "Bai", 40, 400, "th")}
-{overlay("ก่ ก้ ก๊ ก๋ ก์ กั กิ กี กึ กื กุ กู", "THSlussen", "Bai", 40, 400, "th")}""")}
+{overlay(TONE_RAMP_NOSPACE, "THAeonik", "Bai", 40, 400, "th")}
+{overlay(TONE_RAMP_NOSPACE, "THSlussen", "Bai", 40, 400, "th")}""")}
 """
 
     report = f"""

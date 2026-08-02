@@ -10,7 +10,8 @@ Answers the two questions a visual inspection cannot:
      every build in assets/fonts/ and against git HEAD, and says so plainly.
 
   2. ARE THE ADVANCE WIDTHS RIGHT? Print to PDF builds the PDF /W array from
-     the CFF charstring widths rather than from hmtx. When those disagree, Thai
+     the embedded program's advance source. For the old CFF builds that was
+     the charstring width, not hmtx; when those disagree, Thai
      combining marks are declared with a real advance instead of zero, which
      detaches every tone mark from its consonant and shreds copy-paste.
 
@@ -29,7 +30,6 @@ warnings.filterwarnings("ignore")
 
 import pikepdf
 from fontTools.ttLib import TTFont
-from fontTools.misc.psCharStrings import T2WidthExtractor
 
 ROOT = Path(__file__).parent.parent
 FONT_DIRS = [ROOT / "assets/fonts/aeonik-th", ROOT / "assets/fonts/slussen-th"]
@@ -42,7 +42,7 @@ def known_builds():
     """sha256 -> label, for every current build and its git HEAD ancestor."""
     out = {}
     for d in FONT_DIRS:
-        for p in sorted(d.glob("*.otf")):
+        for p in sorted(list(d.glob("*.otf")) + list(d.glob("*.ttf"))):
             out[hashlib.sha256(p.read_bytes()).hexdigest()] = f"CURRENT  {p.name}"
             rel = p.relative_to(ROOT)
             try:
@@ -132,8 +132,18 @@ def audit(pdf_path):
                       f"nor git HEAD  [STALE?]")
                 problems.append(f"{name}: embedded font matches no known build")
 
-            # ---- CFF charstring widths vs hmtx (inside the embedded program)
+            # ---- where the embedded program says advances come from ----
+            #
+            # The CFF builds carried an advance twice — hmtx and the charstring
+            # width operand — and Print to PDF builds /W from the charstring.
+            # When they disagreed, every Thai combining mark got a real advance
+            # and the printed text shredded. The families now ship as TrueType,
+            # where `glyf` has no width operand and the divergence cannot be
+            # expressed. Both cases are still audited: an old CFF font may well
+            # be what turns up embedded in a stale PDF, which is the whole point
+            # of this script.
             if "CFF " in font:
+                from fontTools.misc.psCharStrings import T2WidthExtractor
                 cff = font["CFF "].cff
                 top = cff[cff.fontNames[0]]
                 ex = T2WidthExtractor(getattr(top.Private, "Subrs", []), cff.GlobalSubrs,
@@ -149,9 +159,22 @@ def audit(pdf_path):
                 tag = "OK" if not bad else "BROKEN"
                 print(f"    CFF widths vs hmtx: {bad} disagree "
                       f"({badmark} zero-advance marks)  [{tag}]")
+                print(f"    NOTE: this is a CFF program — the current build is "
+                      f"TrueType, so this PDF predates the format change.")
                 if bad:
                     problems.append(f"{name}: {bad} CFF widths disagree with hmtx "
                                     f"({badmark} combining marks) — printed text will spread")
+            elif "glyf" in font:
+                hmtx = font["hmtx"]
+                cmap = font.getBestCmap()
+                badmark = [cmap[cp] for cp in MARKS
+                           if cp in cmap and hmtx[cmap[cp]][0] != 0]
+                tag = "OK" if not badmark else "BROKEN"
+                print(f"    glyf build: advance has a single source (hmtx); "
+                      f"{len(badmark)} mark(s) non-zero  [{tag}]")
+                if badmark:
+                    problems.append(f"{name}: {len(badmark)} Thai combining marks "
+                                    f"carry a non-zero hmtx advance")
 
             # ---- the PDF /W array itself, which is what a reader trusts
             W = widths_from_W(df)

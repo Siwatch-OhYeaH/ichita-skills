@@ -10,12 +10,28 @@ Checked two ways, across every weight and a wide range of sizes:
 
   1. Shaping  — HarfBuzz glyph sequence + positions, exact match required.
   2. Raster   — FreeType glyph bitmaps.
-                Latin must be pixel-exact: Aeonik's CFF charstrings are copied
-                verbatim, so there is no excuse for any difference.
-                Thai outlines are converted from TrueType quadratics to CFF
-                cubics, so FreeType's scan conversion differs slightly. Bitmap
-                dimensions and advances must still match exactly; only edge
-                antialiasing may vary, and only within MAX_MEAN_DEV.
+
+THE BAR IS THE OPPOSITE WAY ROUND FROM THE OLD CFF BUILD. The font now ships as
+TrueType (`glyf`), so Bai Jamjuree's Thai outlines are copied verbatim and
+**Thai must be pixel-exact** — every dimension, advance and pixel. Any
+difference at all means the verbatim copy did not happen, which is the single
+thing this format change exists to guarantee.
+
+Latin now carries the conversion instead: Aeonik's cubics are approximated as
+quadratics by cu2qu, and FreeType renders `glyf` with a different engine than
+CFF. That residue is bounded, not eliminated, and the bounds below are set from
+the measured distribution over 4572 differing (glyph, size) comparisons:
+
+  * mean edge deviation  p50 3.94, p99 11.70, max 16.12/255  -> limit 20.0
+  * one bitmap dimension differs by 1px ('6' @144px, Italic) -> limit 1
+  * advances: zero mismatches                                -> limit 0
+
+Those numbers only hold because the build re-syncs `hmtx` lsb to each glyph's
+xMin. `glyf` renderers position an outline at (lsb - xMin); CFF ignores lsb
+entirely, so Aeonik ships a few glyphs whose declared lsb disagrees with their
+own outline — BoldItalic '9' says 33 against an xMin of 31. Inheriting that
+translated the whole glyph 2 units and put max deviation at 37.34/255 with 8
+advance mismatches. If those symptoms ever return, suspect lsb before cu2qu.
 
 `space` is deliberately excluded from the Thai comparison. It is a shared
 glyph and comes from Aeonik (262 units) rather than Bai Jamjuree (260), which
@@ -30,7 +46,7 @@ from pathlib import Path
 
 import freetype
 import uharfbuzz as hb
-from fontTools.misc.psCharStrings import T2WidthExtractor
+
 from fontTools.ttLib import TTFont
 
 ASSETS = Path(__file__).parent.parent / "assets" / "fonts"
@@ -46,12 +62,12 @@ PAIRS = {
 }
 
 PPEMS = [8, 9, 10, 11, 12, 14, 16, 18, 24, 36, 48, 72, 144]
-# Ceiling on the mean coverage delta (/255) across the pixels that differ.
-# 20/255 is under 8% on edge pixels only — the residue of rasterising cubics
-# against the original quadratics. Interior pixels, bitmap dimensions and
-# advances are all required to match exactly, so shape and spacing are held
-# to an exact standard; only edge antialiasing is allowed to drift.
-MAX_MEAN_DEV = 20.0
+
+# Latin tolerances — see the module docstring for the measurements behind each.
+# Thai has no tolerance at all; it must be byte-identical.
+LATIN_MAX_MEAN_DEV = 20.0   # mean coverage delta (/255) over differing pixels
+LATIN_MAX_DIM_DELTA = 1     # px, on any of width/rows/left/top
+LATIN_MAX_ADV_DELTA = 0     # 26.6 units — exact; lsb re-sync removed all drift
 
 # Thai only — no spaces, so the shared `space` glyph never enters the compare.
 THAI = [
@@ -105,33 +121,110 @@ def raster(path, char, ppem):
             g.advance.x, bytes(g.bitmap.buffer))
 
 
-def check_cff_widths(path):
-    """CFF charstring widths must equal hmtx for every glyph.
+def check_advance_source(path):
+    """There must be exactly one place an advance width can come from.
 
-    Not a cosmetic invariant. Microsoft Print to PDF builds the PDF /W array
-    from the charstring widths, not from hmtx. When these disagree, Word still
-    renders correctly (it lays out from hmtx) but the printed PDF declares the
-    wrong advance for every affected glyph. For Thai that is fatal: combining
-    marks carry a zero advance in hmtx, so a mismatch gives each tone mark and
-    vowel a real advance, detaching it from its base consonant, spreading the
-    line, and overrunning the next run.
+    Successor to check_cff_widths(), and the reason the family moved to `glyf`.
 
-    Regression guard for the defect that made printed reports unreadable.
+    In the CFF build a glyph carried its advance twice — once in `hmtx`, once as
+    the charstring width operand — and the two could disagree. Microsoft Print to
+    PDF builds the PDF /W array from the charstring, not from `hmtx`, so a
+    disagreement rendered correctly in Word and shredded the printed PDF. Thai
+    combining marks carry a zero advance in `hmtx`; given a real advance in /W,
+    every tone mark detaches from its consonant and each run overruns the next.
+
+    `glyf` has no width operand, so that divergence is now unrepresentable. This
+    guard asserts the structural property rather than re-checking the arithmetic:
+    no CFF table, a real `glyf` table, and every Thai combining mark still
+    zero-advance in `hmtx` — which is now the only source /W can be built from.
     """
     font = TTFont(path)
-    cff = font["CFF "].cff
-    top = cff[cff.fontNames[0]]
-    charstrings, private = top.CharStrings, top.Private
-    extractor = T2WidthExtractor(getattr(private, "Subrs", []), cff.GlobalSubrs,
-                                 private.nominalWidthX, private.defaultWidthX)
-    hmtx = font["hmtx"]
     bad = []
-    for name in charstrings.keys():
-        extractor.reset()
-        extractor.execute(charstrings[name])
-        if extractor.width != hmtx[name][0]:
-            bad.append((name, hmtx[name][0], extractor.width))
+    if "CFF " in font:
+        bad.append(("<table>", "no CFF ", "CFF  present — advance width is "
+                    "expressible in two disagreeing places again"))
+    if "glyf" not in font:
+        bad.append(("<table>", "glyf", "missing — not a TrueType build"))
+    if font.sfntVersion != "\000\001\000\000":
+        bad.append(("<header>", "0x00010000", f"sfntVersion {font.sfntVersion!r}"))
+
+    cmap, hmtx = font.getBestCmap(), font["hmtx"]
+    for cp in list(range(0x0E31, 0x0E32)) + list(range(0x0E34, 0x0E3B)) + \
+            list(range(0x0E47, 0x0E4F)):
+        gn = cmap.get(cp)
+        if gn and hmtx[gn][0] != 0:
+            bad.append((gn, 0, hmtx[gn][0]))
     return bad
+
+
+def thai_closure(bai_font):
+    """Every glyph Thai text can actually reach: cmap Thai, plus the GSUB closure.
+
+    The raster checks below reach glyphs through `get_char_index`, so they can
+    only ever see cmap-mapped ones. Bai Jamjuree's tone-mark variants
+    (uni0E47.narrow, uni0E48.small, the uni0E4D0E49 ligatures) are reachable
+    ONLY through shaping — and they are exactly the glyphs that appear in real
+    two-level Thai stacks. 124 glyphs are reachable; 87 are in the cmap. The
+    difference is invisible to any cmap-based test.
+    """
+    reach = {gn for cp, gn in bai_font.getBestCmap().items() if 0x0E01 <= cp <= 0x0E7F}
+    gsub = bai_font["GSUB"].table
+    for _ in range(5):                       # iterate to a fixed point
+        for lookup in gsub.LookupList.Lookup:
+            for st in lookup.SubTable or []:
+                mapping = getattr(st, "mapping", None)
+                if mapping:
+                    for src, dst in mapping.items():
+                        if src in reach:
+                            reach |= set(dst) if isinstance(dst, list) else {dst}
+                ligs = getattr(st, "ligatures", None)
+                if ligs:
+                    for src, entries in ligs.items():
+                        if src in reach:
+                            reach |= {e.LigGlyph for e in entries}
+                alts = getattr(st, "alternates", None)
+                if alts:
+                    for src, dst in alts.items():
+                        if src in reach:
+                            reach |= set(dst)
+    return reach
+
+
+def check_thai_verbatim(merged_path, bai_path):
+    """Every Thai-reachable glyph must be byte-identical to Bai Jamjuree.
+
+    This is the guarantee the whole format change exists to provide, and it is
+    strictly stronger than the raster comparison: it covers the GSUB-only
+    variants no cmap-based check can reach, and it compares the stored outline
+    rather than one rasteriser's opinion of it.
+    """
+    merged, bai = TTFont(merged_path), TTFont(bai_path)
+    mg, bg = merged["glyf"], bai["glyf"]
+    bad = []
+    reach = thai_closure(bai)
+    for gn in sorted(reach):
+        if gn not in mg.glyphs:
+            bad.append(f"{gn}: missing from merged font")
+            continue
+        a, b = mg[gn], bg[gn]
+        if a.isComposite() != b.isComposite():
+            bad.append(f"{gn}: composite {a.isComposite()} vs Bai {b.isComposite()}")
+            continue
+        if a.isComposite():
+            ca = [(c.glyphName, c.x, c.y) for c in a.components]
+            cb = [(c.glyphName, c.x, c.y) for c in b.components]
+            if ca != cb:
+                bad.append(f"{gn}: components {ca} vs {cb}")
+        elif a.numberOfContours != b.numberOfContours:
+            bad.append(f"{gn}: {a.numberOfContours} contours vs {b.numberOfContours}")
+        elif a.numberOfContours > 0 and (
+                list(a.coordinates) != list(b.coordinates)
+                or list(a.flags) != list(b.flags)
+                or list(a.endPtsOfContours) != list(b.endPtsOfContours)):
+            bad.append(f"{gn}: outline coordinates differ")
+        if merged["hmtx"][gn] != bai["hmtx"][gn]:
+            bad.append(f"{gn}: hmtx {merged['hmtx'][gn]} vs Bai {bai['hmtx'][gn]}")
+    return bad, len(reach)
 
 
 def check_coverage_sorted(path):
@@ -187,27 +280,33 @@ def check_clipping_box(path):
 def run():
     fails, n_shape, n_raster = [], 0, 0
     worst_dev = 0.0
-    n_width = n_cov = n_clip = 0
+    n_width = n_cov = n_clip = n_verbatim = 0
 
     for weight, (aeonik_file, bai_file) in PAIRS.items():
-        merged = MERGED / f"TH-Aeonik-{weight}.otf"
+        merged = MERGED / f"TH-Aeonik-{weight}.ttf"
         refs = {"latin": AEONIK / aeonik_file, "thai": BAI / bai_file}
         for p in (merged, *refs.values()):
             if not p.exists():
                 print(f"  MISSING: {p}")
                 return 1
 
-        # ---------- CFF widths vs hmtx (what Print to PDF reads) ----------
-        width_bad = check_cff_widths(merged)
+        # ---------- single source of advance width (what Print to PDF reads) ----
+        width_bad = check_advance_source(merged)
         n_width += 1
         if width_bad:
-            marks = [b for b in width_bad if b[1] == 0]
             fails.append(
-                f"{weight}: {len(width_bad)} glyphs have CFF charstring widths "
-                f"disagreeing with hmtx ({len(marks)} of them zero-advance "
-                f"combining marks) — printed PDFs will be misaligned. "
-                f"e.g. {width_bad[0][0]}: hmtx={width_bad[0][1]} "
-                f"cff={width_bad[0][2]}")
+                f"{weight}: {len(width_bad)} advance-source violation(s) — "
+                f"printed PDFs can be misaligned. "
+                f"e.g. {width_bad[0][0]}: want={width_bad[0][1]} "
+                f"got={width_bad[0][2]}")
+
+        # ---------- Thai outlines byte-identical to Bai (the core guarantee) ----
+        vb_bad, vb_n = check_thai_verbatim(merged, refs["thai"])
+        n_verbatim += vb_n
+        if vb_bad:
+            fails.append(f"{weight}: {len(vb_bad)} of {vb_n} Thai-reachable glyphs "
+                         f"are NOT verbatim copies of Bai Jamjuree. "
+                         f"e.g. {vb_bad[0]}")
 
         # ---------- Coverage ordering (Windows-only symptom) ----------
         cov_bad, cov_total = check_coverage_sorted(merged)
@@ -245,44 +344,69 @@ def run():
         thai_chars = sorted({c for s in THAI for c in s})
         latin_chars = sorted({c for s in LATIN for c in s if c.strip()})
 
-        for ch in latin_chars:                       # must be pixel-exact
-            for ppem in PPEMS:
-                n_raster += 1
-                got, want = raster(merged, ch, ppem), raster(refs["latin"], ch, ppem)
-                if got != want:
-                    fails.append(f"{weight} raster/latin U+{ord(ch):04X} ({ch}) "
-                                 f"{ppem}px: differs from Aeonik")
-
-        for ch in thai_chars:                        # dims/advance exact, AA may vary
+        # Thai must be byte-identical — the outlines are Bai Jamjuree's own,
+        # copied verbatim, and rendered by the same engine. There is no format
+        # conversion left to excuse a single differing pixel.
+        for ch in thai_chars:
             for ppem in PPEMS:
                 n_raster += 1
                 got, want = raster(merged, ch, ppem), raster(refs["thai"], ch, ppem)
-                if got is None or want is None:
-                    if got is not want:
+                if got != want:
+                    if got is None or want is None:
                         fails.append(f"{weight} raster/thai U+{ord(ch):04X} "
                                      f"{ppem}px: coverage mismatch")
+                    elif got[:5] != want[:5]:
+                        fails.append(f"{weight} raster/thai U+{ord(ch):04X} ({ch}) "
+                                     f"{ppem}px: bitmap size or advance differs "
+                                     f"{got[:5]} vs {want[:5]}")
+                    else:
+                        n = sum(1 for a, b in zip(got[5], want[5]) if a != b)
+                        fails.append(f"{weight} raster/thai U+{ord(ch):04X} ({ch}) "
+                                     f"{ppem}px: {n} pixel(s) differ — Thai must "
+                                     f"be verbatim")
+
+        # Latin absorbs the cubic->quadratic conversion and the engine change.
+        for ch in latin_chars:
+            for ppem in PPEMS:
+                n_raster += 1
+                got, want = raster(merged, ch, ppem), raster(refs["latin"], ch, ppem)
+                if got is None or want is None:
+                    if got is not want:
+                        fails.append(f"{weight} raster/latin U+{ord(ch):04X} "
+                                     f"{ppem}px: coverage mismatch")
                     continue
-                if got[:5] != want[:5]:
-                    fails.append(f"{weight} raster/thai U+{ord(ch):04X} ({ch}) "
-                                 f"{ppem}px: bitmap size or advance differs")
+                dim_off = max(abs(a - b) for a, b in zip(got[:4], want[:4]))
+                if dim_off > LATIN_MAX_DIM_DELTA:
+                    fails.append(f"{weight} raster/latin U+{ord(ch):04X} ({ch}) "
+                                 f"{ppem}px: bitmap box off by {dim_off}px "
+                                 f"> {LATIN_MAX_DIM_DELTA}")
                     continue
+                if abs(got[4] - want[4]) > LATIN_MAX_ADV_DELTA:
+                    fails.append(f"{weight} raster/latin U+{ord(ch):04X} ({ch}) "
+                                 f"{ppem}px: advance off by "
+                                 f"{abs(got[4] - want[4])}/64px")
+                    continue
+                if got[:4] != want[:4]:
+                    continue        # 1px box shift — pixels are not comparable
                 deltas = [abs(a - b) for a, b in zip(got[5], want[5]) if a != b]
                 if deltas:
                     dev = sum(deltas) / len(deltas)
                     worst_dev = max(worst_dev, dev)
-                    if dev > MAX_MEAN_DEV:
-                        fails.append(f"{weight} raster/thai U+{ord(ch):04X} ({ch}) "
+                    if dev > LATIN_MAX_MEAN_DEV:
+                        fails.append(f"{weight} raster/latin U+{ord(ch):04X} ({ch}) "
                                      f"{ppem}px: mean AA deviation {dev:.1f}/255 "
-                                     f"> {MAX_MEAN_DEV}")
+                                     f"> {LATIN_MAX_MEAN_DEV}")
 
     print(f"  weights:  {len(PAIRS)}   sizes: {PPEMS} px")
-    print(f"  CFF-width audits:    {n_width} (charstring widths vs hmtx)")
+    print(f"  advance-source audits: {n_width} (no CFF; marks zero in hmtx)")
+    print(f"  Thai verbatim checks:  {n_verbatim} glyphs (cmap + GSUB-only variants)")
     print(f"  Coverage tables:     {n_cov} (ascending glyph-ID order)")
     print(f"  clipping-box audits: {n_clip} (usWin* vs ink)")
     print(f"  shaping comparisons: {n_shape}")
     print(f"  raster  comparisons: {n_raster}")
-    print(f"  worst Thai antialias deviation: {worst_dev:.1f}/255 "
-          f"(limit {MAX_MEAN_DEV})")
+    print(f"  worst Latin antialias deviation: {worst_dev:.1f}/255 "
+          f"(limit {LATIN_MAX_MEAN_DEV})")
+    print(f"  Thai antialias deviation: 0/255 (exact — no tolerance allowed)")
     if fails:
         print(f"\n  FAIL: {len(fails)} mismatch(es)\n")
         for f in fails[:30]:
@@ -291,8 +415,8 @@ def run():
             print(f"   ... and {len(fails) - 30} more")
         return 1
     print("\n  PASS")
-    print("    Thai  shapes and measures exactly as Bai Jamjuree")
-    print("    Latin shapes and rasterises exactly as Aeonik")
+    print("    Thai  is PIXEL-IDENTICAL to Bai Jamjuree — outlines copied verbatim")
+    print("    Latin shapes as Aeonik; raster within the measured conversion bound")
     print("    Mixed Thai/Latin has no missing glyphs at any size")
     return 0
 

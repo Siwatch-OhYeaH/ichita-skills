@@ -210,3 +210,147 @@ Two documented, intentional non-identities: `space` comes from Aeonik (262) not 
 - **Line spacing is a judgment call.** 1000/−300/0 gives a 1.30 em line box (Aeonik intended 1.20, Bai 1.25). The extra room clears two-level Thai stacks. Tunable via `ASCENT`/`DESCENT` in the build script.
 - **`compare_th_aeonik.py` needs `uharfbuzz`, `freetype-py`** (and `pikepdf` for PDF forensics), installed into `venv_fonts/` but not recorded in any requirements file.
 - **Nothing is committed.** All work is uncommitted on `docs/ichita-proposal-design`.
+
+---
+
+# Addendum, 2026-08-02 — the format flip, and what the residual Thai drift actually was
+
+**Scope:** `build_th_aeonik.py`, `build_th_slussen.py`, `compare_th_*.py`,
+`build_font_specimen.py`, `check_print_pdf.py`, `fix-th-fonts.sh`.
+Both families now ship as **TrueType (`glyf`), not CFF** — `.ttf`, not `.otf`.
+
+## The question
+
+*"If we do the font engineering right, we should be able to create an identical
+font. What makes Bai Jamjuree work and TH Aeonik fail?"*
+
+Right, with one constraint that turns out to be structural.
+
+## What the residual drift was — and was not
+
+The original post-mortem's last recorded hypothesis was correct and is now
+measured: *"It is CFF-vs-TrueType scan conversion, and is not fixable without
+keeping the font TrueType."* Three measurements close it:
+
+1. **The outlines were already almost exact.** Max control-point deviation
+   between Bai's Thai and TH-Aeonik's CFF copy: **0.7071 units** over 362 copied
+   glyphs — precisely the ½-unit rounding of the quadratic→cubic control points.
+   Zero advance-width mismatches.
+2. **Curve precision was irrelevant.** Rebuilding at cu2qu `max_err` 1.0, 0.5,
+   0.1 and 0.001 produced **byte-identical** rasters. If approximation were the
+   cause, a 1000× tighter bound would have moved something.
+3. **The lever is the format itself.** Same glyphs, CFF base: 8.36 % of pixels
+   differ (mean Δ 6.83/255). `glyf` base: **0.00 %**.
+
+So the difference was never data loss. It was FreeType's Adobe CFF engine versus
+its TrueType engine. Bai Jamjuree "works" because it is rendered in the format it
+was drawn in; the merged Thai was the same geometry handed to a different
+rasteriser. **Identity is achievable for exactly one script at a time** — whichever
+one keeps its native format.
+
+| Build | Thai vs Bai Jamjuree | Latin vs Aeonik |
+|---|---|---|
+| CFF base (shipped through `5bac449`) | 8.36 % px, mean Δ 6.83/255 | **0.00 % — exact** |
+| `glyf` base (now) | **0.00 % — exact** | 10.16 % px, mean Δ 3.90/255 |
+
+## Why `glyf` was the right side to keep
+
+Not just the pixels. **Defect 3 becomes unrepresentable.** `glyf` has no width
+operand, so the CFF-charstring-width-vs-`hmtx` divergence that made every printed
+PDF unreadable cannot be expressed at all. `check_cff_widths()` is retired and
+replaced by `check_advance_source()`, which asserts the structural property
+instead of re-checking the arithmetic. It also makes Print to PDF's
+`/CIDFontType2` + `/FontFile2` declaration truthful — the source of poppler's 32
+`Mismatch between font type and embedded font file` warnings.
+
+Latin's drift is also *lower amplitude* than the Thai drift it replaces
+(3.90 vs 6.83/255 mean), so total visual error went down, not sideways.
+
+**Accepted cost, recorded rather than discovered later:** Slussen ships real CFF
+stem hints (2–6 per Latin glyph) and they are dropped by the conversion, with no
+TrueType instructions replacing them. Aeonik carries **zero** hint operators, so
+it loses nothing. Nothing on Linux can measure the consequence; it is a Windows
+small-size question.
+
+## Defect 7 — stale `hmtx` lsb, harmless in CFF, a visible shift in `glyf`
+
+The first `glyf` build put max Latin deviation at 37.34/255 with 8 advance
+mismatches, all on glyph `'9'` in the italics. Every on-curve point of
+`BoldItalic '9'` was displaced by **exactly +2 units in x** — a uniform
+translation, which is not what curve approximation looks like.
+
+`glyf` consumers position an outline at `(lsb - xMin)`. **CFF ignores `hmtx` lsb
+entirely**, so Aeonik ships a handful of glyphs whose declared lsb disagrees with
+their own outline — `BoldItalic '9'` says 33 against an xMin of 31. Inheriting
+that translated the whole glyph the moment the font became TrueType. The italics
+had 15–20 such glyphs each, the uprights 0–2 — which is exactly where the
+outliers were.
+
+*Fix:* re-sync `hmtx` lsb to each glyph's recalculated `xMin` after conversion.
+Advance mismatches went 8 → **0**, max deviation 37.34 → **16.12/255**.
+
+*Learning:* a value that one format ignores is a value nobody has ever validated.
+Changing format promotes every such value from decoration to load-bearing.
+
+## The test gap this exposed
+
+`compare_th_*.py` reached glyphs through `get_char_index`, so it could only ever
+see **cmap-mapped** ones — 87 of the 124 glyphs Thai text can actually reach. The
+GSUB-only tone-mark variants (`uni0E47.narrow`, `uni0E48.small`, the
+`uni0E4D0E49` ligatures) were **structurally invisible to every raster check ever
+run**, and they are precisely the glyphs that appear in real two-level stacks.
+This is the same lesson as defect 4b — *measure over the reachable set, not the
+convenient one* — recurring in the test rather than in the build.
+
+*Fix:* `check_thai_verbatim()` computes the GSUB closure and compares all 124
+glyphs **byte-for-byte** (coordinates, flags, contour ends, components, `hmtx`)
+against Bai Jamjuree. Stronger than any raster comparison, and it was confirmed
+to fail on a 1-unit nudge of `uni0E48.small` — a defect the old test could not
+have detected at any size.
+
+## One difference that is real, inherent, and not a defect
+
+The browser specimen showed a 1px vertical offset on the tone mark in `ป็`, where
+HarfBuzz, FreeType-unhinted, GDEF, and the byte-level outline comparison all said
+identical. Reproduced outside the browser: under **full grid-fitting**,
+`uni0E47.narrow` at 26px is 10 rows tall in both merged families and 9 in Bai.
+
+FreeType's autohinter derives its zones from the font as a whole, and **a merged
+font's glyph set can never equal either source's**. The old CFF build showed the
+identical 1px offset, so this is inherent to merging, not to the format change.
+Unhinted, all three agree exactly.
+
+Worth stating plainly because it is the one place where "the merge must be
+invisible" cannot be literally true, and a future session will otherwise chase it.
+
+## Also fixed: the specimen was grading a comparison it could never win
+
+The specimen's Thai panels compared strings containing **spaces**. `space` is a
+shared glyph that deliberately comes from the Latin source (Aeonik 262, Slussen
+276, Bai Regular 260, Bai Bold 288), and browsers round each advance to a whole
+pixel — so one space shifts everything after it. A TH-Slussen panel with 11
+spaces read 11px wider than Bai purely from this. `compare_th_*.py` had excluded
+`space` from the Thai comparison since it was written; the specimen never did.
+Now uses space-free Thai for the graded panels.
+
+## Learnings
+
+**A uniform translation is never an approximation error.** Every point of `'9'`
+moved by the same +2u. That single observation ruled out cu2qu, rounding and the
+rasteriser in one step and pointed straight at a metric. Look at the *shape* of a
+discrepancy before reaching for its most plausible cause.
+
+**Set a tolerance from the distribution you are bounding, not the summary you
+happen to have.** The Latin limit was first set to 10.0 from a 3.90 figure that
+was the mean *across all glyphs*, while the test compares *per glyph and size*,
+where p99 is 11.70 and max 16.12. The bar failed instantly on a correct build.
+
+**Reproduce a browser-only symptom outside the browser before theorising.** The
+`ป็` offset survived four wrong explanations (baseline, blue zones, `.narrow`
+substitution, vertical metrics) and was settled in one command by rendering the
+glyph at `TARGET_NORMAL` instead of unhinted.
+
+**Check whether a difference is a regression before treating it as one.**
+Restoring the pre-flip build from git showed the same 1px offset, which reframed
+it from "the format change broke this" to "this has always been true of a merged
+font."
