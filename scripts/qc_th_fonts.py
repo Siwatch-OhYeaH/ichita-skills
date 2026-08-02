@@ -9,6 +9,15 @@ weight-mismatched state that made Thai read 9% too large and 18% too light
 beside Aeonik. A test that can only pass when the requirement is violated is
 worse than no test — it was cited across two post-mortems as proof of success.
 
+WHAT "IDENTICAL TO THE SOURCE" MEANS HERE, per Siwatch 2026-08-02:
+
+  Latin outlines  identical to Aeonik / Slussen. Asserted per glyph.
+  Line box        identical to Aeonik / Slussen. Asserted in check 3.
+  Thai            NOT identical to Bai Jamjuree, deliberately. Bai's Thai is
+                  drawn for Bai's own Latin, and Bai's own mark placement is
+                  too tight to survive Word at text sizes. It is rescaled,
+                  reweighted and its marks are lifted — checks 1, 2 and 8.
+
 The reference here is the LATIN the Thai actually shares a line with:
 
   1  size    ก height == Latin x-height
@@ -19,6 +28,8 @@ The reference here is the LATIN the Thai actually shares a line with:
              including the GSUB-only .small mark variants that no cmap walk
              ever reaches
   6  ladder  weights are monotonic and none collapse together
+  7  uniscribe  GDEF classes + U+25CC, the prerequisites Word needs
+  8  clearance  Thai upper marks keep enough air to survive screen rendering
 
 Run: python3 scripts/qc_th_fonts.py
 Exit 0 = all pass.
@@ -36,6 +47,7 @@ from fontTools.ttLib import TTFont
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from th_thai_prep import THAI_SCALE  # noqa: E402
+from th_mark_clearance import TARGET as CLEAR_TARGET, clearances  # noqa: E402
 
 FAMILIES = {
     "TH-Aeonik": {
@@ -63,7 +75,7 @@ FAMILIES = {
         # LINE box — must equal Aeonik's own hhea, to the unit.
         "box": (1000, -200, 0),
         # CLIP box — usWinAscent/usWinDescent, sized to the ink, not the line.
-        "clip": (1160, 560),
+        "clip": (1240, 560),
     },
     "TH-Slussen": {
         "dir": ROOT / "assets/fonts/slussen-th",
@@ -75,7 +87,7 @@ FAMILIES = {
             "Bold": "Slussen-Bold.otf",
         },
         "box": (1074, -272, 166),
-        "clip": (1310, 590),
+        "clip": (1390, 590),
     },
 }
 
@@ -107,6 +119,22 @@ STEM_TOL_OVERRIDE = {
     ("TH-Aeonik", "ThinItalic"): 0.15,
     ("TH-Aeonik", "Black"): 0.12,
     ("TH-Aeonik", "BlackItalic"): 0.12,
+}
+
+# Clearance floor, in 1/1000 em, for the worst Thai upper mark on any base.
+# The build aims at th_mark_clearance.TARGET; this is the bar below which the
+# mark visibly fuses into the consonant at text sizes. 1 em is 14.7 px at 11 pt
+# on a 96 dpi screen, so 68/1000 em is one pixel. Sarabun, the reference, runs a
+# p10 of 73.
+CLEAR_FLOOR = 60.0
+
+# Faces that cannot reach the floor because emboldening past the end of Bai's
+# ladder grows the consonant and the mark toward each other faster than the
+# anchor can pull them apart. Same source limitation as STEM_TOL_OVERRIDE, and
+# the same rule: these lower the bar, they do not remove it.
+CLEAR_FLOOR_OVERRIDE = {
+    ("TH-Aeonik", "Black"): 38.0,
+    ("TH-Aeonik", "BlackItalic"): 38.0,
 }
 
 results = []
@@ -404,6 +432,39 @@ def check_uniscribe(fam, cfg):
                               + bad))
 
 
+def check_clearance(fam, cfg):
+    """8 — Thai upper marks must not fuse into the consonant on screen.
+
+    This is the defect the 2026-08-02 evening QC caught in Word: กลิ่น, เพื่อ and
+    สิทธิ์ rendered as blobs at 11 pt while Sarabun stayed legible. Bai sets its
+    marks close, and this pipeline's scale-to-x-height plus weight-match closes
+    the gap further — TH-Aeonik-Black measured a median of 0.6/1000 em, i.e.
+    touching. Corrected at build time in th_mark_clearance.raise_upper_marks.
+    """
+    rows, bad = [], []
+    for w in cfg["pairs"]:
+        p = cfg["dir"] / f"{fam}-{w}.ttf"
+        if not p.exists():
+            continue
+        f = TTFont(p, lazy=True)
+        vals = sorted(v[0] for v in clearances(f, "base").values())
+        f.close()
+        if not vals:
+            bad.append(f"{w}: no Thai mark anchors found")
+            continue
+        floor = CLEAR_FLOOR_OVERRIDE.get((fam, w), CLEAR_FLOOR)
+        p10 = vals[len(vals) // 10]
+        note = "  (source-limited)" if (fam, w) in CLEAR_FLOOR_OVERRIDE else ""
+        rows.append(f"{w:<14} worst {vals[0]:5.1f}  p10 {p10:5.1f}  "
+                    f"floor {floor:.0f}{note}")
+        if p10 < floor:
+            bad.append(f"{w}: p10 clearance {p10:.1f} below floor {floor:.0f} "
+                       f"— marks will fuse into the consonant at text sizes")
+    record(f"8. {fam} Thai upper marks clear the consonant "
+           f"(target {CLEAR_TARGET:.0f}/1000 em)", not bad,
+           "\n".join(rows + bad))
+
+
 def main():
     for fam, cfg in FAMILIES.items():
         print(f"\n=== {fam} ===")
@@ -412,6 +473,7 @@ def main():
         check_shaping(fam, cfg)
         check_ladder(fam, cfg)
         check_uniscribe(fam, cfg)
+        check_clearance(fam, cfg)
     n = sum(1 for _, ok in results if ok)
     print(f"\n{n}/{len(results)} checks pass")
     return 0 if n == len(results) else 1

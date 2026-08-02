@@ -128,23 +128,72 @@ def _embolden(src, amount, workdir):
     return out
 
 
-def _graft_outlines(base, bolder):
+def _bounds(font, gn):
+    from fontTools.pens.boundsPen import BoundsPen
+    gs = font.getGlyphSet()
+    if gn not in gs:
+        return None
+    bp = BoundsPen(gs)
+    try:
+        gs[gn].draw(bp)
+    except Exception:
+        return None
+    return bp.bounds
+
+
+def _graft_outlines(base, bolder, delta=0.0):
     """Copy emboldened outlines into `base`, keeping base's layout tables.
 
     FontForge's generate() reflows GPOS/GSUB/GDEF, and Thai depends heavily on
     mark-attachment anchors that must stay exactly as Bai authored them. So the
     emboldened font is used purely as a source of `glyf` outlines and advances;
     every other table stays as the original shipped it.
+
+    Thai glyphs whose bounding box moved much further than the weight change
+    could account for are rejected and keep their original outline.
+    `BaiJamjuree-ExtraLightItalic` thinned by 9.5 units came back with `๊`
+    stretched from y659 down to y418 — 241 units — which dragged the mark below
+    its own anchor, far enough that no amount of clearance correction could lift
+    it off the consonant. That is why TH-Aeonik-ThinItalic shipped with a broken
+    tone mark. A rejected glyph is slightly off-weight, which is invisible next
+    to a mark that is visibly broken.
+
+    Contour count was tried as a second signal and had to be dropped: it fires
+    on normal weight change. Thinning closes the loop of `ข` `ค` `ง` and dozens
+    of other consonants from two contours to one, which is what those letters
+    are supposed to do as they get lighter. Screening on it rejected ~100 Thai
+    glyphs per weight and left the consonants at the source weight, undoing the
+    stem match this pipeline exists to make.
     """
     bg, bb = base["glyf"], bolder["glyf"]
-    grafted = 0
+    # changeWeight moves each edge by about `delta`; allow generous slack for
+    # curve reconstruction before calling it a deformation.
+    slack = abs(delta) * 2 + 20
+    grafted, rejected = 0, []
     for gn in base.getGlyphOrder():
-        if gn in bb.glyphs:
-            bg.glyphs[gn] = bb[gn]
-            if gn in bolder["hmtx"].metrics:
-                base["hmtx"].metrics[gn] = bolder["hmtx"].metrics[gn]
-            grafted += 1
-    return grafted
+        if gn not in bb.glyphs:
+            continue
+        # Only Thai is checked. Bai's Latin is never copied into the merged
+        # font — the Latin there comes from Aeonik or Slussen — so rejecting a
+        # deformed `Aring` would cost a FontForge round trip to protect a glyph
+        # that gets discarded. Screening everything also produced hundreds of
+        # false rejections on accented composites, whose diagonals legitimately
+        # grow more than `slack` under a heavy weight change.
+        why = None
+        if gn.startswith("uni0E"):
+            b0, b1 = _bounds(base, gn), _bounds(bolder, gn)
+            if b0 and b1:
+                drift = max(abs(x - y) for x, y in zip(b0, b1))
+                if drift > slack:
+                    why = f"bbox moved {drift:.0f}u"
+        if why:
+            rejected.append(f"{gn}({why})")
+            continue
+        bg.glyphs[gn] = bb[gn]
+        if gn in bolder["hmtx"].metrics:
+            base["hmtx"].metrics[gn] = bolder["hmtx"].metrics[gn]
+        grafted += 1
+    return grafted, rejected
 
 
 def _glyph_height(font, ch):
@@ -179,7 +228,7 @@ def prepare_bai(family, weight, latin_font=None, verbose=True):
             # weight, so there is no source to copy — the stems have to come
             # down.
             bolder = TTFont(str(_embolden(src, embolden, workdir)))
-            n = _graft_outlines(font, bolder)
+            n, rejected = _graft_outlines(font, bolder, embolden)
             bolder.close()
             if verbose:
                 verb = "Embolden" if embolden > 0 else "Thin"
@@ -187,6 +236,10 @@ def prepare_bai(family, weight, latin_font=None, verbose=True):
                 print(f"     [0a] {verb} {embolden:+.1f}u on {n} outlines "
                       f"({bai_file})"
                       + (f"  ** {warn}" if warn else ""))
+                if rejected:
+                    print(f"          {len(rejected)} glyph(s) kept unweighted, "
+                          f"deformed by changeWeight: {' '.join(rejected[:8])}"
+                          + (" ..." if len(rejected) > 8 else ""))
         elif verbose:
             print(f"     [0a] Weight delta {embolden:+.1f}u skipped, below "
                   f"floor ({bai_file})")

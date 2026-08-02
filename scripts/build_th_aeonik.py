@@ -66,6 +66,7 @@ from fontTools.ttLib import TTFont, newTable
 sys.path.insert(0, str(Path(__file__).parent))
 from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E402
                           fix_thai_gdef, prepare_bai)
+from th_mark_clearance import raise_upper_marks
 
 warnings.filterwarnings("ignore")
 
@@ -664,11 +665,12 @@ ASCENT, DESCENT, LINEGAP = 1000, -200, 0        # == Aeonik-Regular.otf hhea
 # Measured static ink across all 14 faces is -503..+1106 (deepest
 # TH-Aeonik-Bold:uni0E38.small, highest TH-Aeonik-AirItalic:uni0E4C.small), and
 # the worst shaped stack lands inside that at +1088 (อึ๋ม) / -331 (ทุก). The box
-# below clears both with ~55 units of headroom.
+# below clears both with headroom, plus the room step 3c needs: raising the
+# upper marks for clearance lifts the top of a stack by up to 100 units.
 #
 # Widening this does not touch line spacing — Word leads off hhea and
 # LibreOffice off sTypo, neither of which is usWin.
-WIN_ASCENT, WIN_DESCENT = 1160, 560
+WIN_ASCENT, WIN_DESCENT = 1240, 560
 
 
 def assert_line_box_matches_latin(latin_src):
@@ -976,6 +978,14 @@ def build_font(weight_name, aeonik_file, bai_file=None):
     added = add_dotted_circle(aeonik, _xh)
     print(f"     [3b] GDEF: {n_base} Thai -> BASE, {n_mark} -> MARK | "
           f"U+25CC dotted circle: {'synthesised' if added else 'already present'}")
+
+    # Step 3c: open up the Thai stack. Bai sets its upper marks close to the
+    # consonant and the scale-plus-embolden this pipeline applies closes the
+    # gap further, worst in the heavy weights — TH-Aeonik-Black measured a
+    # median clearance of 0.6/1000 em, i.e. touching. Below about 65/1000 em
+    # the gap is under one pixel at 11 pt on a 96 dpi screen and Word renders
+    # the mark fused into the consonant.
+    raise_upper_marks(aeonik)
 
     # Step 4: Thai range bits
     set_thai_bits(aeonik)

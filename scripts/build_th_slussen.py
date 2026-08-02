@@ -50,6 +50,7 @@ from fontTools.ttLib import TTFont, newTable
 sys.path.insert(0, str(Path(__file__).parent))
 from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E402
                           fix_thai_gdef, prepare_bai)
+from th_mark_clearance import raise_upper_marks
 
 warnings.filterwarnings("ignore")
 
@@ -89,7 +90,7 @@ ASCENT, DESCENT, LINEGAP = 1074, -272, 166      # == Slussen-Regular.otf hhea
 # Clip box. Measured static ink across the four faces is -535..+1255 (deepest
 # TH-Slussen-SemiBold:uni0E38.small, highest TH-Slussen-Bold:Aringacute); the
 # worst shaped stack lands at +1142 (อึ๋ม) / -349 (ทุก). Cleared with headroom.
-WIN_ASCENT, WIN_DESCENT = 1310, 590
+WIN_ASCENT, WIN_DESCENT = 1390, 590
 
 
 def assert_line_box_matches_latin(latin_src):
@@ -923,6 +924,10 @@ def build_font(weight_name, slussen_file, bai_file=None):
     added = add_dotted_circle(slussen, _xh)
     print(f"     [3b] GDEF: {n_base} Thai -> BASE, {n_mark} -> MARK | "
           f"U+25CC dotted circle: {'synthesised' if added else 'already present'}")
+
+    # Step 3c: see build_th_aeonik.py. TH-Slussen-Bold measured a median
+    # clearance of 12/1000 em before this ran.
+    raise_upper_marks(slussen)
 
     # Step 4: Thai OS/2 bits
     set_thai_bits(slussen)
