@@ -12,9 +12,9 @@ Measured vertical metrics of the shipped fonts against the Latin source each was
 
 | font | hhea asc/desc/gap | hhea line | typo asc/desc/gap | winAsc+winDesc | USE_TYPO |
 |---|---|---|---|---|---|
-| TH Aeonik | 1160/-550/0 | 1710 (1.710 em) | 1160/-550/0 | **1710** (1.710 em) | True |
+| TH Aeonik | 1000/-200/0 | 1200 (1.200 em) | 1000/-200/0 | **1720** (1.720 em) | True |
 | Aeonik (source) | 1000/-200/0 | 1200 (1.200 em) | 700/-200/300 | **1200** (1.200 em) | False |
-| TH Slussen | 1280/-590/0 | 1870 (1.870 em) | 1280/-590/0 | **1870** (1.870 em) | True |
+| TH Slussen | 1074/-272/166 | 1512 (1.512 em) | 1074/-272/166 | **1900** (1.900 em) | True |
 | Slussen (source) | 1074/-272/166 | 1512 (1.512 em) | 1074/-272/166 | **1596** (1.596 em) | True |
 | Bai Jamjuree | 1000/-250/0 | 1250 (1.250 em) | 1000/-250/0 | **1786** (1.786 em) | True |
 
