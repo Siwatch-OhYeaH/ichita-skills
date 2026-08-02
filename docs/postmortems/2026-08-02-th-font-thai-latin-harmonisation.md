@@ -70,6 +70,22 @@ contain the ink — yet marks still clipped. So the clip is taken against the
 original 1074/−272/166 on the theory that document line spacing must never change,
 while the merged ink runs −564..1255.
 
+> **Correction, 2026-08-02 evening — the two paragraphs above are wrong, and the
+> fix they justified was an over-correction.** See
+> [`2026-08-02-th-font-line-box-overcorrection.md`](2026-08-02-th-font-line-box-overcorrection.md).
+>
+> Word does **not** clip at `hhea` in body text. `printpdf4.pdf` — the very build
+> this section calls clipped, at `hhea` 1300 with shaped ink needing 1552 —
+> renders every stack in `น้ำเชื่อม` / `ทั้งนี้` / `ซึ่ง` / `ประสิทธิภาพ` complete.
+> Bai Jamjuree ships a 1250 line box against the same 1552 of ink and does the
+> same. Thai marks are *meant* to overflow the line box into the leading above.
+>
+> The pitch-collapse half of this section stands: Word does lead off `hhea`, and
+> the 2111 → 1300 ratio predicted the measured 25.30 → 15.60 pt exactly. Only the
+> claim that the line box must *contain the ink* is false. Acting on it set
+> TH-Aeonik to 1710 against Aeonik's 1200 — 42% of extra leading on every
+> paragraph, which is what the next round of manual QC caught.
+
 ### 4. Uniscribe prerequisites absent (inherited from Bai)
 
 Bai leaves spacing vowels `า ะ ำ เ แ โ ใ ไ ๆ` at GDEF class **0 (unassigned)** and
@@ -118,6 +134,11 @@ correctly, which is why every Linux-side test passed.
 (TH-Aeonik 1160/−550/0, TH-Slussen 1280/−590/0), with a build-time assertion that
 the box contains the ink. The build now **fails** rather than shipping a font that
 clips.
+
+> **Superseded the same evening.** The line box and the clip box are now separate:
+> `hhea` == `sTypo` == the Latin source's box (TH-Aeonik 1000/−200/0, TH-Slussen
+> 1074/−272/166), `usWin` sized to the ink (1160/560 and 1310/590). The build-time
+> assertion is against `usWin`, not `hhea`. See the follow-up post-mortem.
 
 **`scripts/qc_th_fonts.py`** (new) replaces the inverted test, measuring Thai against
 the Latin it shares a line with. `compare_th_*.py` are marked deprecated in-file with
