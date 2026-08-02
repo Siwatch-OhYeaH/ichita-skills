@@ -98,15 +98,18 @@ Two boxes, two purposes.
 
 ```python
 ASCENT, DESCENT, LINEGAP = 1000, -200, 0        # == Aeonik-Regular.otf hhea
-WIN_ASCENT, WIN_DESCENT = 1160, 560             # == measured ink + headroom
+WIN_ASCENT, WIN_DESCENT = 1240, 560             # == measured ink + headroom
 ```
 
 **`scripts/build_th_slussen.py`**
 
 ```python
 ASCENT, DESCENT, LINEGAP = 1074, -272, 166      # == Slussen-Regular.otf hhea
-WIN_ASCENT, WIN_DESCENT = 1310, 590
+WIN_ASCENT, WIN_DESCENT = 1390, 590
 ```
+
+(The `usWin` figures include the extra room taken by the mark-clearance fix in the
+addendum below; before it they were 1160/560 and 1310/590.)
 
 `assert_line_box_matches_latin()` reads the Latin source's `hhea` before the merge and
 fails the build if it disagrees with the constants, so a font update cannot drift the
