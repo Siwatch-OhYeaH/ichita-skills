@@ -92,11 +92,11 @@ MAC_ITALIC = 1 << 1
 # measured requirement is 1573-1598 across the four faces. See the long note in
 # build_th_aeonik.py — Slussen gets off lightly at +5.8% because its own box was
 # already generous, where Aeonik's 1200 needed +28%.
-ASCENT, DESCENT, LINEGAP = 1200, -400, 0        # 1600; Slussen-Regular.otf is 1512
+ASCENT, DESCENT, LINEGAP = 1200, -410, 0        # 1610; Slussen-Regular.otf is 1512
 
 # Minimum the Thai needs, from scripts/thai_line_pitch.py: worst face (SemiBold)
 # 1523 of ink extent plus the 75-unit margin.
-REQUIRED_PITCH = 1598
+REQUIRED_PITCH = 1603
 
 # Clip box. Measured static ink across the four faces is -535..+1255 (deepest
 # TH-Slussen-SemiBold:uni0E38.small, highest TH-Slussen-Bold:Aringacute); the

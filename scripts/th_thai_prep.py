@@ -17,6 +17,9 @@ manual QC:
    Regular is Bai *Medium*; the correct pairing per weight is in BUILD_TABLE
    below, with any residual closed by synthetic emboldening.
 
+   Corrected 2026-08-03: matching the Latin stem 1:1 is the WRONG target and
+   it is what made Bold unreadable. See WEIGHT_RATIO and APERTURE_FLOOR.
+
 The old build asserted the opposite of (1) — that merged Thai should be
 pixel-identical to Bai — and passed. That test enforced the defect. See
 compare_th_aeonik.py for what replaced it.
@@ -42,37 +45,101 @@ THAI_SCALE = {
     "TH-Slussen": 0.968,
 }
 
+# Thai stem as a fraction of the Latin stem it sits beside, by usWeightClass.
+#
+# The 2026-08-02 build targeted 1.0 — Thai stem == Latin stem. That is wrong,
+# and it is the whole reason Bold shipped unreadable. Thai carries enclosed
+# loops (ก ถ ภ ศ ฃ ธ ฮ) where Latin carries none, so matching stems makes Thai
+# read heavier than the Latin AND spends the counter budget on stem width.
+#
+# These figures are not invented. They are measured from families whose Thai
+# and Latin were drawn together by one designer, at 512 px/em on 2026-08-03:
+#
+#   Sarabun        ExtraLight .931  Regular .915  Medium .911  Bold .897
+#                  SemiBold   .885  ExtraBold .890
+#   Leelawadee     Regular    .921  Bold    .887
+#   Leelawadee UI  Regular    .921  Semilight .909
+#   Tahoma         Regular    .959  Bold    .774
+#
+# Every one runs Thai lighter than its Latin, and every one widens the gap as
+# the weight increases. Sarabun is Siwatch's nominated reference for correct
+# Thai engineering, so the ladder below tracks Sarabun's.
+WEIGHT_RATIO = {100: 0.93, 200: 0.93, 300: 0.92, 400: 0.915,
+                500: 0.91, 600: 0.90, 700: 0.895, 900: 0.89}
+
+# Minimum counter aperture, units/1000em: the widest circle that fits inside
+# the tightest enclosed counter of the Thai consonants. This is the number that
+# decides whether a loop survives as a loop or renders as a blob, and NOTHING
+# measured it before 2026-08-03 — which is why a Bold with 7.8 units of
+# aperture (0.11 px at 11 pt) passed the whole suite on its stem match alone.
+#
+# changeWeight grows outlines in every direction, so a counter bounded by two
+# strokes loses ~1.2x the stem gain, then falls off a cliff as a tighter glyph
+# crosses below the previous minimum. Measured on BaiJamjuree-Bold:
+#
+#   embolden    +0     +10     +20    +31.7
+#   aperture  66.4    54.7    46.9     11.0   <- ฃ closes; ฮ was binding before
+#
+# The floor is what shipping Thai families refuse to go below at their heaviest:
+# Sarabun ExtraBold 46.9, Leelawadee Bold 46.9. (Tahoma Bold reaches 39.1 and
+# is famously heavy in Thai — not a model to follow.)
+#
+# 46.5, not a round 47.0, and the 0.5 matters. The probe resolves in steps of
+# 1000/512 = 1.95 units, so the reference value 46.9 and the next step up 48.8
+# are adjacent readings. A floor of 47.0 would fail a face measuring exactly
+# what Sarabun ExtraBold measures, which is a mis-set constant rather than a
+# font defect — TH-Aeonik-BlackItalic hit precisely that. 46.5 admits
+# reference-level and still fails the next step down (44.9).
+APERTURE_FLOOR = 46.5
+
 # weight -> (Bai source file, embolden in unscaled Bai units)
-# The embolden figure is target_stem/scale - bai_stem, i.e. how much stem the
-# chosen Bai weight is short of the Latin it must sit beside.
+#
+# The embolden figure is the LESSER of what the two constraints allow:
+#   1. WEIGHT_RATIO[weight] * latin_stem / scale - bai_stem
+#   2. the largest value keeping the scaled aperture >= APERTURE_FLOOR
+# Solved per face by measurement, not prediction; scripts/qc_th_fonts.py
+# check 10 re-measures both on the shipped fonts.
+#
 # Aeonik ships 7 weights x roman/italic = 14 faces; Bai ships 6 x 2 = 12, and
 # its ladder is narrower at BOTH ends. Bai's lightest (ExtraLight, stem 35.2)
 # is far heavier than Aeonik Air (7.8) and Thin (23.4), and its heaviest (Bold,
-# 132.8) is far lighter than Aeonik Black (183.6). Those four faces are
+# 134.8) is far lighter than Aeonik Black (183.6). Those four faces are
 # therefore reached by thinning or emboldening past the source ladder, with the
 # quality cost measured per weight — see EXTREME_WEIGHTS below.
+#
+# Values below |EMBOLDEN_FLOOR| are skipped, so those faces ship pristine Bai
+# outlines — the best outcome available, since every FontForge round trip risks
+# deforming a mark.
+#
+# The three aperture-capped faces carry ~3.5u less embolden than the constraint
+# solve alone gives. The merge costs a further ~4 units of aperture that the
+# solve cannot see, because the build re-solves the scale from ink per weight
+# (Black lands on 0.9085, not the nominal 0.914) and then rounds coordinates to
+# integers. Measured prepared -> shipped on 2026-08-03: Black 50.8 -> 46.9,
+# Slussen Bold 46.9 -> 43.0. So the figures below are set from the SHIPPED
+# aperture, which is the only one that matters.
 BUILD_TABLE = {
     "TH-Aeonik": {
-        "Air":           ("BaiJamjuree-ExtraLight.ttf",      -26.6),
-        "Thin":          ("BaiJamjuree-ExtraLight.ttf",       -9.5),
-        "Light":         ("BaiJamjuree-Light.ttf",             5.0),
-        "Regular":       ("BaiJamjuree-Medium.ttf",            2.2),
-        "Medium":        ("BaiJamjuree-SemiBold.ttf",         14.7),
-        "Bold":          ("BaiJamjuree-Bold.ttf",             31.7),
-        "Black":         ("BaiJamjuree-Bold.ttf",             68.1),
-        "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-26.6),
-        "ThinItalic":    ("BaiJamjuree-ExtraLightItalic.ttf", -9.5),
-        "LightItalic":   ("BaiJamjuree-LightItalic.ttf",       7.1),
-        "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",      4.4),
-        "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",   14.7),
-        "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",       31.7),
-        "BlackItalic":   ("BaiJamjuree-BoldItalic.ttf",       68.1),
+        "Air":           ("BaiJamjuree-ExtraLight.ttf",      -27.2),
+        "Thin":          ("BaiJamjuree-ExtraLight.ttf",      -11.3),
+        "Light":         ("BaiJamjuree-Light.ttf",             0.3),
+        "Regular":       ("BaiJamjuree-Medium.ttf",           -5.8),
+        "Medium":        ("BaiJamjuree-SemiBold.ttf",          1.4),
+        "Bold":          ("BaiJamjuree-Bold.ttf",              8.6),
+        "Black":         ("BaiJamjuree-Bold.ttf",             13.0),
+        "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-29.2),
+        "ThinItalic":    ("BaiJamjuree-ExtraLightItalic.ttf",-13.3),
+        "LightItalic":   ("BaiJamjuree-LightItalic.ttf",      -1.6),
+        "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",     -7.7),
+        "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",   -0.5),
+        "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",        8.6),
+        "BlackItalic":   ("BaiJamjuree-BoldItalic.ttf",       13.0),
     },
     "TH-Slussen": {
-        "Regular":  ("BaiJamjuree-Medium.ttf",    7.1),
-        "Medium":   ("BaiJamjuree-SemiBold.ttf", 11.8),
-        "SemiBold": ("BaiJamjuree-Bold.ttf",     18.5),
-        "Bold":     ("BaiJamjuree-Bold.ttf",     44.7),
+        "Regular":  ("BaiJamjuree-Medium.ttf",   -3.2),
+        "Medium":   ("BaiJamjuree-SemiBold.ttf", -1.3),
+        "SemiBold": ("BaiJamjuree-Bold.ttf",     -0.4),
+        "Bold":     ("BaiJamjuree-Bold.ttf",     13.0),
     },
 }
 
@@ -81,22 +148,39 @@ BUILD_TABLE = {
 EMBOLDEN_FLOOR = 2.0
 
 # Faces reached by pushing past the end of Bai's ladder, and what it costs.
-# Measured at 64 px against the Bai source (scratchpad render, 2026-08-02):
+# Rewritten 2026-08-03 when APERTURE_FLOOR replaced the 1:1 stem target.
 #
-#   Thin   -9.5  contours 241 -> 241, stem within 0.8% of target. Clean.
-#   Air   -26.6  contours 241 -> 280, stem within 3.4%. Structurally intact but
-#                hairline; Thai is very faint next to Aeonik Air at text sizes.
-#   Black +68.1  contours 242 -> 298, stem within 1.1%, BUT the counters close
-#                up — the loops of ครั้ง / สิทธิ์ fill in and the tone mark of
-#                จึ๊ง becomes a blob.
+#   Thin  -11.3  clean; stem within ~1% of target.
+#   Air   -27.2  structurally intact but hairline, and thinning opens the loops
+#                of ข ค ง right out of existence (two contours -> one). That is
+#                what those letters do as they get lighter, so it is correct,
+#                but AirItalic ends with no enclosed counter at all.
+#   Black +13.0  APERTURE-CAPPED. Aeonik Black's stem is 183.6 and the taper
+#                asks for 163.4, but Bai Bold cannot be emboldened past +13.0
+#                without driving the counters under the floor. Thai therefore
+#                ships at ratio 0.729 — visibly lighter than the Latin.
+#                The alternative was the old +68.1, which produced 3.9 units of
+#                aperture: solid blobs. Light Thai is the better trade, and it
+#                is the same trade Tahoma makes at Bold (0.774).
+#   Slussen
+#   Bold  +13.0  APERTURE-CAPPED for the same reason; ratio 0.839.
 #
-# Air and Black are display weights, so this is a legibility trade rather than a
-# body-text defect, but it is a real quality loss and is not silently accepted.
+# Bold vs Black is the tightest call in the table. Both draw on Bai Bold — Bai
+# has nothing heavier — and both are aperture-capped, so there are only ~4 units
+# of stem between them: Bold +8.6 (stem 130.9) and Black +13.0 (136.7). That is
+# barely above the probe's 1.95-unit resolution, and it is the whole reason Bold
+# is set to 8.6 rather than the 10.6 the solve returned. The old build gave Black
+# +68.1 to separate them properly and produced 3.9 units of aperture: Word
+# rendered ฃ ธ ฮ as solid ink. Check 6 asserts the pair stays distinct.
+#
+# These are real quality losses against an unreachable target, not regressions,
+# and they are not silently accepted — qc_th_fonts check 10 pins each one.
 EXTREME_WEIGHTS = {
     ("TH-Aeonik", "Air"): "hairline; Thai very faint at text sizes",
-    ("TH-Aeonik", "AirItalic"): "hairline; Thai very faint at text sizes",
-    ("TH-Aeonik", "Black"): "counters close up on dense stacks",
-    ("TH-Aeonik", "BlackItalic"): "counters close up on dense stacks",
+    ("TH-Aeonik", "AirItalic"): "hairline; loops open out entirely",
+    ("TH-Aeonik", "Black"): "aperture-capped; Thai ~27% lighter than the Latin",
+    ("TH-Aeonik", "BlackItalic"): "aperture-capped; Thai ~27% lighter",
+    ("TH-Slussen", "Bold"): "aperture-capped; Thai ~14% lighter than the Latin",
 }
 
 _FF_SCRIPT = """
@@ -196,6 +280,70 @@ def _graft_outlines(base, bolder, delta=0.0):
     return grafted, rejected
 
 
+def _repair_collapsed_counters(font, src, target, workdir, verbose=True):
+    """Revert Thai glyphs whose counter did not survive embolden + rounding.
+
+    `_graft_outlines` screens on bounding-box drift, which cannot see this: a
+    counter closes without the bbox moving at all. Measured on
+    BaiJamjuree-BoldItalic +10.5 (2026-08-03), aperture in units/1000em:
+
+        ษ   source 70.4   emboldened 61.0   emboldened+scaled  3.9   <-- gone
+        ฮ   source 66.4   emboldened 54.7   emboldened+scaled 50.8
+        ฆ   source 66.5   emboldened 56.9   emboldened+scaled 51.4
+
+    The emboldened outline is not deformed — ษ keeps its 3 contours and grows
+    9.7% in area, indistinguishable from its neighbours. It is fragile to
+    *rounding*: two edges land within a unit of each other once coordinates are
+    scaled by 0.914 and snapped to integers, and the loop fills. That is why
+    this screen has to render and measure rather than inspect the outline, and
+    why it has to run after scale_upem rather than before.
+
+    A reverted glyph carries the source weight, so it is slightly light against
+    its neighbours. That is invisible next to a consonant rendering as a blob —
+    the same trade `_graft_outlines` already makes.
+
+    LIMITATION, measured on BlackItalic ฮ: for a composite glyph this reverts
+    the composite record only, and its components stay emboldened, so the
+    recovery is partial (ฮ 47.0 -> 50.8 rather than to the source's 59.6). It is
+    enough to clear the floor and it is honest about what it did — the printed
+    figure is the pre-merge measurement, and the merge costs a further ~4 units
+    to rounding. Decomposing the composite first would recover the rest, at the
+    cost of losing the component structure the mark anchors depend on.
+    """
+    from th_metrics import LOOP_THAI, apertures
+
+    prepared = workdir / "prepared-probe.ttf"
+    font.save(str(prepared))
+    got = apertures(prepared, LOOP_THAI)
+
+    ref = TTFont(str(src))
+    scale_upem(ref, target)
+    ref["head"].unitsPerEm = 1000
+    ref_path = workdir / "unweighted-probe.ttf"
+    ref.save(str(ref_path))
+    ref_ap = apertures(ref_path, LOOP_THAI)
+
+    cmap = font.getBestCmap()
+    glyf, ref_glyf = font["glyf"], ref["glyf"]
+    repaired = []
+    for ch in LOOP_THAI:
+        a, r = got.get(ch), ref_ap.get(ch)
+        if a is None or r is None or a >= APERTURE_FLOOR or r <= a:
+            continue
+        gn = cmap.get(ord(ch))
+        if gn is None or gn not in ref_glyf.glyphs:
+            continue
+        glyf.glyphs[gn] = ref_glyf[gn]
+        if gn in ref["hmtx"].metrics:
+            font["hmtx"].metrics[gn] = ref["hmtx"].metrics[gn]
+        repaired.append(f"{ch}({a:.0f}->{r:.0f})")
+    ref.close()
+    if verbose and repaired:
+        print(f"     [0d] Counter collapse repaired on {len(repaired)} glyph(s), "
+              f"reverted to source weight: {' '.join(repaired)}")
+    return repaired
+
+
 def _glyph_height(font, ch):
     from fontTools.pens.boundsPen import BoundsPen
     gn = font.getBestCmap().get(ord(ch))
@@ -270,6 +418,11 @@ def prepare_bai(family, weight, latin_font=None, verbose=True):
         if verbose:
             print(f"     [0c] Thai scaled x{target/1000:.3f} "
                   f"(upem {target} -> declared 1000)")
+
+        # Must run here: the collapse is caused by rounding at this scale, so it
+        # is not visible before scale_upem.
+        if abs(embolden) >= EMBOLDEN_FLOOR:
+            _repair_collapsed_counters(font, src, target, workdir, verbose)
         return font
 
 

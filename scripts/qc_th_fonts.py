@@ -25,7 +25,11 @@ WHAT "IDENTICAL TO THE SOURCE" MEANS HERE, per Siwatch 2026-08-02:
 The reference here is the LATIN the Thai actually shares a line with:
 
   1  size    ก height == Latin x-height
-  2  weight  Thai stem == Latin stem
+  2  weight  Thai stem == WEIGHT_RATIO x Latin stem. NOT 1.0: Thai carries
+             loops where Latin carries none, so every family whose Thai and
+             Latin were drawn together runs Thai ~0.89-0.93 of the Latin, and
+             widens the gap toward Bold. Asserting 1.0 is what shipped an
+             unreadable Bold on 2026-08-02.
   3  box     line box (hhea == sTypo) clears two stacked Thai lines; clip box
              (usWin) holds the ink
   4  family  all weights share one line box
@@ -36,6 +40,9 @@ The reference here is the LATIN the Thai actually shares a line with:
   7  uniscribe  GDEF classes + U+25CC, the prerequisites Word needs
   8  clearance  Thai upper marks keep enough air to survive screen rendering
   9  baseline   Thai sits on the Latin baseline, not below it
+ 10  aperture   Thai enclosed counters stay open. Independent of check 2:
+             emboldening buys stem and spends aperture, so a face can match
+             the stem perfectly and still render ฃ ธ ฮ as solid blobs.
 
 Run: python3 scripts/qc_th_fonts.py
 Exit 0 = all pass.
@@ -54,7 +61,10 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from th_thai_prep import THAI_SCALE  # noqa: E402
 from th_mark_clearance import TARGET as CLEAR_TARGET, clearances  # noqa: E402
-from th_baseline import measure as baseline_offset  # noqa: E402
+from th_baseline import measure as baseline_offset
+from th_metrics import (STEM_LATIN, STEM_THAI, min_aperture,
+                        stem as probe_stem)
+from th_thai_prep import APERTURE_FLOOR, WEIGHT_RATIO  # noqa: E402
 
 FAMILIES = {
     "TH-Aeonik": {
@@ -98,8 +108,8 @@ FAMILIES = {
             "SemiBold": "Slussen-Semibold.otf",
             "Bold": "Slussen-Bold.otf",
         },
-        "box": (1200, -400, 0),
-        "required_pitch": 1598,
+        "box": (1200, -410, 0),
+        "required_pitch": 1603,
         "latin_pitch": 1512,
         "clip": (1390, 590),
     },
@@ -110,30 +120,53 @@ FAMILIES = {
 TEST_WORDS = ("ที่ ครั้ง ทุก สิ่ง ซึ่ง กู่ น้ำ ต่ำ ลิ้น ขึ้น ทื่อ จึ๊ง สิทธิ์ "
               "น้ำเชื่อม ผู้ ปั่น เกี๊ยว ญี่ปุ่น").split()
 
+# usWeightClass per weight name, for indexing th_thai_prep.WEIGHT_RATIO.
+WCLASS = {"Air": 100, "Thin": 200, "Light": 300, "Regular": 400,
+          "Medium": 500, "SemiBold": 600, "Bold": 700, "Black": 900}
+
 SIZE_TOL = 0.02      # 2% on x-height match
 STEM_TOL = 0.08      # 8% on stem match; the probe quantises to ~2 units
 PX = 512
 
-# Faces where Bai's ladder cannot reach the Latin and the shortfall is a
-# property of the source, not a build regression. Each entry is the worst
-# accepted |1 - Thai/Latin|. The test still fails if a face drifts BEYOND its
-# documented limit — these widen the bar, they do not remove it.
+# Faces where the stem ratio is dominated by probe quantisation rather than by
+# design. Each entry is the worst accepted |target - Thai/Latin|. The test still
+# fails if a face drifts BEYOND its documented limit — these widen the bar, they
+# do not remove it.
 #
-#   Air, Thin   the stems are 8-23 units; one pixel at 512 px/em is ~2 units,
+#   Air, Thin   the stems are 6-23 units; one pixel at 512 px/em is ~2 units,
 #               so the ratio is dominated by probe quantisation, not by design.
-#   Black       real and unfixable from this source. Aeonik Black's stroke-to-
-#               height ratio is 0.356; Bai Bold's is 0.238, and Bai has nothing
-#               denser. Solving embolden+rescale properly asks for +102u, which
-#               closes the counters on ครั้ง / สิทธิ์ outright. Shipping Thai
-#               ~10% light is the better trade for a display weight.
+#
+# Black used to be listed here at 0.12. It is no longer a tolerance case: its
+# shortfall is a deliberate, measured cap and is pinned as an exact number in
+# CAPPED_STEM_RATIO below. Widening a tolerance hides a defect; pinning the
+# number makes the same fact falsifiable on sight.
 STEM_TOL_OVERRIDE = {
     ("TH-Aeonik", "Air"): 0.20,
     ("TH-Aeonik", "AirItalic"): 0.20,
     ("TH-Aeonik", "Thin"): 0.15,
     ("TH-Aeonik", "ThinItalic"): 0.15,
-    ("TH-Aeonik", "Black"): 0.12,
-    ("TH-Aeonik", "BlackItalic"): 0.12,
 }
+
+# Faces where APERTURE_FLOOR binds before the stem taper is reached, so Thai
+# ships measurably lighter than the Latin on purpose. These are NOT tolerances:
+# each is the exact ratio the shipped font must hold, +/- CAPPED_TOL. If a
+# future Bai or Latin source changes the trade, this fails and the number has to
+# be re-derived deliberately rather than absorbed by a wide bar.
+#
+# Aeonik Black's stem is 183.6 and Bai has nothing denser than Bold (134.8).
+# Emboldening the rest of the way drove the counters to 3.9 units — solid blobs.
+# See th_thai_prep.EXTREME_WEIGHTS.
+CAPPED_STEM_RATIO = {
+    ("TH-Aeonik", "Black"): 0.723,
+    ("TH-Aeonik", "BlackItalic"): 0.723,
+    ("TH-Slussen", "Bold"): 0.839,
+}
+CAPPED_TOL = 0.03
+
+# Aperture floor for check 10, and the faces exempt from it. Thinning at the
+# light end opens the loops of ข ค ง into plain strokes — correct behaviour for
+# those letters, and it leaves AirItalic with no enclosed counter to measure.
+APERTURE_EXEMPT = {("TH-Aeonik", "AirItalic")}
 
 # Thai must sit on the Latin baseline. 2/1000 em is the rounding of the source
 # outlines themselves; anything larger is the weight match having dragged the
@@ -245,21 +278,63 @@ def check_size_and_weight(fam, cfg):
         if abs(ratio - 1.0) > SIZE_TOL:
             size_bad.append(f"{w}: ก is {ratio*100:.1f}% of x-height")
 
-        ls, ts = stem(merged, "IlHnEFT"), stem(merged, "กทบนผฝพฟ")
+        # Thai runs LIGHTER than the Latin by design — see
+        # th_thai_prep.WEIGHT_RATIO. This asserted 1.0 until 2026-08-03, which
+        # is the target that made Bold unreadable.
+        ls = stem(merged, STEM_LATIN)
+        ts = stem(merged, STEM_THAI)
         wr = ts / ls
-        tol = STEM_TOL_OVERRIDE.get((fam, w), STEM_TOL)
-        note = "  (source-limited)" if (fam, w) in STEM_TOL_OVERRIDE else ""
+        base = w.replace("Italic", "") or "Regular"
+        capped = CAPPED_STEM_RATIO.get((fam, w))
+        if capped is not None:
+            want, tol, note = capped, CAPPED_TOL, "  (aperture-capped)"
+        else:
+            want = WEIGHT_RATIO[WCLASS[base]]
+            tol = STEM_TOL_OVERRIDE.get((fam, w), STEM_TOL)
+            note = "  (probe-limited)" if (fam, w) in STEM_TOL_OVERRIDE else ""
         weight_rows.append(f"{w:<14} Latin {ls:5.1f}  Thai {ts:5.1f}  "
-                           f"ratio {wr:.3f}{note}")
-        if abs(wr - 1.0) > tol:
-            weight_bad.append(f"{w}: Thai stem is {wr*100:.0f}% of Latin "
-                              f"(limit {(1+tol)*100:.0f}%)")
+                           f"ratio {wr:.3f}  want {want:.3f}{note}")
+        if abs(wr - want) > tol:
+            weight_bad.append(f"{w}: Thai stem is {wr:.3f} of Latin, "
+                              f"want {want:.3f} +/- {tol:.2f}")
 
     record(f"1. {fam} Thai size == Latin x-height "
            f"(scale {THAI_SCALE[fam]})", not size_bad,
            "\n".join(size_rows + size_bad))
-    record(f"2. {fam} Thai stem == Latin stem", not weight_bad,
+    record(f"2. {fam} Thai stem == WEIGHT_RATIO x Latin stem", not weight_bad,
            "\n".join(weight_rows + weight_bad))
+
+
+def check_aperture(fam, cfg):
+    """10 — Thai counters must survive as counters, not render as blobs.
+
+    The check that did not exist until 2026-08-03, and whose absence let
+    TH-Aeonik-Bold ship with 7.8 units of counter aperture (0.11 px at 11 pt)
+    while passing every other check in this file. Stem width and counter
+    aperture are independent: emboldening buys the first and spends the second,
+    at roughly 1.2 units of aperture per unit of stem.
+    """
+    rows, bad = [], []
+    for w in cfg["pairs"]:
+        merged = cfg["dir"] / f"{fam}-{w}.ttf"
+        if not merged.exists():
+            continue
+        a, ch = min_aperture(merged)
+        if a is None:
+            exempt = (fam, w) in APERTURE_EXEMPT
+            rows.append(f"{w:<14} no enclosed counter"
+                        + ("  (expected at this weight)" if exempt else ""))
+            if not exempt:
+                bad.append(f"{w}: every Thai counter has closed or opened away")
+            continue
+        rows.append(f"{w:<14} tightest {ch} {a:5.1f}  "
+                    f"({a/68:.2f} px at 11 pt)")
+        if a < APERTURE_FLOOR:
+            bad.append(f"{w}: {ch} aperture {a:.1f} < floor {APERTURE_FLOOR} "
+                       f"({a/68:.2f} px) — the loop fills in")
+
+    record(f"10. {fam} Thai counters clear {APERTURE_FLOOR:.1f}/1000 em",
+           not bad, "\n".join(rows + bad))
 
 
 def check_box(fam, cfg):
@@ -543,6 +618,7 @@ def main():
         check_uniscribe(fam, cfg)
         check_clearance(fam, cfg)
         check_baseline(fam, cfg)
+        check_aperture(fam, cfg)
     n = sum(1 for _, ok in results if ok)
     print(f"\n{n}/{len(results)} checks pass")
     return 0 if n == len(results) else 1

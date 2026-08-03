@@ -135,7 +135,7 @@ REFERENCES = [
 # this script after any font rebuild — the mark-clearance pass moves `top`.
 EXPECTED = {
     "TH-Aeonik": 1.54,
-    "TH-Slussen": 1.60,
+    "TH-Slussen": 1.61,
     "Bai Jamjuree": 1.64,
 }
 
