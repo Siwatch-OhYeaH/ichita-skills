@@ -48,6 +48,7 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from th_thai_prep import THAI_SCALE  # noqa: E402
 from th_mark_clearance import TARGET as CLEAR_TARGET, clearances  # noqa: E402
+from th_baseline import measure as baseline_offset  # noqa: E402
 
 FAMILIES = {
     "TH-Aeonik": {
@@ -126,6 +127,11 @@ STEM_TOL_OVERRIDE = {
 # mark visibly fuses into the consonant at text sizes. 1 em is 14.7 px at 11 pt
 # on a 96 dpi screen, so 68/1000 em is one pixel. Sarabun, the reference, runs a
 # p10 of 73.
+# Thai must sit on the Latin baseline. 2/1000 em is the rounding of the source
+# outlines themselves; anything larger is the weight match having dragged the
+# Thai off the line, which is visible in the heavy weights at heading sizes.
+BASELINE_TOL = 2.0
+
 CLEAR_FLOOR = 60.0
 
 # Faces that cannot reach the floor because emboldening past the end of Bai's
@@ -465,6 +471,37 @@ def check_clearance(fam, cfg):
            "\n".join(rows + bad))
 
 
+def check_baseline(fam, cfg):
+    """9 — Thai and Latin must sit on the same baseline.
+
+    Siwatch, 2026-08-03: "make sure the Latin and Thai character when type
+    together are on the same line level." Bai draws every flat-bottomed Thai
+    consonant at exactly y=0 in every weight; the FontForge weight match grows
+    the outline downward, so the Thai sank while the byte-identical Latin stayed
+    put — TH-Aeonik-Black measured -28/1000 em, about a pixel at a 26 pt
+    heading. Corrected at build time in th_baseline.seat_thai_on_baseline.
+    """
+    rows, bad = [], []
+    for w in cfg["pairs"]:
+        p = cfg["dir"] / f"{fam}-{w}.ttf"
+        if not p.exists():
+            continue
+        f = TTFont(p, lazy=True)
+        thai, latin, offset = baseline_offset(f)
+        f.close()
+        if thai is None:
+            bad.append(f"{w}: no flat-bottomed Thai/Latin pair to measure")
+            continue
+        rows.append(f"{w:<14} thai {thai:+6.1f}  latin {latin:+6.1f}  "
+                    f"offset {offset:+6.1f}")
+        if abs(offset) > BASELINE_TOL:
+            bad.append(f"{w}: Thai sits {offset:+.1f}/1000 em off the Latin "
+                       f"baseline (tolerance {BASELINE_TOL:.0f})")
+    record(f"9. {fam} Thai sits on the Latin baseline "
+           f"(tolerance {BASELINE_TOL:.0f}/1000 em)", not bad,
+           "\n".join(rows + bad))
+
+
 def main():
     for fam, cfg in FAMILIES.items():
         print(f"\n=== {fam} ===")
@@ -474,6 +511,7 @@ def main():
         check_ladder(fam, cfg)
         check_uniscribe(fam, cfg)
         check_clearance(fam, cfg)
+        check_baseline(fam, cfg)
     n = sum(1 for _, ok in results if ok)
     print(f"\n{n}/{len(results)} checks pass")
     return 0 if n == len(results) else 1

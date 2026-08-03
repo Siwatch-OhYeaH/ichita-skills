@@ -67,6 +67,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E402
                           fix_thai_gdef, prepare_bai)
 from th_mark_clearance import raise_upper_marks
+from th_baseline import seat_thai_on_baseline
 
 warnings.filterwarnings("ignore")
 
@@ -979,7 +980,14 @@ def build_font(weight_name, aeonik_file, bai_file=None):
     print(f"     [3b] GDEF: {n_base} Thai -> BASE, {n_mark} -> MARK | "
           f"U+25CC dotted circle: {'synthesised' if added else 'already present'}")
 
-    # Step 3c: open up the Thai stack. Bai sets its upper marks close to the
+    # Step 3c: put the Thai back on the Latin baseline. The stem match
+    # uses FontForge changeWeight, which grows the outline downward as
+    # well as sideways, so a flat-bottomed consonant that Bai drew at
+    # y=0 ends up below the Latin, worse the bolder the weight. Rigid
+    # translation of the bases and their anchors; the marks follow.
+    seat_thai_on_baseline(aeonik)
+
+    # Step 3d: open up the Thai stack. Bai sets its upper marks close to the
     # consonant and the scale-plus-embolden this pipeline applies closes the
     # gap further, worst in the heavy weights — TH-Aeonik-Black measured a
     # median clearance of 0.6/1000 em, i.e. touching. Below about 65/1000 em

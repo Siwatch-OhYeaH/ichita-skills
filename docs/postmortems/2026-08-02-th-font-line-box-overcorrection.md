@@ -457,3 +457,105 @@ by hash) but a stale TH-Slussen, and LibreOffice's `atLeast` handling is not Wor
   (Open.)
 - `thai_line_pitch.py` needs `uharfbuzz`, so it runs under `venv_fonts/bin/python`,
   not the system python3 the other QC scripts use. (Open.)
+
+---
+
+# Addendum 3 — the weight match dragged Thai off the Latin baseline
+
+**2026-08-03.**
+
+## Summary
+
+Siwatch: *"make sure the Latin and Thai character when type together are on the same
+line level."* The Thai was sitting below the Latin baseline, by an amount that tracked
+the weight ladder — up to 28/1000 em at Black. Cause was `th_thai_prep`'s FontForge
+`changeWeight`, which grows an outline in every direction including downward, against
+a Latin that is byte-identical to the source and therefore never moves. Fixed by
+`scripts/th_baseline.py`, a rigid translation of the Thai bases and their anchors back
+onto the baseline. All 18 faces now seat within 1/1000 em.
+
+## Symptom
+
+Flat-bottomed Thai consonants (`ก` `ง` `บ` `ม` `ว` `ส`) rendered below flat-bottomed
+Latin (`H` `I` `n` `x`) on the same line. In 1/1000 em, Latin at 0:
+
+```
+TH-Aeonik    Air +8   Thin 0   Regular -1   Medium -6   Bold -14   Black -28
+TH-Slussen                     Regular -4   Medium -6   SemiBold -8   Bold -20
+```
+
+Subpixel in Regular at body sizes, about one pixel at a 26 pt Black heading — which
+is where headings live, and why it surfaced now rather than in the body-text QC.
+
+## Root cause
+
+`th_thai_prep._embolden` calls FontForge `changeWeight(delta)` to match the Thai stem
+to the Latin. `changeWeight` thickens strokes by moving every edge outward, so a
+consonant whose bottom edge sat at y=0 ends up at y=−δ/2. The Latin half of the merged
+font is copied unmodified from Aeonik or Slussen, so it stays at exactly 0. The two
+scripts drift apart in proportion to the weight change.
+
+The sign flips for the thinned weights — Air measured **+8**, i.e. floating *above*
+the baseline — which is the tell that this is `changeWeight` and not the scale step,
+the mark-clearance step, or the metrics.
+
+Bai Jamjuree itself is innocent: measured across Regular / Medium / SemiBold / Bold,
+its flat consonants sit at exactly 0 in every weight.
+
+## Fix
+
+`scripts/th_baseline.py::seat_thai_on_baseline`, inserted as build step 3c, before the
+mark-clearance pass:
+
+1. Measure the median bottom of `FLAT_THAI` against the median bottom of `FLAT_LATIN`.
+   Flat-bottomed glyphs only — round ones (`ค` `ต` `อ`) overshoot ~10 units and would
+   bias it.
+2. If the offset exceeds a 2-unit deadband, translate every Thai **base** glyph and
+   every base attachment anchor by −offset.
+
+**Marks are deliberately not translated.** A mark renders at
+`base_origin + base_anchor − mark_anchor`, so moving the base anchor carries the whole
+stack. Translating the marks as well would move them twice. Because the translation is
+rigid — outlines and anchors together — mark clearance is mathematically unchanged,
+which the rebuild confirms: p10 still 72 on every face.
+
+Composite glyphs whose components are all in the shift set are skipped, since they
+inherit the move; shifting their offsets too would double it.
+
+## Why it slipped through
+
+**The QC compared each script to its own source, never to each other.** Check 1 asserts
+Thai height against the Latin x-height, so it measures *size* across scripts — but
+nothing measured *position* across scripts. The Latin-identity check passes trivially
+(the outlines are copied), the Thai checks all measure Thai against Thai, and the
+weight match sits between them changing the one quantity nobody looked at.
+
+**Body text hid it.** Regular is −1 and Medium −6, both invisible at 11 pt. The defect
+scales with both weight and point size, so it only becomes visible in exactly the
+combination the earlier QC rounds did not use: heavy weights at heading sizes.
+
+## Validation
+
+Measured on Linux.
+
+- `scripts/qc_th_fonts.py` — **18/18**, including new check 9 (baseline tolerance
+  2/1000 em). All 18 faces measure 0.0 except TH-Aeonik Regular −1.0 and Light −0.5,
+  both inside the deadband.
+- **Check 9 verified against a broken artifact**, not just a good one: a TH-Aeonik-Bold
+  with its Thai deliberately sunk 20 units scores FAIL. This codebase has shipped three
+  inverted assertions in three days, so a green check is not evidence on its own.
+- Mark clearance unchanged by the translation — p10 72.0 on every face, as predicted
+  by the rigidity argument.
+- `qc_check_th_font_doc.py` 4/4; `check_ab_test_pdf.py` 2/2 (TH-Aeonik 13.20 vs Aeonik
+  13.20, TH-Slussen 16.65 vs Slussen 16.65); `thai_line_pitch.py --check` OK.
+- Rendered `Hnกมn วHบ n` at 26 pt with the baseline drawn: Thai and Latin now share it
+  in Regular, Bold and Black, where Black previously dipped visibly below.
+
+**Not validated in Word.** Windows carries the pre-baseline build until it is
+reinstalled with Office closed.
+
+## Action items
+
+- Reinstall on Windows and confirm at a bold heading size. (Siwatch.)
+- The 18 rebuilt faces supersede what is installed; `--apply-system` is now required
+  for *both* families, not just TH-Slussen. (Siwatch.)

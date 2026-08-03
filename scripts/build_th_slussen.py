@@ -51,6 +51,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E402
                           fix_thai_gdef, prepare_bai)
 from th_mark_clearance import raise_upper_marks
+from th_baseline import seat_thai_on_baseline
 
 warnings.filterwarnings("ignore")
 
@@ -925,7 +926,14 @@ def build_font(weight_name, slussen_file, bai_file=None):
     print(f"     [3b] GDEF: {n_base} Thai -> BASE, {n_mark} -> MARK | "
           f"U+25CC dotted circle: {'synthesised' if added else 'already present'}")
 
-    # Step 3c: see build_th_aeonik.py. TH-Slussen-Bold measured a median
+    # Step 3c: put the Thai back on the Latin baseline. The stem match
+    # uses FontForge changeWeight, which grows the outline downward as
+    # well as sideways, so a flat-bottomed consonant that Bai drew at
+    # y=0 ends up below the Latin, worse the bolder the weight. Rigid
+    # translation of the bases and their anchors; the marks follow.
+    seat_thai_on_baseline(slussen)
+
+    # Step 3d: see build_th_aeonik.py. TH-Slussen-Bold measured a median
     # clearance of 12/1000 em before this ran.
     raise_upper_marks(slussen)
 
