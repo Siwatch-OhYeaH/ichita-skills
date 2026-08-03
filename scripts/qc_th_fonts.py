@@ -108,8 +108,11 @@ FAMILIES = {
             "SemiBold": "Slussen-Semibold.otf",
             "Bold": "Slussen-Bold.otf",
         },
-        "box": (1200, -410, 0),
-        "required_pitch": 1603,
+        # 1610 -> 1625 on 2026-08-03 (evening). The taper thinned SemiBold, the
+        # clearance pass then settled its marks 22 units higher, and the line box
+        # follows the ink. See build_th_slussen.py REQUIRED_PITCH.
+        "box": (1210, -415, 0),
+        "required_pitch": 1625,
         "latin_pitch": 1512,
         "clip": (1390, 590),
     },
@@ -153,14 +156,23 @@ STEM_TOL_OVERRIDE = {
 # future Bai or Latin source changes the trade, this fails and the number has to
 # be re-derived deliberately rather than absorbed by a wide bar.
 #
-# Aeonik Black's stem is 183.6 and Bai has nothing denser than Bold (134.8).
-# Emboldening the rest of the way drove the counters to 3.9 units — solid blobs.
-# See th_thai_prep.EXTREME_WEIGHTS.
-CAPPED_STEM_RATIO = {
-    ("TH-Aeonik", "Black"): 0.723,
-    ("TH-Aeonik", "BlackItalic"): 0.723,
-    ("TH-Slussen", "Bold"): 0.839,
-}
+# EMPTY since 2026-08-03 (evening), and the reason is the point. This dict
+# existed because WEIGHT_RATIO asked the heavy end for a ratio the counter floor
+# forbids — .89 at Black — and the shortfall had to be recorded somewhere else.
+# The revised taper states the reachable number in WEIGHT_RATIO itself (900 ->
+# .745), so there is no shortfall left to pin. All three former entries now pass
+# check 2 on the normal path:
+#
+#   TH-Aeonik Black        .745 against a .745 target   (was pinned .723)
+#   TH-Aeonik BlackItalic  .734 against a .745 target   (was pinned .723)
+#   TH-Slussen Bold        .793 against a .775 target   (was pinned .839)
+#
+# Two of those pins were also STALE and one of them was masking: Black passed
+# only because .745 happens to fall inside .723 +/- .03. A pin that keeps
+# passing as reality moves away from it is worse than no pin. If the floor ever
+# binds before the taper again, add the entry back with the measured number —
+# do not widen STEM_TOL.
+CAPPED_STEM_RATIO = {}
 CAPPED_TOL = 0.03
 
 # Aperture floor for check 10, and the faces exempt from it. Thinning at the
@@ -184,10 +196,14 @@ CLEAR_FLOOR = 60.0
 # ladder grows the consonant and the mark toward each other faster than the
 # anchor can pull them apart. Same source limitation as STEM_TOL_OVERRIDE, and
 # the same rule: these lower the bar, they do not remove it.
-CLEAR_FLOOR_OVERRIDE = {
-    ("TH-Aeonik", "Black"): 38.0,
-    ("TH-Aeonik", "BlackItalic"): 38.0,
-}
+#
+# EMPTY since 2026-08-03 (evening). Black and BlackItalic were listed at 38.0
+# and both now measure worst 71.2 / p10 72.0 — over the 60 floor and on the 72
+# target, not near it. Nothing in the clearance pass changed; the taper did.
+# Clearance tracks the embolden monotonically, so a ladder that thins twelve of
+# fourteen faces instead of emboldening them hands the clearance pass room it
+# never had. Re-add with a measured number if a future source needs it.
+CLEAR_FLOOR_OVERRIDE = {}
 
 results = []
 

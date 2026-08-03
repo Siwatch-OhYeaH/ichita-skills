@@ -14,7 +14,7 @@ Measured vertical metrics of the shipped fonts against the Latin source each was
 |---|---|---|---|---|---|
 | TH Aeonik | 1150/-390/0 | 1540 (1.540 em) | 1150/-390/0 | **1800** (1.800 em) | True |
 | Aeonik (source) | 1000/-200/0 | 1200 (1.200 em) | 700/-200/300 | **1200** (1.200 em) | False |
-| TH Slussen | 1200/-400/0 | 1600 (1.600 em) | 1200/-400/0 | **1980** (1.980 em) | True |
+| TH Slussen | 1210/-415/0 | 1625 (1.625 em) | 1210/-415/0 | **1980** (1.980 em) | True |
 | Slussen (source) | 1074/-272/166 | 1512 (1.512 em) | 1074/-272/166 | **1596** (1.596 em) | True |
 | Bai Jamjuree | 1000/-250/0 | 1250 (1.250 em) | 1000/-250/0 | **1786** (1.786 em) | True |
 

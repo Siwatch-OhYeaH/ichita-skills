@@ -92,11 +92,18 @@ MAC_ITALIC = 1 << 1
 # measured requirement is 1573-1598 across the four faces. See the long note in
 # build_th_aeonik.py — Slussen gets off lightly at +5.8% because its own box was
 # already generous, where Aeonik's 1200 needed +28%.
-ASCENT, DESCENT, LINEGAP = 1200, -410, 0        # 1610; Slussen-Regular.otf is 1512
+ASCENT, DESCENT, LINEGAP = 1210, -415, 0        # 1625; Slussen-Regular.otf is 1512
 
 # Minimum the Thai needs, from scripts/thai_line_pitch.py: worst face (SemiBold)
-# 1523 of ink extent plus the 75-unit margin.
-REQUIRED_PITCH = 1603
+# 1550 of ink extent plus the 75-unit margin.
+#
+# 1603 -> 1625 on 2026-08-03 (evening), and NOT because anything got heavier —
+# the taper thinned SemiBold by 20 units. A thinner consonant is a smaller
+# obstacle, so th_mark_clearance's iterative lift settles the mark HIGHER before
+# it clears the 72 target, and the shaped stack grows 22 units taller. The line
+# box follows the ink, not the weight. Re-run thai_line_pitch.py --check after
+# any rebuild; this number moves whenever the clearance pass does.
+REQUIRED_PITCH = 1625
 
 # Clip box. Measured static ink across the four faces is -535..+1255 (deepest
 # TH-Slussen-SemiBold:uni0E38.small, highest TH-Slussen-Bold:Aringacute); the

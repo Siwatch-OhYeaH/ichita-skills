@@ -37,7 +37,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # still pinned to one number and cannot drift.
 EXPECTED_RATIO = {
     "TH-Aeonik": ("Aeonik", 1540 / 1200),
-    "TH-Slussen": ("Slussen", 1610 / 1512),
+    "TH-Slussen": ("Slussen", 1625 / 1512),
 }
 REQUIRED = ["Aeonik", "Slussen", "BaiJamjuree", "TH-Aeonik", "TH-Slussen"]
 # Chrome font from build_ab_test_doc.py — present by design, not under test.

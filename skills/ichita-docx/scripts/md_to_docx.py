@@ -85,7 +85,7 @@ THAI_SCALE = 0.9             # Thai 9pt / English 10pt — Bai Jamjuree one size
 # Regenerate after any font rebuild — the mark-clearance pass moves these:
 #     python3 scripts/thai_line_pitch.py --check
 THAI_LINE_RATIO = 1.64       # Bai Jamjuree worst face, × Thai pt (= 0.9 × Latin pt)
-TH_LINE_RATIO   = 1.61       # TH-Aeonik 1.537 / TH-Slussen 1.603, × Latin pt
+TH_LINE_RATIO   = 1.63       # TH-Aeonik 1.539 / TH-Slussen 1.625, × Latin pt
 
 # `atLeast`, never `Exactly`. Exactly is a fixed box and is where Word genuinely
 # clips marks; atLeast lets the line grow instead. The previous 1.46 ratio was

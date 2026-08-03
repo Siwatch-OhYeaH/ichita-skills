@@ -62,10 +62,46 @@ THAI_SCALE = {
 #   Tahoma         Regular    .959  Bold    .774
 #
 # Every one runs Thai lighter than its Latin, and every one widens the gap as
-# the weight increases. Sarabun is Siwatch's nominated reference for correct
-# Thai engineering, so the ladder below tracks Sarabun's.
-WEIGHT_RATIO = {100: 0.93, 200: 0.93, 300: 0.92, 400: 0.915,
-                500: 0.91, 600: 0.90, 700: 0.895, 900: 0.89}
+# the weight increases.
+#
+# REVISED 2026-08-03 (evening). The ladder used to track Sarabun's ratios
+# directly. That was wrong for two reasons, and Siwatch saw both:
+#
+#  1. A RATIO IS ONLY MEANINGFUL AGAINST THE LATIN IT WAS DRAWN FOR. Sarabun's
+#     .915 pairs its Thai with Sarabun's own Latin. Aeonik's Latin is a much
+#     heavier Regular than either Sarabun's or Bai's — measured, Aeonik Regular
+#     85.9 against Bai Regular 74.2, +15.8%, and Medium +20.4%. Borrowing
+#     Sarabun's ratio and applying it to Aeonik's heavier Latin drove our Thai
+#     to 80.1 where Bai's own Regular is 70.3: +13.9% bolder than the source.
+#     Siwatch, 2026-08-03: "if you look at regular font between TH aeonik and
+#     baijamjuree, ours TH aeonik is more bold than original one."
+#
+#  2. THE OLD LADDER ENDED IN A CLIFF, NOT A TAPER. Black is hard-capped at
+#     .745 by APERTURE_FLOOR (see EXTREME_WEIGHTS) and cannot move. A ladder
+#     that holds .915 to .895 and then drops to .745 at the top is not a taper.
+#     It is why Bold and Black were 5.8 units apart in Thai — 0.09 px at 11 pt,
+#     invisible — against 33.2 units in the Latin. Siwatch reported exactly
+#     that: Thai Bold and Black look the same, the Latin pair does not.
+#
+# So the ladder now runs TOWARD the cap the heavy end is stuck at, which is the
+# shape Tahoma has for the same reason (.959 Regular -> .774 Bold). Two
+# consequences, both wanted:
+#
+#   * Regular Thai lands 74.3, only +5.7% over Bai's own 70.3 instead of
+#     +13.9%. Lighter, deliberately not as light as Bai — Siwatch: "we may not
+#     need to make it as light as the original to balance with the latin."
+#   * Bold/Black separation goes 5.8 -> 21.7 units, 0.09 -> 0.32 px at 11 pt.
+#
+# The light end is unchanged: Air is a 7.8-unit hairline already and thinning
+# it further would erase it.
+#
+# Third consequence, not designed for but worth knowing: every face except
+# Black, BlackItalic and TH-Slussen-Bold is now reached by THINNING Bai rather
+# than emboldening it. Thinning opens counters, so APERTURE_FLOOR stops binding
+# almost everywhere, and each skipped FontForge round trip is one less chance to
+# deform a mark (see _graft_outlines).
+WEIGHT_RATIO = {100: 0.93, 200: 0.92, 300: 0.90, 400: 0.865,
+                500: 0.84, 600: 0.80, 700: 0.775, 900: 0.745}
 
 # Minimum counter aperture, units/1000em: the widest circle that fits inside
 # the tightest enclosed counter of the Thai consonants. This is the number that
@@ -118,28 +154,49 @@ APERTURE_FLOOR = 46.5
 # integers. Measured prepared -> shipped on 2026-08-03: Black 50.8 -> 46.9,
 # Slussen Bold 46.9 -> 43.0. So the figures below are set from the SHIPPED
 # aperture, which is the only one that matters.
+# Re-solved 2026-08-03 (evening) for the revised WEIGHT_RATIO. The trailing
+# comment on each line is the SHIPPED Latin stem the face has to match and the
+# Thai stem the taper therefore asks for, so a value can be checked without
+# re-running the solve. Only the three faces marked CAP embolden; the rest thin.
+#
+# Two things make these values unpredictable from the arithmetic alone, so they
+# are set from the shipped measurement over one iteration:
+#
+#   * changeWeight UNDER-DELIVERS ON NEGATIVE AMOUNTS — roughly half the
+#     requested thinning reaches the outline. TH-Slussen-SemiBold asks -20.7 to
+#     move the stem the 8.3 units the taper wants. The outline change is still
+#     only ~8 units, so this is compensation for the tool, NOT extra thinning,
+#     and it carries none of the loop-opening risk a real -20 would.
+#   * the build re-solves the scale from ink per weight, so nominal 0.914 lands
+#     anywhere from 0.905 to 0.914 and shifts the result again.
+#
+# Black is +13.0, not the +14.9 the taper asks for, and this is measured rather
+# than cautious: at +14.9 the shipped aperture is 43.0 — under the floor — and
+# the stem comes out LOWER (134.8 vs 136.7), because _repair_collapsed_counters
+# reverts the glyphs that collapsed and reverted glyphs drag the median down.
+# More embolden buys less weight AND worse counters. Do not raise it.
 BUILD_TABLE = {
     "TH-Aeonik": {
-        "Air":           ("BaiJamjuree-ExtraLight.ttf",      -27.2),
-        "Thin":          ("BaiJamjuree-ExtraLight.ttf",      -11.3),
-        "Light":         ("BaiJamjuree-Light.ttf",             0.3),
-        "Regular":       ("BaiJamjuree-Medium.ttf",           -5.8),
-        "Medium":        ("BaiJamjuree-SemiBold.ttf",          1.4),
-        "Bold":          ("BaiJamjuree-Bold.ttf",              8.6),
-        "Black":         ("BaiJamjuree-Bold.ttf",             13.0),
-        "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-29.2),
-        "ThinItalic":    ("BaiJamjuree-ExtraLightItalic.ttf",-13.3),
-        "LightItalic":   ("BaiJamjuree-LightItalic.ttf",      -1.6),
-        "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",     -7.7),
-        "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",   -0.5),
-        "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",        8.6),
-        "BlackItalic":   ("BaiJamjuree-BoldItalic.ttf",       13.0),
+        "Air":           ("BaiJamjuree-ExtraLight.ttf",      -27.2),  # 7.8 -> 7.3
+        "Thin":          ("BaiJamjuree-ExtraLight.ttf",      -13.5),  # 21.5 -> 19.8
+        "Light":         ("BaiJamjuree-Light.ttf",            -0.4),  # 54.7 -> 49.2
+        "Regular":       ("BaiJamjuree-Medium.ttf",          -10.7),  # 87.9 -> 76.0
+        "Medium":        ("BaiJamjuree-SemiBold.ttf",        -10.5),  # 115.2 -> 96.8
+        "Bold":          ("BaiJamjuree-Bold.ttf",            -11.2),  # 150.4 -> 116.6
+        "Black":         ("BaiJamjuree-Bold.ttf",             13.0),  # 183.6 -> 136.8 CAP
+        "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-29.2),  # 7.8 -> 7.3
+        "ThinItalic":    ("BaiJamjuree-ExtraLightItalic.ttf",-13.4),  # 23.4 -> 21.6
+        "LightItalic":   ("BaiJamjuree-LightItalic.ttf",      -0.4),  # 54.7 -> 49.2
+        "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",    -11.8),  # 87.9 -> 76.0
+        "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",  -10.2),  # 115.2 -> 96.8
+        "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",      -12.0),  # 150.4 -> 116.6
+        "BlackItalic":   ("BaiJamjuree-BoldItalic.ttf",       12.0),  # 183.6 -> 136.8 CAP
     },
     "TH-Slussen": {
-        "Regular":  ("BaiJamjuree-Medium.ttf",   -3.2),
-        "Medium":   ("BaiJamjuree-SemiBold.ttf", -1.3),
-        "SemiBold": ("BaiJamjuree-Bold.ttf",     -0.4),
-        "Bold":     ("BaiJamjuree-Bold.ttf",     13.0),
+        "Regular":  ("BaiJamjuree-Medium.ttf",    -6.6),  # 95.7 -> 82.8
+        "Medium":   ("BaiJamjuree-SemiBold.ttf", -13.6),  # 117.2 -> 98.4
+        "SemiBold": ("BaiJamjuree-Bold.ttf",     -20.7),  # 144.5 -> 115.6
+        "Bold":     ("BaiJamjuree-Bold.ttf",       4.0),  # 169.9 -> 131.7
     },
 }
 
@@ -155,32 +212,38 @@ EMBOLDEN_FLOOR = 2.0
 #                of ข ค ง right out of existence (two contours -> one). That is
 #                what those letters do as they get lighter, so it is correct,
 #                but AirItalic ends with no enclosed counter at all.
-#   Black +13.0  APERTURE-CAPPED. Aeonik Black's stem is 183.6 and the taper
-#                asks for 163.4, but Bai Bold cannot be emboldened past +13.0
-#                without driving the counters under the floor. Thai therefore
-#                ships at ratio 0.729 — visibly lighter than the Latin.
-#                The alternative was the old +68.1, which produced 3.9 units of
-#                aperture: solid blobs. Light Thai is the better trade, and it
-#                is the same trade Tahoma makes at Bold (0.774).
+#   Black +14.9  APERTURE-CAPPED. Aeonik Black's stem is 183.6 and a .89 taper
+#                would ask for 163.4, but Bai Bold cannot be emboldened that far
+#                without driving the counters under the floor. Black is the one
+#                weight whose ratio is set BY the cap rather than by the taper:
+#                0.745. Since 2026-08-03 evening WEIGHT_RATIO[900] states that
+#                number outright instead of asking for .89 and recording the
+#                shortfall elsewhere, so the ladder ends where it can actually
+#                land. The alternative was the old +68.1, which produced 3.9
+#                units of aperture: solid blobs. It is the same trade Tahoma
+#                makes at Bold (0.774).
 #   Slussen
-#   Bold  +13.0  APERTURE-CAPPED for the same reason; ratio 0.839.
+#   Bold   +9.3  APERTURE-CAPPED for the same reason; ratio 0.775.
 #
-# Bold vs Black is the tightest call in the table. Both draw on Bai Bold — Bai
-# has nothing heavier — and both are aperture-capped, so there are only ~4 units
-# of stem between them: Bold +8.6 (stem 130.9) and Black +13.0 (136.7). That is
-# barely above the probe's 1.95-unit resolution, and it is the whole reason Bold
-# is set to 8.6 rather than the 10.6 the solve returned. The old build gave Black
-# +68.1 to separate them properly and produced 3.9 units of aperture: Word
-# rendered ฃ ธ ฮ as solid ink. Check 6 asserts the pair stays distinct.
+# Bold vs Black used to be the tightest call in the table, and it was too tight:
+# both draw on Bai Bold, Bai has nothing heavier, and with the old near-flat
+# ladder there were 5.8 units of stem between them — 0.09 px at 11 pt, which
+# Siwatch correctly reported as no difference at all. It is not fixable from the
+# Black end; Bai's ceiling and the aperture floor are both hard. It is fixable
+# from the Bold end, which is what the revised taper does: Bold thins to 115.0
+# and the pair opens to 21.7 units, 0.32 px. Check 6 asserts they stay distinct.
+#
+# So do not "restore" Bold toward the Latin to close the ratio gap. The gap is
+# the mechanism that makes Black visible.
 #
 # These are real quality losses against an unreachable target, not regressions,
 # and they are not silently accepted — qc_th_fonts check 10 pins each one.
 EXTREME_WEIGHTS = {
     ("TH-Aeonik", "Air"): "hairline; Thai very faint at text sizes",
     ("TH-Aeonik", "AirItalic"): "hairline; loops open out entirely",
-    ("TH-Aeonik", "Black"): "aperture-capped; Thai ~27% lighter than the Latin",
-    ("TH-Aeonik", "BlackItalic"): "aperture-capped; Thai ~27% lighter",
-    ("TH-Slussen", "Bold"): "aperture-capped; Thai ~14% lighter than the Latin",
+    ("TH-Aeonik", "Black"): "aperture-capped; Thai ~26% lighter than the Latin",
+    ("TH-Aeonik", "BlackItalic"): "aperture-capped; Thai ~26% lighter",
+    ("TH-Slussen", "Bold"): "aperture-capped; Thai ~23% lighter than the Latin",
 }
 
 _FF_SCRIPT = """

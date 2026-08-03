@@ -74,7 +74,7 @@ SOURCE_OF = {
 # build's did. Sized by scripts/thai_line_pitch.py.
 EXPECTED_LINE_EM = {
     "TH Aeonik":  1.5400,      # Aeonik 1.2000, +28.3%
-    "TH Slussen": 1.6100,      # Slussen 1.5120, +6.5%
+    "TH Slussen": 1.6250,      # Slussen 1.5120, +7.5%
 }
 
 
