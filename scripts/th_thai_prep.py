@@ -100,8 +100,44 @@ THAI_SCALE = {
 # than emboldening it. Thinning opens counters, so APERTURE_FLOOR stops binding
 # almost everywhere, and each skipped FontForge round trip is one less chance to
 # deform a mark (see _graft_outlines).
-WEIGHT_RATIO = {100: 0.93, 200: 0.92, 300: 0.90, 400: 0.865,
-                500: 0.84, 600: 0.80, 700: 0.775, 900: 0.745}
+#  3. RE-FLATTENED 2026-08-04. The taper above was solved against the WRONG
+#     COMPARISON, and Siwatch's two reports only look contradictory until you
+#     name what each one compared:
+#
+#       2026-08-03 "ours TH aeonik is more bold than original one"
+#                  -> merged Thai vs BAI JAMJUREE's Thai.
+#       2026-08-04 "bold font of TH Aeonik thai is not balanced with latin
+#                  thickness ... when type both thai and english in one line, I
+#                  want them to have the same font thickness. It's fair to use
+#                  the Aeonik (original) as benchmark."
+#                  -> merged Thai vs AEONIK's Latin, on one line.
+#
+#     The second is the product requirement: the face exists to set Thai beside
+#     Aeonik, and a reader sees the two scripts side by side, never our Thai
+#     beside Bai's. So the Latin-on-the-same-line comparison governs, and the
+#     ratio goes back to what families whose Thai and Latin were drawn together
+#     hold for PERCEIVED equal weight — ~.89 (Sarabun Bold .897, Leelawadee
+#     Bold .887). The taper had driven Bold to .766, which is the Tahoma
+#     extreme, and Tahoma is the one reference this file already refuses to
+#     follow.
+#
+#     Known and accepted consequence: Regular lands ~+11% over Bai's own
+#     Regular, which is close to the +13.9% that drew the 2026-08-03 complaint.
+#     That is now the INTENDED reading of the rule, not a regression — matching
+#     Aeonik's heavier Latin necessarily means out-weighing Bai. If Siwatch
+#     judges Regular too bold again, the fix is to re-open which benchmark
+#     governs, NOT to taper the top back down and re-break Bold.
+#
+#     Black stays at .745. It is not a choice: 136.7 is Bai Bold's emboldening
+#     ceiling under APERTURE_FLOOR, re-confirmed 2026-08-04 by measuring every
+#     heavier Thai on the machine. Sarabun ExtraBold scales to stem 124.1 at
+#     aperture 40.8 — ALREADY under the floor — so it buys 0.9 units of stem and
+#     spends the whole counter budget. Bai Bold remains the best source. The
+#     cost is that Bold (.89 -> ~134) and Black (~137) sit close again; Siwatch
+#     accepted that trade and asked for an external heavier Thai for Black
+#     (Kanit/Noto Sans Thai, neither present locally) as the separate fix.
+WEIGHT_RATIO = {100: 0.93, 200: 0.92, 300: 0.905, 400: 0.89,
+                500: 0.89, 600: 0.89, 700: 0.89, 900: 0.745}
 
 # Minimum counter aperture, units/1000em: the widest circle that fits inside
 # the tightest enclosed counter of the Thai consonants. This is the number that
@@ -176,27 +212,60 @@ APERTURE_FLOOR = 46.5
 # reverts the glyphs that collapsed and reverted glyphs drag the median down.
 # More embolden buys less weight AND worse counters. Do not raise it.
 BUILD_TABLE = {
+    # Re-solved 2026-08-04 by scripts/solve_weight_table.py, which measures the
+    # SHIPPED face and iterates a secant step instead of predicting the
+    # embolden. Trailing comment is `shipped Latin stem -> shipped Thai stem
+    # (target, counter aperture and the glyph that binds)`.
+    #
+    # CAP marks a face whose aperture is within 4 units of APERTURE_FLOOR, i.e.
+    # one probe step from blobs. Bold is now CAP as well as Black: at ratio .89
+    # Bold consumes essentially ALL of Bai Bold's emboldening headroom, so 134.8
+    # and 136.7 are the same ceiling reached from two directions. That is the
+    # measured reason Thai Bold and Black cannot both be balanced and distinct
+    # from this source — see WEIGHT_RATIO note 3.
     "TH-Aeonik": {
-        "Air":           ("BaiJamjuree-ExtraLight.ttf",      -27.2),  # 7.8 -> 7.3
-        "Thin":          ("BaiJamjuree-ExtraLight.ttf",      -13.5),  # 21.5 -> 19.8
-        "Light":         ("BaiJamjuree-Light.ttf",            -0.4),  # 54.7 -> 49.2
-        "Regular":       ("BaiJamjuree-Medium.ttf",          -10.7),  # 87.9 -> 76.0
-        "Medium":        ("BaiJamjuree-SemiBold.ttf",        -10.5),  # 115.2 -> 96.8
-        "Bold":          ("BaiJamjuree-Bold.ttf",            -11.2),  # 150.4 -> 116.6
-        "Black":         ("BaiJamjuree-Bold.ttf",             13.0),  # 183.6 -> 136.8 CAP
-        "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-29.2),  # 7.8 -> 7.3
-        "ThinItalic":    ("BaiJamjuree-ExtraLightItalic.ttf",-13.4),  # 23.4 -> 21.6
-        "LightItalic":   ("BaiJamjuree-LightItalic.ttf",      -0.4),  # 54.7 -> 49.2
-        "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",    -11.8),  # 87.9 -> 76.0
-        "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",  -10.2),  # 115.2 -> 96.8
-        "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",      -12.0),  # 150.4 -> 116.6
-        "BlackItalic":   ("BaiJamjuree-BoldItalic.ttf",       12.0),  # 183.6 -> 136.8 CAP
+        "Air":           ("BaiJamjuree-ExtraLight.ttf",      -27.2),  # 7.8 -> 7.8 (want 7.3, aper 111.9 ฆ)
+        "Thin":          ("BaiJamjuree-ExtraLight.ttf",      -13.5),  # 21.5 -> 19.5 (want 19.8, aper 96.6 ษ)
+        "Light":         ("BaiJamjuree-Light.ttf",            -0.4),  # 54.7 -> 48.8 (want 49.5, aper 74.2 ฆ)
+        "Regular":       ("BaiJamjuree-Medium.ttf",           -8.4),  # 87.9 -> 78.1 (want 78.2, aper 74.2 ฆ)
+        "Medium":        ("BaiJamjuree-SemiBold.ttf",         -4.8),  # 115.2 -> 101.6 (want 102.6, aper 70.3 ฆ)
+        "Bold":          ("BaiJamjuree-Bold.ttf",             13.4),  # 150.4 -> 134.8 (want 133.8, aper 46.9 ฆ) CAP
+        "Black":         ("BaiJamjuree-Bold.ttf",             13.0),  # 183.6 -> 136.7 (want 136.8, aper 46.9 ฮ) CAP
+        "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-29.2),  # 7.8 -> 5.9 (want 7.3, no enclosed counter)
+        "ThinItalic":    ("BaiJamjuree-ExtraLightItalic.ttf",-13.4),  # 23.4 -> 21.5 (want 21.6, aper 93.2 ฬ)
+        "LightItalic":   ("BaiJamjuree-LightItalic.ttf",      -0.4),  # 54.7 -> 48.8 (want 49.5, aper 73.0 ฆ)
+        "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",     -9.5),  # 87.9 -> 77.6 (want 78.2, aper 74.6 ฆ)
+        "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",   -4.8),  # 115.2 -> 101.6 (want 102.6, aper 66.9 ฆ)
+        "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",       10.6),  # 150.4 -> 132.8 (want 133.8, aper 50.8 ฮ)
+        "BlackItalic":   ("BaiJamjuree-BoldItalic.ttf",       16.4),  # 183.6 -> 138.7 (want 136.8, aper 49.7 ษ) CAP
     },
+    # Re-solved 2026-08-04 for the same WEIGHT_RATIO change; WEIGHT_RATIO is
+    # shared, so leaving these at the taper's values would have failed check 2
+    # on all four Slussen faces.
     "TH-Slussen": {
-        "Regular":  ("BaiJamjuree-Medium.ttf",    -6.6),  # 95.7 -> 82.8
-        "Medium":   ("BaiJamjuree-SemiBold.ttf", -13.6),  # 117.2 -> 98.4
-        "SemiBold": ("BaiJamjuree-Bold.ttf",     -20.7),  # 144.5 -> 115.6
-        "Bold":     ("BaiJamjuree-Bold.ttf",       4.0),  # 169.9 -> 131.7
+        "Regular":  ("BaiJamjuree-Medium.ttf",    -6.6),  # 95.7 -> 84.0 (want 85.2, aper 74.2 ฆ)
+        "Medium":   ("BaiJamjuree-SemiBold.ttf",  -8.4),  # 117.2 -> 103.5 (want 104.3, aper 78.1 ฆ)
+        "SemiBold": ("BaiJamjuree-Bold.ttf",      -5.8),  # 144.5 -> 127.0 (want 128.6, aper 70.3 ฮ)
+        # NOT the solver's 29.7. Slussen's Latin Bold is 169.9, the heaviest
+        # Latin either family has, and .89 of it (151.2) is past what Bai Bold
+        # survives. Measured 2026-08-04, embolden -> (thai stem, aperture,
+        # glyphs reverted to source weight by _repair_collapsed_counters):
+        #
+        #   +4.0  134.8  58.6  0      +18.0  144.5  46.9  1
+        #   +12.0 138.7  50.8  0      +22.3  146.5  46.9  2
+        #                             +29.7  152.3  49.4  5   <- hits the target
+        #
+        # A reverted glyph ships at Bai Bold's weight while its neighbours are
+        # emboldened, so 29.7 buys the stem target by making ข ฃ ฆ ษ ฮ visibly
+        # lighter than the rest of the alphabet — a defect the eye catches long
+        # before a stem ratio does. 12.0 is the heaviest value that reverts
+        # NOTHING and keeps aperture clear of the floor, so this face runs at
+        # .817 against a .89 target. That is a 0.073 miss and qc_th_fonts
+        # STEM_TOL is 0.08, so check 2 passes on tolerance alone — marginally,
+        # and only by luck. If STEM_TOL is ever tightened, pin this face in
+        # CAPPED_STEM_RATIO at the measured .817 rather than widening the
+        # tolerance.
+        "Bold":     ("BaiJamjuree-Bold.ttf",      12.0),  # 169.9 -> 138.7 (want 151.2, aper 50.8 ฮ) SHORT
     },
 }
 
