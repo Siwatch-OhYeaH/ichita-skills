@@ -66,6 +66,17 @@ SOURCE_OF = {
     "TH Slussen": "assets/fonts/slussen/Slussen-Regular.otf",
 }
 
+# The deliberate line box, per Siwatch 2026-08-03. Larger than the Latin
+# source's, because at Word's Single spacing the line box is the only room two
+# consecutive Thai lines have and the Latin box is 334 units short — three
+# Shift+Enter lines of Thai fused into one band. Asserted as an exact value, not
+# as ">= the Latin", so the deviation cannot grow quietly the way the 1.71 em
+# build's did. Sized by scripts/thai_line_pitch.py.
+EXPECTED_LINE_EM = {
+    "TH Aeonik":  1.5400,      # Aeonik 1.2000, +28.3%
+    "TH Slussen": 1.6000,      # Slussen 1.5120, +5.8%
+}
+
 
 def effective_line_em(path):
     """Line height in em, and which metric set drives it.
@@ -316,18 +327,22 @@ def check_pitch():
     # at 1.71 em against Aeonik's 1.20 em, and the 2026-08-02 QC caught it as
     # 42% of extra leading on the same paragraph.
     rows.append("")
-    rows.append("line box vs the Latin source (must match — a merged face that "
-                "leads differently reflows every mixed document):")
+    rows.append("line box vs the Latin source (deliberately larger since "
+                "2026-08-03 — the Latin box cannot hold two Thai lines apart "
+                "at Word's Single spacing):")
     for label, src_rel in SOURCE_OF.items():
         em_m, _ = effective_line_em(ROOT / FONT_FILES[label])
         em_s, _ = effective_line_em(ROOT / src_rel)
         delta = (em_m - em_s) / em_s * 100
-        ok = abs(em_m - em_s) < 1e-4
+        want = EXPECTED_LINE_EM[label]
+        ok = abs(em_m - want) < 1e-3
         rows.append(f"  {label:<16} {em_m:.4f} em vs source {em_s:.4f} em   "
-                    f"{delta:+6.1f}%  {'ok' if ok else 'MISMATCH'}")
+                    f"{delta:+6.1f}%  (expected {want:.4f}) "
+                    f"{'ok' if ok else 'UNEXPECTED'}")
         if not ok:
-            fails.append(f"{label}: line box {em_m:.4f} em != Latin source "
-                         f"{em_s:.4f} em ({delta:+.1f}%)")
+            fails.append(f"{label}: line box {em_m:.4f} em is not the "
+                         f"documented {want:.4f} em — the deviation from the "
+                         f"Latin must be the deliberate one, not drift")
 
     # Within a block, Thai lines must not push apart relative to Latin lines.
     rows.append("")

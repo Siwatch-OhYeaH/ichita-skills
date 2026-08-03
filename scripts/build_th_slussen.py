@@ -86,7 +86,17 @@ MAC_ITALIC = 1 << 1
 # "contain the ink" bought nothing and cost 24% of extra leading.
 #
 # Every weight shares these, otherwise bolding a word changes the line height.
-ASCENT, DESCENT, LINEGAP = 1074, -272, 166      # == Slussen-Regular.otf hhea
+#
+# Raised from Slussen's own 1074/-272/166 = 1512 on 2026-08-03: at Word's Single
+# spacing the line box is the only room two consecutive Thai lines have, and the
+# measured requirement is 1573-1598 across the four faces. See the long note in
+# build_th_aeonik.py — Slussen gets off lightly at +5.8% because its own box was
+# already generous, where Aeonik's 1200 needed +28%.
+ASCENT, DESCENT, LINEGAP = 1200, -400, 0        # 1600; Slussen-Regular.otf is 1512
+
+# Minimum the Thai needs, from scripts/thai_line_pitch.py: worst face (SemiBold)
+# 1523 of ink extent plus the 75-unit margin.
+REQUIRED_PITCH = 1598
 
 # Clip box. Measured static ink across the four faces is -535..+1255 (deepest
 # TH-Slussen-SemiBold:uni0E38.small, highest TH-Slussen-Bold:Aringacute); the
@@ -94,18 +104,19 @@ ASCENT, DESCENT, LINEGAP = 1074, -272, 166      # == Slussen-Regular.otf hhea
 WIN_ASCENT, WIN_DESCENT = 1390, 590
 
 
-def assert_line_box_matches_latin(latin_src):
-    """The line box must be the Latin source's, to the unit."""
+def assert_line_box_clears_thai(latin_src):
+    """The line box must hold two consecutive Thai lines apart. See the twin."""
+    pitch = ASCENT - DESCENT + LINEGAP
+    if pitch < REQUIRED_PITCH:
+        raise SystemExit(
+            f"     !! line box {pitch} is below the {REQUIRED_PITCH} the Thai "
+            f"needs — two consecutive Thai lines will collide at Single spacing. "
+            f"Re-derive with scripts/thai_line_pitch.py.")
     h = latin_src["hhea"]
     upem = latin_src["head"].unitsPerEm
-    got = (round(h.ascender * 1000 / upem),
-           round(h.descender * 1000 / upem),
-           round(h.lineGap * 1000 / upem))
-    if got != (ASCENT, DESCENT, LINEGAP):
-        raise SystemExit(
-            f"     !! Slussen declares hhea {got[0]}/{got[1]}/{got[2]} but this "
-            f"build hardcodes {ASCENT}/{DESCENT}/{LINEGAP}. The merged line box "
-            f"must equal the Latin source's — update the constants.")
+    latin = round((h.ascender - h.descender + h.lineGap) * 1000 / upem)
+    print(f"     [5] line box {pitch} (Thai needs {REQUIRED_PITCH}) vs Slussen's "
+          f"{latin} — deliberately {pitch / latin - 1:+.1%}, per Siwatch 2026-08-03")
 
 # Weight mapping: output_name -> slussen_file
 # Latin source only. Thai pairing lives in th_thai_prep.BUILD_TABLE: matching
@@ -891,7 +902,7 @@ def build_font(weight_name, slussen_file, bai_file=None):
 
     slussen = TTFont(str(slussen_path))
     # Read the line box off the Latin before anything is merged into it.
-    assert_line_box_matches_latin(slussen)
+    assert_line_box_clears_thai(slussen)
     # Scaled to the Latin x-height and weight-matched before any glyph is
     # copied, so GPOS anchors and the ink assertion all see final-size Thai.
     bai = prepare_bai("TH-Slussen", weight_name, latin_font=slussen)

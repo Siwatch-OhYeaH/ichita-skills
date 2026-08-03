@@ -559,3 +559,143 @@ reinstalled with Office closed.
 - Reinstall on Windows and confirm at a bold heading size. (Siwatch.)
 - The 18 rebuilt faces supersede what is installed; `--apply-system` is now required
   for *both* families, not just TH-Slussen. (Siwatch.)
+
+---
+
+# Addendum 4 — the line box had to grow after all, and this post-mortem's own conclusion was wrong
+
+**2026-08-03, afternoon. This supersedes the "Fix" section at the top of this file.**
+
+## Summary
+
+The fix this post-mortem documents — set the merged line box equal to the Latin
+source's, to the unit — was itself an over-correction in the opposite direction. At
+Word's Single spacing the line box is the *only* room two consecutive Thai lines have,
+and Aeonik's 1200 units is 334 short of what the Thai needs. Three Shift+Enter lines
+of Thai typed in a plain Word document fused into one band. TH-Aeonik's box is now
+**1150/−390/0 = 1540** (+28.3% over Aeonik) and TH-Slussen's **1200/−400/0 = 1600**
+(+5.8% over Slussen), which is the measured minimum.
+
+## Symptom
+
+Siwatch typed `ที่สุดสู้นี้น้ำทุ่มสุ่มซึ่งจูงซื้อดิ๊กี๊นิ่ง` on three Shift+Enter
+lines in Word. Measured off the screenshot: baseline pitch **34 px** by row-profile
+autocorrelation, one line's Thai ink **37 px**. A 3 px overlap, so the three lines
+projected as a single 95 px ink band with no white scanline between them.
+
+The same screenshot set also contains the good news: the Latin A/B blocks lead at
+29–30 px in *both* Aeonik and TH Aeonik, which is the first confirmation **in Word**
+that the line box change of 2026-08-02 did what it claimed.
+
+## Root cause
+
+Two separate errors, one in the font and one in mine.
+
+**The font.** Measured requirement per face — worst upper stack over worst lower tail,
+plus a one-pixel margin, from `scripts/thai_line_pitch.py`:
+
+| face | needs | had | shortfall |
+|---|---|---|---|
+| TH-Aeonik-Light | 1464 | 1200 | −264 |
+| TH-Aeonik-Regular | 1497 | 1200 | −297 |
+| TH-Aeonik-Black | 1534 | 1200 | −334 |
+| TH-Slussen-Regular | 1573 | 1512 | −61 |
+| TH-Slussen-SemiBold | 1598 | 1512 | −86 |
+
+Aeonik's 1.20 em is a tight box even for Latin, and it cannot hold a Thai three-level
+stack over a below-vowel. Neither can any Thai design: Leelawadee UI, the most compact
+measured, needs 1255.
+
+**Mine.** Addendum 2 established this exact fact and then fixed it in the wrong layer.
+It set `w:lineRule="atLeast"` in `md_to_docx.py`, which covers ICHITA-*generated*
+documents. Siwatch's acceptance test is typing in Word, where no template applies, so
+the fix could not possibly have reached the reported defect. The measurement was right
+and the layer was wrong.
+
+## Why the earlier conclusion was wrong
+
+The top of this file argues that the line box "has no obligation to contain the ink"
+and that Thai marks are "meant to overflow into the leading of the line above, where
+the Latin ascenders leave the space empty." Both clauses are true. The conclusion drawn
+from them — therefore copy the Latin box — does not follow, and the reason is in the
+clause itself: *where the Latin ascenders leave the space empty*. That holds for Thai
+over Latin. It fails for Thai over Thai, which is what a Thai paragraph is.
+
+The `printpdf4.pdf` evidence was also narrower than it was read as. It proves marks are
+not **clipped** when they overflow the line box. It says nothing about whether they
+**collide** with the line above, and the pages examined had no two consecutive
+Thai lines with a below-vowel over a tall stack.
+
+## Fix
+
+```python
+# build_th_aeonik.py
+ASCENT, DESCENT, LINEGAP = 1150, -390, 0        # 1540; Aeonik-Regular.otf is 1200
+REQUIRED_PITCH = 1534
+
+# build_th_slussen.py
+ASCENT, DESCENT, LINEGAP = 1200, -400, 0        # 1600; Slussen-Regular.otf is 1512
+REQUIRED_PITCH = 1598
+```
+
+Distributed to contain the Thai ink (−322..+1137 for Aeonik) rather than to preserve
+the Latin's 1000/−200 proportions, since holding that ink is what the extra room buys.
+
+The trade Siwatch chose, stated plainly: **TH-Aeonik leads 28% looser than Aeonik, and
+pure-Latin documents should be set in Aeonik rather than in the font whose purpose is
+to carry Thai.** The rejected 2026-08-02 build was +42.5% for no measured reason; this
+is +28.3% and is the minimum that clears.
+
+`assert_line_box_matches_latin()` becomes `assert_line_box_clears_thai()` in both
+builds — it fails below `REQUIRED_PITCH` and prints the Latin delta, so an Aeonik
+update cannot silently change what the deviation is measured against.
+
+## The four tests that asserted the old invariant
+
+This is the part worth being careful about, because this codebase has shipped inverted
+assertions repeatedly. Raising the box makes four checks wrong, and all four were
+changed deliberately rather than discovered failing:
+
+1. `qc_th_fonts.py` check 3 — demanded `line box == Latin source's`. Now asserts
+   `>= REQUIRED_PITCH` **and** `== the documented value`, so the deviation cannot grow
+   quietly the way the 1710 build's did.
+2. `qc_check_th_font_doc.py` — same assertion against the generated document. Now
+   asserts the exact `EXPECTED_LINE_EM`.
+3. `check_ab_test_pdf.py` — `MUST_MATCH` asserted equal measured pitch. Now
+   `EXPECTED_RATIO` asserts the documented ratio (1.283 and 1.058).
+4. `build_th_*.py` — the build-time assertion, replaced as above.
+
+Each now pins a number rather than a relationship, because "equals the Latin" was a
+relationship that turned out to encode a defect.
+
+## Validation
+
+Measured on Linux.
+
+- Two-line clearance at each font's **own Single spacing**, both Siwatch's `สูง`/`ซึ่ง`
+  pair and the exact string from his screenshot: band margin +77 to +156 units on
+  TH-Aeonik Regular, TH-Aeonik Black and TH-Slussen SemiBold. All CLEAR; every one of
+  them collided before.
+- Rendered the screenshot's three-line case at 1200 and at 1540 side by side: fused
+  before, cleanly separated after.
+- `qc_th_fonts.py` **18/18** across 18 rebuilt faces.
+- **Check 3 verified against a broken artifact**: a TH-Aeonik-Regular forced back to
+  1000/−200/0 scores FAIL. Check 9 was verified the same way earlier today.
+- `qc_check_th_font_doc.py` 4/4 — TH Aeonik 1.5400 em, TH Slussen 1.6000 em, both the
+  documented values.
+- `check_ab_test_pdf.py` 2/2 — TH-Aeonik 16.95 pt against Aeonik 13.20 × 1.283 = 16.94
+  (+0.01); TH-Slussen 17.60 against Slussen 16.65 × 1.058 = 17.62 (−0.02).
+- `thai_line_pitch.py --check` OK.
+
+**Not validated in Word.** Windows carries the older build until it is reinstalled with
+Office closed. The Latin-parity half of the prediction *has* now been confirmed in Word
+by Siwatch's own A/B screenshot, which is more than the previous rounds had.
+
+## Action items
+
+- Reinstall on Windows and retype the three-line test. (Siwatch.)
+- `md_to_docx.py`'s `atLeast` ratios are now belt-and-braces for unified mode, but they
+  are still load-bearing for the live **split** path, where Bai keeps its own 1250 box.
+  Leave them. (Closed — no action.)
+- Guidance to write down for users: set pure-Latin documents in Aeonik, not TH-Aeonik.
+  (Open.)

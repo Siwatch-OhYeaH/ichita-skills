@@ -650,12 +650,34 @@ def set_thai_bits(font):
 # of extra leading and is the reason TH-Aeonik set 1.71 em against Aeonik's
 # 1.20 em on the same paragraph.
 #
-# The line box is therefore the Latin source's line box, exactly. That is the
-# ICHITA pairing rule applied to leading: Latin is the reference for size,
-# weight and spacing alike, so a paragraph must not reflow when it is switched
-# between Aeonik and TH-Aeonik. Asserted against the source in
-# assert_line_box_matches_latin() so a font update cannot silently drift.
-ASCENT, DESCENT, LINEGAP = 1000, -200, 0        # == Aeonik-Regular.otf hhea
+# That much still stands: Word does not clip at hhea, and 1.71 em was an
+# over-correction. But "copy the Latin box exactly" was the wrong conclusion
+# from it, and Siwatch's 2026-08-03 QC is what settled the question.
+#
+# The line box is the baseline pitch, and at Word's Single spacing it is the ONLY
+# room two consecutive Thai lines have. Typing `ที่สุดสู้นี้น้ำทุ่มสุ่มซึ่ง` on
+# three Shift+Enter lines in a plain Word document: pitch 34 px, one line's Thai
+# ink 37 px, so the three lines fused into a single band. Measured requirement
+# per face, worst upper stack over worst lower tail plus a one-pixel margin:
+#
+#     TH-Aeonik-Light 1464   Regular 1497   Bold 1519   Black 1534
+#
+# Against Aeonik's 1200. There is no way to close a 334-unit gap inside the font
+# without it: raising the box is the only lever that does not shrink the Thai
+# marks back toward the fusing th_mark_clearance.py fixed, and no Thai design
+# fits 1.20 em anyway — Leelawadee UI, the most compact of them, needs 1255.
+#
+# So the trade Siwatch chose on 2026-08-03: TH-Aeonik leads 28% looser than
+# Aeonik, and pure-Latin documents should be set in Aeonik rather than in the
+# font whose whole purpose is to carry Thai. Distributed to contain the Thai ink
+# (-322..+1137) rather than to preserve Aeonik's 1000/-200 proportions, since
+# holding that ink is what the extra room is for.
+ASCENT, DESCENT, LINEGAP = 1150, -390, 0        # 1540; Aeonik-Regular.otf is 1200
+
+# Minimum the Thai needs, from scripts/thai_line_pitch.py: worst face 1459 of
+# ink extent plus the 75-unit margin. Re-derive after any rebuild that moves the
+# marks — `venv_fonts/bin/python scripts/thai_line_pitch.py`.
+REQUIRED_PITCH = 1534
 
 # Clipping box. usWinAscent/usWinDescent bound what GDI will draw, so these must
 # contain every glyph's ink — including the ones reachable only through shaping.
@@ -674,23 +696,27 @@ ASCENT, DESCENT, LINEGAP = 1000, -200, 0        # == Aeonik-Regular.otf hhea
 WIN_ASCENT, WIN_DESCENT = 1240, 560
 
 
-def assert_line_box_matches_latin(latin_src):
-    """The line box must be the Latin source's, to the unit.
+def assert_line_box_clears_thai(latin_src):
+    """The line box must hold two consecutive Thai lines apart.
 
-    A merged face that leads differently from the face it was merged into makes
-    every mixed document reflow on a font switch. This is the check that keeps
-    ASCENT/DESCENT/LINEGAP honest if Aeonik is ever updated.
+    This replaces an earlier assertion that the box equal the Latin source's to
+    the unit. That invariant was wrong — it is what left three Shift+Enter lines
+    fusing in Word — but it was also load-bearing, so the deliberate deviation is
+    asserted here rather than left implicit. The build fails if the constants
+    drop below what the Thai needs, and prints the Latin delta so an Aeonik
+    update cannot change the comparison silently.
     """
+    pitch = ASCENT - DESCENT + LINEGAP
+    if pitch < REQUIRED_PITCH:
+        raise SystemExit(
+            f"     !! line box {pitch} is below the {REQUIRED_PITCH} the Thai "
+            f"needs — two consecutive Thai lines will collide at Single spacing. "
+            f"Re-derive with scripts/thai_line_pitch.py.")
     h = latin_src["hhea"]
     upem = latin_src["head"].unitsPerEm
-    got = (round(h.ascender * 1000 / upem),
-           round(h.descender * 1000 / upem),
-           round(h.lineGap * 1000 / upem))
-    if got != (ASCENT, DESCENT, LINEGAP):
-        raise SystemExit(
-            f"     !! Aeonik declares hhea {got[0]}/{got[1]}/{got[2]} but this "
-            f"build hardcodes {ASCENT}/{DESCENT}/{LINEGAP}. The merged line box "
-            f"must equal the Latin source's — update the constants.")
+    latin = round((h.ascender - h.descender + h.lineGap) * 1000 / upem)
+    print(f"     [5] line box {pitch} (Thai needs {REQUIRED_PITCH}) vs Aeonik's "
+          f"{latin} — deliberately {pitch / latin - 1:+.1%}, per Siwatch 2026-08-03")
 
 
 def set_vertical_metrics(font):
@@ -944,7 +970,7 @@ def build_font(weight_name, aeonik_file, bai_file=None):
     # Read the line box off the Latin before anything is merged into it. The
     # merged face must lead exactly as Aeonik does, or switching a paragraph
     # between the two reflows the document.
-    assert_line_box_matches_latin(aeonik)
+    assert_line_box_clears_thai(aeonik)
     # Scaled to the Latin x-height and weight-matched before a single glyph is
     # copied, so everything downstream — GPOS anchors, ink bounds, the metrics
     # assertion — sees the Thai at its final size.

@@ -26,11 +26,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Merged face -> the source it must match, as they appear in embedded font
-# names (Word writes the PostScript name, so spaces are stripped).
-MUST_MATCH = {
-    "TH-Aeonik": "Aeonik",
-    "TH-Slussen": "Slussen",
+# Merged face -> (source it is compared against, expected ratio of its pitch to
+# the source's). Names are as they appear embedded — Word writes the PostScript
+# name, so spaces are stripped.
+#
+# This asserted an exact match until 2026-08-03. It no longer can: the merged
+# line box is deliberately larger, because at Word's Single spacing the line box
+# is the only room two consecutive Thai lines have and the Latin box is 334 units
+# short. The ratio is asserted instead of the difference, so the deviation is
+# still pinned to one number and cannot drift.
+EXPECTED_RATIO = {
+    "TH-Aeonik": ("Aeonik", 1540 / 1200),
+    "TH-Slussen": ("Slussen", 1600 / 1512),
 }
 REQUIRED = ["Aeonik", "Slussen", "BaiJamjuree", "TH-Aeonik", "TH-Slussen"]
 # Chrome font from build_ab_test_doc.py — present by design, not under test.
@@ -162,25 +169,28 @@ def measured_pitch(pdf):
 
 
 def check_pitch_matches_source(pdf):
-    """Each merged face must lead exactly like the source it was merged into."""
+    """Each merged face must lead by its documented ratio to the source's."""
     pitch = measured_pitch(pdf)
     rows, fails = [], []
     for fam, (p, n) in sorted(pitch.items()):
         rows.append(f"{fam:<14} {p:6.2f} pt  ({n} specimen block(s))")
     rows.append("")
-    for merged, src in MUST_MATCH.items():
+    for merged, (src, ratio) in EXPECTED_RATIO.items():
         pm, ps = pitch.get(merged), pitch.get(src)
         if not pm or not ps:
             rows.append(f"{merged:<14} vs {src:<14} SKIP (font not measurable)")
             continue
-        delta = pm[0] - ps[0]
+        want = ps[0] * ratio
+        delta = pm[0] - want
         ok = abs(delta) <= PITCH_TOL
         rows.append(f"{merged:<14} {pm[0]:6.2f} pt  vs {src:<12} {ps[0]:6.2f} pt"
-                    f"   {delta:+.2f} pt  {'ok' if ok else 'MISMATCH'}")
+                    f" x {ratio:.3f} = {want:6.2f} pt   {delta:+.2f} pt  "
+                    f"{'ok' if ok else 'MISMATCH'}")
         if not ok:
-            fails.append(f"{merged} leads {delta:+.2f} pt against {src} — "
-                         f"a paragraph reflows when switched between them")
-    record("B. merged face leads exactly like its source", not fails,
+            fails.append(f"{merged} leads {pm[0]:.2f} pt where {ratio:.3f} x "
+                         f"{src}'s {ps[0]:.2f} pt predicts {want:.2f} pt — the "
+                         f"line box is not the documented one")
+    record("B. merged face leads by its documented ratio to the source", not fails,
            "\n".join(rows + fails))
 
 

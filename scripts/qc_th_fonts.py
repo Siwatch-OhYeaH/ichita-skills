@@ -12,7 +12,11 @@ worse than no test — it was cited across two post-mortems as proof of success.
 WHAT "IDENTICAL TO THE SOURCE" MEANS HERE, per Siwatch 2026-08-02:
 
   Latin outlines  identical to Aeonik / Slussen. Asserted per glyph.
-  Line box        identical to Aeonik / Slussen. Asserted in check 3.
+  Line box        NOT identical to Aeonik / Slussen, since 2026-08-03. At Word's
+                  Single spacing the line box is the only room two consecutive
+                  Thai lines have, and the Latin box is 334 units short. Check 3
+                  asserts it clears the Thai and that the deviation is exactly
+                  the documented one.
   Thai            NOT identical to Bai Jamjuree, deliberately. Bai's Thai is
                   drawn for Bai's own Latin, and Bai's own mark placement is
                   too tight to survive Word at text sizes. It is rescaled,
@@ -22,7 +26,8 @@ The reference here is the LATIN the Thai actually shares a line with:
 
   1  size    ก height == Latin x-height
   2  weight  Thai stem == Latin stem
-  3  box     line box (hhea == sTypo) == the Latin's; clip box (usWin) holds ink
+  3  box     line box (hhea == sTypo) clears two stacked Thai lines; clip box
+             (usWin) holds the ink
   4  family  all weights share one line box
   5  shaping real words with stacked vowels+tones stay inside the box,
              including the GSUB-only .small mark variants that no cmap walk
@@ -30,6 +35,7 @@ The reference here is the LATIN the Thai actually shares a line with:
   6  ladder  weights are monotonic and none collapse together
   7  uniscribe  GDEF classes + U+25CC, the prerequisites Word needs
   8  clearance  Thai upper marks keep enough air to survive screen rendering
+  9  baseline   Thai sits on the Latin baseline, not below it
 
 Run: python3 scripts/qc_th_fonts.py
 Exit 0 = all pass.
@@ -73,8 +79,13 @@ FAMILIES = {
             "BoldItalic": "Aeonik-BoldItalic.otf",
             "BlackItalic": "Aeonik-BlackItalic.otf",
         },
-        # LINE box — must equal Aeonik's own hhea, to the unit.
-        "box": (1000, -200, 0),
+        # LINE box — deliberately larger than Aeonik's 1000/-200/0, because at
+        # Word's Single spacing this is the only room two Thai lines have.
+        "box": (1150, -390, 0),
+        # Minimum the Thai needs (thai_line_pitch.py), and the Latin box it is
+        # knowingly larger than. Both asserted, so neither drifts unnoticed.
+        "required_pitch": 1534,
+        "latin_pitch": 1200,
         # CLIP box — usWinAscent/usWinDescent, sized to the ink, not the line.
         "clip": (1240, 560),
     },
@@ -87,7 +98,9 @@ FAMILIES = {
             "SemiBold": "Slussen-Semibold.otf",
             "Bold": "Slussen-Bold.otf",
         },
-        "box": (1074, -272, 166),
+        "box": (1200, -400, 0),
+        "required_pitch": 1598,
+        "latin_pitch": 1512,
         "clip": (1390, 590),
     },
 }
@@ -122,16 +135,16 @@ STEM_TOL_OVERRIDE = {
     ("TH-Aeonik", "BlackItalic"): 0.12,
 }
 
-# Clearance floor, in 1/1000 em, for the worst Thai upper mark on any base.
-# The build aims at th_mark_clearance.TARGET; this is the bar below which the
-# mark visibly fuses into the consonant at text sizes. 1 em is 14.7 px at 11 pt
-# on a 96 dpi screen, so 68/1000 em is one pixel. Sarabun, the reference, runs a
-# p10 of 73.
 # Thai must sit on the Latin baseline. 2/1000 em is the rounding of the source
 # outlines themselves; anything larger is the weight match having dragged the
 # Thai off the line, which is visible in the heavy weights at heading sizes.
 BASELINE_TOL = 2.0
 
+# Clearance floor, in 1/1000 em, for the worst Thai upper mark on any base.
+# The build aims at th_mark_clearance.TARGET; this is the bar below which the
+# mark visibly fuses into the consonant at text sizes. 1 em is 14.7 px at 11 pt
+# on a 96 dpi screen, so 68/1000 em is one pixel. Sarabun, the reference, runs a
+# p10 of 73.
 CLEAR_FLOOR = 60.0
 
 # Faces that cannot reach the floor because emboldening past the end of Bai's
@@ -250,17 +263,29 @@ def check_size_and_weight(fam, cfg):
 
 
 def check_box(fam, cfg):
-    """3 + 4 — line box equals the Latin's; clip box contains the ink.
+    """3 + 4 — line box clears two Thai lines; clip box contains the ink.
 
-    These are two different boxes and the earlier version of this check
-    conflated them, demanding usWin == hhea and that hhea contain the ink. That
-    forced TH-Aeonik to 1710 units against Aeonik's 1200, so the same paragraph
-    gained 42% of leading the moment it was switched to the merged face. No Thai
-    font sizes its line box to the mark stack — Bai Jamjuree ships 1250 against
-    1552 of ink, Leelawadee UI 1330, Tahoma 1207 — and Word renders the overflow
-    intact (printpdf4.pdf, line 1300, all stacks complete).
+    These are two different boxes and the first version of this check conflated
+    them, demanding usWin == hhea and that hhea contain the ink. That forced
+    TH-Aeonik to 1710 units against Aeonik's 1200 — 42% of extra leading.
+
+    The second version over-corrected the other way and demanded the line box
+    equal the Latin source's to the unit. That is what left three Shift+Enter
+    lines fusing in Word on 2026-08-03: at Single spacing the line box is the
+    only room two consecutive Thai lines have, and Aeonik's 1200 is 334 units
+    short of what the Thai needs.
+
+    So this asserts the actual requirement in both directions — at least what the
+    Thai needs, and exactly the deliberate value, so the deviation from the Latin
+    cannot grow quietly the way it did in the 1710 build.
     """
     asc, desc, gap = cfg["box"]
+    pitch = asc - desc + gap
+    if pitch < cfg["required_pitch"]:
+        bad_pitch = (f"line box {pitch} is below the {cfg['required_pitch']} the "
+                     f"Thai needs — two Thai lines will collide at Single spacing")
+    else:
+        bad_pitch = None
     win_asc, win_desc = cfg["clip"]
     rows, bad = [], []
     seen = set()
@@ -274,8 +299,9 @@ def check_box(fam, cfg):
         box = (hh.ascender, hh.descender, hh.lineGap)
         seen.add(box)
 
-        # a) line box is the Latin source's, so a paragraph does not reflow
-        #    when it is switched between the two faces.
+        # a) the Latin source's box is recorded for reference, and its pitch is
+        #    asserted, so an Aeonik/Slussen update cannot silently change what
+        #    the documented deviation is measured against.
         lp = cfg["latin_dir"] / latin_file
         latin_box = None
         if lp.exists():
@@ -285,8 +311,11 @@ def check_box(fam, cfg):
                          round(lf["hhea"].descender * 1000 / u),
                          round(lf["hhea"].lineGap * 1000 / u))
             lf.close()
-            if latin_box != box:
-                bad.append(f"{w}: line box {box} != Latin {latin_box}")
+            lpitch = latin_box[0] - latin_box[1] + latin_box[2]
+            if lpitch != cfg["latin_pitch"]:
+                bad.append(f"{w}: Latin source now leads {lpitch}, not the "
+                           f"{cfg['latin_pitch']} this deviation was sized "
+                           f"against — re-derive with thai_line_pitch.py")
 
         # b) hhea and sTypo must agree, so pitch does not depend on renderer.
         if box != (asc, desc, gap):
@@ -304,15 +333,17 @@ def check_box(fam, cfg):
             bad.append(f"{w}: usWin {os2.usWinAscent}/{os2.usWinDescent} "
                        f"!= expected {win_asc}/{win_desc}")
 
-        rows.append(f"{w:<14} line {box[0]}/{box[1]}/{box[2]}"
-                    f"{'' if latin_box == box else ' (LATIN MISMATCH)'}  "
+        got = box[0] - box[1] + box[2]      # this face's own pitch, not the expected
+        rows.append(f"{w:<14} line {box[0]}/{box[1]}/{box[2]} = {got} "
+                    f"(Thai needs {cfg['required_pitch']}, Latin leads "
+                    f"{cfg['latin_pitch']}, {got / cfg['latin_pitch'] - 1:+.1%})  "
                     f"clip {os2.usWinAscent}/{os2.usWinDescent}  "
-                    f"ink {lo:.0f}..{hi:.0f}  "
-                    f"overflows line by {max(0, hi - asc):.0f}/"
-                    f"{max(0, -lo + desc):.0f} (expected)")
+                    f"ink {lo:.0f}..{hi:.0f}")
         f.close()
-    record(f"3. {fam} line box == Latin's, clip box contains ink", not bad,
-           "\n".join(rows + bad))
+    if bad_pitch:
+        bad.insert(0, bad_pitch)
+    record(f"3. {fam} line box clears two Thai lines, clip box contains ink",
+           not bad, "\n".join(rows + bad))
     record(f"4. {fam} all weights share one line box",
            len(seen) == 1,
            "" if len(seen) == 1 else f"{len(seen)} different boxes: {seen}")
