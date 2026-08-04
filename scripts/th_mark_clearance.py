@@ -409,9 +409,9 @@ def _report(paths):
 
 def main():
     paths = [
-        ("TH-Aeonik Regular", ROOT / "assets/fonts/aeonik-th/TH-Aeonik-Regular.ttf"),
-        ("TH-Aeonik Bold", ROOT / "assets/fonts/aeonik-th/TH-Aeonik-Bold.ttf"),
-        ("TH-Slussen Regular", ROOT / "assets/fonts/slussen-th/TH-Slussen-Regular.ttf"),
+        ("TH-Aeonik Regular", ROOT / "assets/fonts/aeonik-th/TH-Aeonik-Regular.otf"),
+        ("TH-Aeonik Bold", ROOT / "assets/fonts/aeonik-th/TH-Aeonik-Bold.otf"),
+        ("TH-Slussen Regular", ROOT / "assets/fonts/slussen-th/TH-Slussen-Regular.otf"),
         ("BaiJamjuree Regular", ROOT / "assets/fonts/bai-jamjuree/BaiJamjuree-Regular.ttf"),
     ]
     if "--compare" in sys.argv:

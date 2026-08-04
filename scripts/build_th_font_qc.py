@@ -473,9 +473,9 @@ def metrics_table():
     """Render the measured vertical metrics as a markdown table."""
     from fontTools.ttLib import TTFont
     rows = [
-        ("TH Aeonik",  "assets/fonts/aeonik-th/TH-Aeonik-Regular.ttf"),
+        ("TH Aeonik",  "assets/fonts/aeonik-th/TH-Aeonik-Regular.otf"),
         ("  Aeonik (source)", "assets/fonts/aeonik/Aeonik-Regular.otf"),
-        ("TH Slussen", "assets/fonts/slussen-th/TH-Slussen-Regular.ttf"),
+        ("TH Slussen", "assets/fonts/slussen-th/TH-Slussen-Regular.otf"),
         ("  Slussen (source)", "assets/fonts/slussen/Slussen-Regular.otf"),
         ("  Bai Jamjuree", "assets/fonts/bai-jamjuree/BaiJamjuree-Regular.ttf"),
     ]

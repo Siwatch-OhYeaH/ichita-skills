@@ -54,8 +54,8 @@ PITCH_BLOCKS = [
 ]
 
 FONT_FILES = {
-    "TH Aeonik":     "assets/fonts/aeonik-th/TH-Aeonik-Regular.ttf",
-    "TH Slussen":    "assets/fonts/slussen-th/TH-Slussen-Regular.ttf",
+    "TH Aeonik":     "assets/fonts/aeonik-th/TH-Aeonik-Regular.otf",
+    "TH Slussen":    "assets/fonts/slussen-th/TH-Slussen-Regular.otf",
     "Bai Jamjuree":  "assets/fonts/bai-jamjuree/BaiJamjuree-Regular.ttf",
     "Aeonik (base)": "assets/fonts/aeonik/Aeonik-Regular.otf",
 }
@@ -73,8 +73,13 @@ SOURCE_OF = {
 # as ">= the Latin", so the deviation cannot grow quietly the way the 1.71 em
 # build's did. Sized by scripts/thai_line_pitch.py.
 EXPECTED_LINE_EM = {
-    "TH Aeonik":  1.5400,      # Aeonik 1.2000, +28.3%
-    "TH Slussen": 1.6250,      # Slussen 1.5120, +7.5%
+    # 2026-08-04: 1.5400 -> 1.2000. TH Aeonik now leads exactly as Aeonik does,
+    # because it has to be a drop-in replacement when typing in plain Word. The
+    # Thai knowingly does not fit — worst-case Thai-over-Thai stacks overlap by
+    # 262 units (3.9 px at 11 pt). See the long note above ASCENT in
+    # build_th_aeonik.py for why no mark scale can close that.
+    "TH Aeonik":  1.2000,      # Aeonik 1.2000, exact
+    "TH Slussen": 1.6250,      # Slussen 1.5120, +7.5% — unchanged, out of scope
 }
 
 
@@ -327,9 +332,9 @@ def check_pitch():
     # at 1.71 em against Aeonik's 1.20 em, and the 2026-08-02 QC caught it as
     # 42% of extra leading on the same paragraph.
     rows.append("")
-    rows.append("line box vs the Latin source (deliberately larger since "
-                "2026-08-03 — the Latin box cannot hold two Thai lines apart "
-                "at Word's Single spacing):")
+    rows.append("line box vs the Latin source (TH Aeonik is EXACT since "
+                "2026-08-04, and its Thai knowingly does not fit; TH Slussen "
+                "still carries the 2026-08-03 +7.5% so its Thai clears):")
     for label, src_rel in SOURCE_OF.items():
         em_m, _ = effective_line_em(ROOT / FONT_FILES[label])
         em_s, _ = effective_line_em(ROOT / src_rel)

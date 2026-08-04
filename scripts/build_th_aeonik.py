@@ -5,33 +5,57 @@ Build TH-Aeonik font family — unified pipeline.
 Merges Aeonik (Latin) + Bai Jamjuree (Thai) into TH-Aeonik with complete
 OpenType support for Thai text shaping on Windows.
 
-OUTPUT IS TRUETYPE (`glyf`), NOT CFF. This is the load-bearing design choice
-and it is not cosmetic:
+OUTPUT IS CFF (`.otf`), NOT TrueType. This reverses the 2026-08-02 decision to
+ship `glyf`, and the reason is that Windows renders the two formats through
+different rasterisers — so a merged font in a different format from its Latin
+source cannot render that Latin identically, no matter how exact the outlines.
 
-  * Thai comes from Bai Jamjuree's own `glyf` outlines rather than being
-    re-expressed as CFF, so the only transforms applied to them are the
-    deliberate ones: the scale to the Latin x-height and the weight match.
-    A CFF base added a rasteriser difference on top — 8.36% of pixels, mean
-    delta 6.83/255 — that was FreeType's Adobe CFF engine versus its TrueType
-    engine, not curve approximation (max_err 1.0 / 0.5 / 0.1 gave byte-
-    identical deltas). NOTE: Thai is deliberately NOT identical to Bai any
-    more. Bai's Thai is drawn for Bai's own Latin; see scripts/th_thai_prep.py.
+Measured 2026-08-04 in DirectWrite, the renderer Word 2016+ and PowerPoint
+actually use, at 11 pt with byte-identical outlines and identical advances:
 
-  * `glyf` has no width operand, so the defect that made every printed PDF
-    unreadable — CFF charstring widths disagreeing with `hmtx`, which Microsoft
-    Print to PDF turns into the PDF /W array — becomes impossible to express.
+    Aeonik      .otf/CFF    stems 2,1 px   ink 11,056
+    TH Aeonik   .ttf/glyf   stems 1,1 px   ink  9,310   -15.8%
+    Slussen     .otf/CFF    stems 2,2 px   ink 12,485
+    TH Slussen  .ttf/glyf   stems 2,2 px   ink  9,940   -20.4%
 
-  * Print to PDF already declares /Subtype /CIDFontType2 + /FontFile2 for these
-    fonts. Shipping `glyf` makes that declaration truthful and clears poppler's
-    "Mismatch between font type and embedded font file" warnings.
+Siwatch reported it as "TH Aeonik is slightly thinner than Aeonik, especially
+Regular". It is worst at text sizes, which is why Regular shows it most. The
+CFF rasteriser also consults the Private dict's BlueValues for alignment, and
+those zones are part of what the format flip discarded.
 
-The cost, accepted knowingly: Latin is no longer pixel-exact to Aeonik (10.16%
-of pixels, mean delta 3.90/255 — lower amplitude than the Thai error it
-replaces). Aeonik carries zero hint operators, so nothing is lost structurally.
-TH-Slussen is the same pipeline but Slussen *is* hinted; see its build script.
+Nothing on Linux can see this — FreeType does not reproduce Windows'
+per-format behaviour. `scripts/win_latin_parity.py` measures it on the real
+renderer and is the acceptance test for this decision.
+
+How the Latin stays exactly Aeonik: the merge still runs in `glyf`, because
+every downstream step (mark clearance, baseline seating, GPOS anchor work) is
+written against it. The final step swaps the outlines back to CFF by taking
+**Aeonik's own `CFF ` table wholesale** — its charstrings, Private dict,
+BlueValues and local Subrs — and appending only the Thai as new charstrings.
+Latin charstrings are never redrawn, so the cu2qu approximation the old build
+baked into them is gone too: measured 0 of 656 Latin outlines differing.
+
+Thai is converted quadratic -> cubic, which is EXACT (a quadratic Bézier has an
+exact cubic form). This is the favourable direction; the old build's cubic ->
+quadratic was the approximate one. Thai is deliberately NOT identical to Bai
+anyway — Bai's Thai is drawn for Bai's own Latin, see scripts/th_thai_prep.py.
+
+The one real cost, stated plainly: CFF can express an advance width TWICE —
+in `hmtx` and as the charstring width operand — and a disagreement is what made
+every printed PDF unreadable in 2026-08-01 (Microsoft Print to PDF builds the
+PDF /W array from the charstring, not from `hmtx`, so Thai marks given a real
+advance detached from their consonants). `glyf` made that unrepresentable. Going
+back to CFF makes it representable again, so it is now asserted instead:
+every appended charstring takes its width from `hmtx`, and
+assert_advance_single_source() fails the build if any glyph disagrees. That
+guard was verified to fail on a deliberately corrupted width.
+
+Also note Print to PDF will now declare /CIDFontType0 + /FontFile3 rather than
+CIDFontType2/FontFile2; scripts/check_print_pdf.py expects the CFF forms.
 
 Pipeline steps:
-  0. Convert the Latin base from CFF to `glyf` — before any Thai is added
+  0. Convert the Latin base from CFF to `glyf` — the intermediate working
+     format for the merge only; step 8 puts the CFF back
   0b. Scale + weight-match Bai to this Latin weight (scripts/th_thai_prep.py)
   1. Copy Thai glyphs + variants from Bai Jamjuree (glyf outlines)
   2. Merge GPOS/GDEF/GSUB tables from Bai Jamjuree (mark positioning)
@@ -39,7 +63,8 @@ Pipeline steps:
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
   5. Set vertical metrics — hhea/sTypo/usWin agree, Thai-safe descent
   6. Sort GSUB/GPOS Coverage tables + clean Mac cmap (Uniscribe compliance)
-  7. Verify — Thai cmap, Latin match, GPOS, OS/2 bits, metrics
+  7. Swap `glyf` back to CFF — Aeonik's charstrings verbatim, Thai appended
+  8. Verify — Thai cmap, Latin match, GPOS, OS/2 bits, metrics
 
 Sources:
   Latin: Aeonik OTF (D:\\ drive preferred, fallback assets/fonts/aeonik/)
@@ -68,6 +93,7 @@ from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E
                           fix_thai_gdef, prepare_bai)
 from th_mark_clearance import raise_upper_marks
 from th_baseline import seat_thai_on_baseline
+from th_cff import assert_advance_single_source, convert_to_cff
 
 warnings.filterwarnings("ignore")
 
@@ -318,10 +344,15 @@ def _copy_glyph(target_font, bai_font, bai_glyph_name, target_name, verbatim_ok)
 
 
 def copy_thai_glyphs(aeonik_font, bai_font):
+    """Copy Bai's Thai into the merged font. Returns the set of names written.
+
+    The returned set is what step 7 needs to decide which glyphs must NOT keep
+    Aeonik's own charstring — see convert_to_cff() on `uni0E3F`.
+    """
     bai_cmap = bai_font.getBestCmap()
     if not bai_cmap:
         print("     !! No cmap in Bai Jamjuree")
-        return 0
+        return set()
 
     have = set(aeonik_font.getGlyphOrder())
 
@@ -337,10 +368,12 @@ def copy_thai_glyphs(aeonik_font, bai_font):
         if gn not in SKIP_GLYPHS and (gn in renamed or gn not in have)
     }
 
+    written = set()
     added = 0
     for cp, bai_gn in sorted(thai_mappings.items()):
         if _copy_glyph(aeonik_font, bai_font, bai_gn, f"uni{cp:04X}", verbatim_ok):
             added += 1
+            written.add(f"uni{cp:04X}")
 
     glyphs = aeonik_font["glyf"].glyphs
     for table in aeonik_font["cmap"].tables:
@@ -357,17 +390,14 @@ def copy_thai_glyphs(aeonik_font, bai_font):
             continue
         if _copy_glyph(aeonik_font, bai_font, gn, gn, verbatim_ok):
             extra += 1
+            written.add(gn)
 
     aeonik_font["maxp"].numGlyphs = len(aeonik_font.getGlyphOrder())
 
-    # `gasp` is what tells GDI/DirectWrite to grid-fit and antialias a TrueType
-    # face. CFF needs none, so neither Latin source ships one; Bai does.
-    if "gasp" in bai_font:
-        aeonik_font["gasp"] = copy_mod.deepcopy(bai_font["gasp"])
-
-    # post 3.0 stores no glyph names. The CFF build got them from the charset;
-    # `glyf` has no such fallback, so every consumer — and every acceptance
-    # test that compares by name — would see glyph00001. Format 2.0 keeps them.
+    # Glyph names during the `glyf` stage: post 3.0 stores none, and `glyf` has no
+    # charset to fall back on, so every name would read glyph00001 for the rest of
+    # the pipeline. Step 7 sets it back to 3.0 once the CFF charset can supply
+    # them, which is what Aeonik itself ships.
     aeonik_font["post"].formatType = 2.0
     aeonik_font["post"].extraNames = []
     aeonik_font["post"].mapping = {}
@@ -379,7 +409,7 @@ def copy_thai_glyphs(aeonik_font, bai_font):
                           for c in bai_font["glyf"][gn].components))
     print(f"     [1] Glyphs: {added} Thai cmap + {extra} extra (GPOS/GSUB) | "
           f"{verbatim} copyable verbatim, rest decomposed")
-    return added + extra
+    return written
 
 
 # ---------------------------------------------------------------------------
@@ -651,93 +681,176 @@ def set_thai_bits(font):
 # 1.20 em on the same paragraph.
 #
 # That much still stands: Word does not clip at hhea, and 1.71 em was an
-# over-correction. But "copy the Latin box exactly" was the wrong conclusion
-# from it, and Siwatch's 2026-08-03 QC is what settled the question.
+# over-correction.
 #
-# The line box is the baseline pitch, and at Word's Single spacing it is the ONLY
-# room two consecutive Thai lines have. Typing `ที่สุดสู้นี้น้ำทุ่มสุ่มซึ่ง` on
-# three Shift+Enter lines in a plain Word document: pitch 34 px, one line's Thai
-# ink 37 px, so the three lines fused into a single band. Measured requirement
-# per face, worst upper stack over worst lower tail plus a one-pixel margin:
+# ---------------------------------------------------------------------------
+# 2026-08-04: the box is Aeonik's 1200, and the Thai deliberately does not fit.
+# ---------------------------------------------------------------------------
 #
-#     TH-Aeonik-Light 1464   Regular 1497   Bold 1519   Black 1534
+# This reverses the 2026-08-03 trade. That day the box went to 1540 because two
+# consecutive Thai lines fused at Word's Single spacing, and 1540 is what the Thai
+# needs. The cost was that Latin-only lines led 28.3% looser than Aeonik, which
+# Siwatch rejected on 2026-08-04: TH Aeonik must be a drop-in Aeonik replacement,
+# and he ruled out the Latin/Complex-Script split that solves both
+# ("solve it with the font engineering, not by set up two separate fonts").
 #
-# Against Aeonik's 1200. There is no way to close a 334-unit gap inside the font
-# without it: raising the box is the only lever that does not shrink the Thai
-# marks back toward the fusing th_mark_clearance.py fixed, and no Thai design
-# fits 1.20 em anyway — Leelawadee UI, the most compact of them, needs 1255.
+# One font has one `hhea`, so "identical to Aeonik on Latin" and "room for Thai"
+# are not jointly satisfiable. Shrinking the Thai marks was the candidate way out
+# and it was MEASURED AND REJECTED — scripts/solve_mark_scale.py, sweeping the real
+# builder:
 #
-# So the trade Siwatch chose on 2026-08-03: TH-Aeonik leads 28% looser than
-# Aeonik, and pure-Latin documents should be set in Aeonik rather than in the
-# font whose whole purpose is to carry Thai. Distributed to contain the Thai ink
-# (-322..+1137) rather than to preserve Aeonik's 1000/-200 proportions, since
-# holding that ink is what the extra room is for.
-ASCENT, DESCENT, LINEGAP = 1150, -390, 0        # 1540; Aeonik-Regular.otf is 1200
+#     mark scale   top   bottom   need   required(+75)   vs 1200
+#        1.00     1139    -323    1462       1537         -337
+#        0.80     1096    -258    1354       1429         -229
+#        0.70     1078    -258    1336       1411         -211
+#        0.60     1061    -258    1319       1394         -194
+#
+# A 25% mark reduction buys 35 units. Two floors, neither of which is a mark:
+#
+#   1. th_mark_clearance.raise_upper_marks() re-settles. A smaller mark is a
+#      smaller obstacle, so the pass lifts it higher to hold its 72-unit (one
+#      pixel) target, cancelling most of the height saved.
+#   2. `bottom` bottoms out at -258 on `ฐ` — a CONSONANT TAIL, not a mark. No mark
+#      scale can move it.
+#
+# The floor is ~1383 with the margin, ~1308 without, against 1200. So marks stay
+# at 1.000 (th_thai_prep.MARK_SCALE): shrinking them would cost tone-mark
+# legibility — ่ ้ ๊ ๋ differ by small strokes — and buy nothing.
+#
+# THE ACCEPTED CONSEQUENCE, chosen by Siwatch 2026-08-04 with these numbers in
+# front of him: worst-case Thai stacks overlap the line above by about 262 units,
+# 3.9 px at 11 pt. That is a regression of the 2026-08-03 fix and it is deliberate.
+# Latin-only and mixed Thai/Latin lines are exact; Thai-over-Thai paragraphs at
+# Single spacing collide in the worst pairings.
+#
+# How often the worst pairing occurs in real Thai prose is STILL UNMEASURED. The
+# only Thai document in this repo carries 382 Thai characters, so its zero
+# collisions over 1456 line pairs is not evidence. Answering it needs a real Thai
+# corpus and it is the open question against this trade.
+#
+# Aeonik-Regular.otf hhea is exactly 1000/-200/0. Taken from the source at build
+# time and asserted, so an Aeonik update cannot move it silently.
+ASCENT, DESCENT, LINEGAP = 1000, -200, 0        # 1200 — Aeonik's own, to the unit
 
-# Minimum the Thai needs, from scripts/thai_line_pitch.py: worst face 1459 of
-# ink extent plus the 75-unit margin. Re-derive after any rebuild that moves the
-# marks — `venv_fonts/bin/python scripts/thai_line_pitch.py`.
-REQUIRED_PITCH = 1534
+# What the Thai would need for two consecutive lines to clear, from
+# scripts/thai_line_pitch.py: worst face 1462 of ink extent plus a 75-unit margin.
+# The box above is deliberately BELOW this. It is recorded, not asserted, so the
+# shortfall stays visible and cannot grow silently — re-derive after any rebuild
+# that moves the marks: `python3 scripts/thai_line_pitch.py`.
+THAI_WANTS_PITCH = 1537
 
-# Clipping box. usWinAscent/usWinDescent bound what GDI will draw, so these must
-# contain every glyph's ink — including the ones reachable only through shaping.
-# The overflow is not theoretical: Bai Jamjuree substitutes small tone-mark
-# variants (uni0E48.small and friends) via GSUB for two-level stacks, and those
-# have no cmap entry at all.
+# The margin folded into THAI_WANTS_PITCH — thai_line_pitch.MARGIN. It is
+# Leelawadee UI's own spare and about one pixel at 11 pt / 96 dpi. Named here so
+# the build can report the OVERLAP (ink vs box) separately from the SHORTFALL
+# (ink + margin vs box); they differ by this much and conflating them overstates
+# the collision by 28%.
+MARGIN_UNITS = 75
+
+# usWin is the THIRD copy of Aeonik's box, not a clip box sized to the ink.
 #
-# Measured static ink across all 14 faces is -503..+1106 (deepest
-# TH-Aeonik-Bold:uni0E38.small, highest TH-Aeonik-AirItalic:uni0E4C.small), and
-# the worst shaped stack lands inside that at +1088 (อึ๋ม) / -331 (ทุก). The box
-# below clears both with headroom, plus the room step 3c needs: raising the
-# upper marks for clearance lifts the top of a stack by up to 100 units.
+# It was 1240/560 until 2026-08-04, on the reasoning recorded in the line above it
+# at the time: "widening this does not touch line spacing — Word leads off hhea
+# and LibreOffice off sTypo, neither of which is usWin." That is false, and it was
+# false in the shipping renderer while every Linux and outline-level check stayed
+# green. Measured in Word via COM, same paragraph, same 11 pt, 5 lines each:
 #
-# Widening this does not touch line spacing — Word leads off hhea and
-# LibreOffice off sTypo, neither of which is usWin.
-WIN_ASCENT, WIN_DESCENT = 1240, 560
+#     Aeonik      75.80 pt / 5 = 15.16 pt per line
+#     TH Aeonik  114.00 pt / 5 = 22.80 pt per line   ratio 1.504
+#
+# 1.504 is usWin 1800/1200, not hhea 1200/1200 = 1.000. Word leads off
+# usWinAscent+usWinDescent. Siwatch reported it as the Latin line spacing still
+# being wrong after the hhea fix, and he was right: hhea and sTypo were both
+# already Aeonik's exactly, and the leading was still 50% over.
+#
+# So all three metric sets are now Aeonik's, and the ink is allowed out of the box.
+# That is what the fonts Windows itself ships do — measured on this machine, ink
+# extent against usWin:
+#
+#     Aeonik         usWin 1200   ink 1104   -96
+#     Bai Jamjuree   usWin 1786   ink 1694   -92
+#     Leelawadee UI  usWin 1330   ink 1287   -43
+#     Tahoma         usWin 1207   ink 1453   +246
+#     Segoe UI       usWin 1330   ink 1709   +379
+#
+# Tahoma and Segoe UI both draw well outside usWin and neither clips in Word, so
+# usWin is not a clip bound in DirectWrite-era Word. TH Aeonik lands at +391 here,
+# which is Segoe UI's overflow. If Thai marks are ever reported clipped, this is
+# the first constant to suspect — but re-measure before moving it, because the
+# 2026-08-02 build raised it on a clipping premise that was never verified against
+# the artifact (docs/postmortems/2026-08-02-th-font-line-box-overcorrection.md).
+WIN_ASCENT, WIN_DESCENT = ASCENT, -DESCENT
 
 
-def assert_line_box_clears_thai(latin_src):
-    """The line box must hold two consecutive Thai lines apart.
+LATIN_PITCH = 1200          # Aeonik-Regular.otf hhea, pinned as a number
 
-    This replaces an earlier assertion that the box equal the Latin source's to
-    the unit. That invariant was wrong — it is what left three Shift+Enter lines
-    fusing in Word — but it was also load-bearing, so the deliberate deviation is
-    asserted here rather than left implicit. The build fails if the constants
-    drop below what the Thai needs, and prints the Latin delta so an Aeonik
-    update cannot change the comparison silently.
+
+def assert_line_box_matches_latin(latin_src):
+    """The line box must equal Aeonik's, to the unit.
+
+    This inverts the 2026-08-03 assertion, which required the box to be at or
+    above what the Thai needs. That is now knowingly violated — see the long note
+    above ASCENT for the measurements and the trade.
+
+    Both halves are pinned:
+
+      * the NUMBER 1200, because `verify-what-the-test-asserts` is about exactly
+        this codebase and exactly this constant. "Equals the Latin source" read as
+        a principle for two days while encoding a defect, and four checks asserted
+        it. A relationship cannot be reviewed on sight; a number can.
+      * the RELATIONSHIP to the source, so an Aeonik update that changed its own
+        metrics would fail here rather than silently redefine "identical".
+
+    The Thai shortfall is printed every build. It is the accepted cost, so it has
+    to stay legible in the log rather than living only in a comment.
     """
     pitch = ASCENT - DESCENT + LINEGAP
-    if pitch < REQUIRED_PITCH:
-        raise SystemExit(
-            f"     !! line box {pitch} is below the {REQUIRED_PITCH} the Thai "
-            f"needs — two consecutive Thai lines will collide at Single spacing. "
-            f"Re-derive with scripts/thai_line_pitch.py.")
     h = latin_src["hhea"]
     upem = latin_src["head"].unitsPerEm
     latin = round((h.ascender - h.descender + h.lineGap) * 1000 / upem)
-    print(f"     [5] line box {pitch} (Thai needs {REQUIRED_PITCH}) vs Aeonik's "
-          f"{latin} — deliberately {pitch / latin - 1:+.1%}, per Siwatch 2026-08-03")
+
+    if pitch != LATIN_PITCH:
+        raise SystemExit(
+            f"     !! line box {pitch} is not the documented {LATIN_PITCH} — "
+            f"TH Aeonik must lead exactly as Aeonik does. Fix ASCENT/DESCENT/"
+            f"LINEGAP, and if the target really changed, change LATIN_PITCH with it.")
+    if latin != LATIN_PITCH:
+        raise SystemExit(
+            f"     !! Aeonik's own line box is {latin}, not the {LATIN_PITCH} this "
+            f"build is pinned to. The Latin source changed; re-derive the target "
+            f"rather than letting 'identical to Aeonik' quietly mean something new.")
+
+    # Two different numbers, and confusing them overstates the defect. THE
+    # OVERLAP is what a reader sees: worst stack ink minus the box. THE SHORTFALL
+    # additionally includes the 75-unit comfort margin, so it is what the Thai
+    # would need to look *right*, not the size of the collision.
+    overlap = (THAI_WANTS_PITCH - MARGIN_UNITS) - pitch
+    short = THAI_WANTS_PITCH - pitch
+    print(f"     [5] line box {pitch} == Aeonik's {latin} (exact). Thai ink needs "
+          f"{THAI_WANTS_PITCH - MARGIN_UNITS}, so worst-case Thai-over-Thai stacks "
+          f"OVERLAP by {overlap} units ({overlap / 68:.1f} px at 11 pt); "
+          f"{short} short of the +{MARGIN_UNITS} comfort margin. Accepted by "
+          f"Siwatch 2026-08-04.")
 
 
 def set_vertical_metrics(font):
     """Line box from the Latin source; clip box from the measured ink.
 
-    hhea and sTypo are set to the same values so the line pitch does not depend
-    on which metric set the renderer prefers — Word takes hhea, LibreOffice and
-    browsers take sTypo when USE_TYPO_METRICS is on. usWin is deliberately
-    larger: it is the clip bound, not a spacing hint.
+    All three metric sets carry the same numbers, because all three are read as
+    line spacing by something that matters: Word leads off usWin, LibreOffice and
+    browsers off sTypo when USE_TYPO_METRICS is on, and hhea is the fallback. A
+    single box is the only way the pitch stops depending on the renderer.
     """
     os2 = font["OS/2"]
     hhea = font["hhea"]
 
-    # Fail the build rather than ship a font that clips. This is checked against
-    # the CLIP box, not the line box — ink above the line box is normal and is
-    # what every Thai font does.
+    # Fail the build if any box drifts off the Latin's. The ink is NOT asserted to
+    # fit — Thai marks are drawn outside the box on purpose, exactly as Tahoma and
+    # Segoe UI do. See the note on WIN_ASCENT for the measurements.
     lo, hi = _ink_bounds(font)
-    if hi > WIN_ASCENT or lo < -WIN_DESCENT:
+    if (WIN_ASCENT, -WIN_DESCENT) != (ASCENT, DESCENT):
         raise SystemExit(
-            f"     !! ink {lo:.0f}..{hi:.0f} escapes the clip box "
-            f"{-WIN_DESCENT}..{WIN_ASCENT} — raise WIN_ASCENT/WIN_DESCENT")
+            f"     !! clip box {-WIN_DESCENT}..{WIN_ASCENT} is not the line box "
+            f"{DESCENT}..{ASCENT} — Word leads off usWin, so they must match")
 
     os2.usWinAscent = WIN_ASCENT
     os2.usWinDescent = WIN_DESCENT
@@ -745,10 +858,10 @@ def set_vertical_metrics(font):
     os2.sTypoAscender, os2.sTypoDescender, os2.sTypoLineGap = ASCENT, DESCENT, LINEGAP
     os2.fsSelection |= USE_TYPO          # bit 7 — prefer the sTypo set
     over_up, over_dn = max(0, hi - ASCENT), max(0, -lo + DESCENT)
-    print(f"     [5] Metrics: line(hhea=sTypo)={ASCENT}/{DESCENT}/{LINEGAP} "
-          f"({ASCENT - DESCENT + LINEGAP}) clip(usWin)={WIN_ASCENT}/{WIN_DESCENT} "
-          f"ink {lo:.0f}..{hi:.0f} (overflows line box by {over_up:.0f}/{over_dn:.0f}, "
-          f"expected)")
+    print(f"     [5] Metrics: line(hhea=sTypo=usWin)={ASCENT}/{DESCENT}/{LINEGAP} "
+          f"({ASCENT - DESCENT + LINEGAP}) "
+          f"ink {lo:.0f}..{hi:.0f} (draws outside the box by {over_up:.0f}/{over_dn:.0f}, "
+          f"expected — Segoe UI overflows by 379)")
 
 
 def _ink_bounds(font):
@@ -879,7 +992,7 @@ def fix_mac_cmap(font):
 
 def verify_font(weight_name):
     cfg = WEIGHT_CONFIG[weight_name]
-    path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.ttf"
+    path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.otf"
     if not path.exists():
         return
 
@@ -953,8 +1066,10 @@ def verify_font(weight_name):
 # Build pipeline
 # ---------------------------------------------------------------------------
 
-def build_font(weight_name, aeonik_file, bai_file=None):
+def build_font(weight_name, aeonik_file, bai_file=None, mark_scale=None,
+               out_dir=None):
     print(f"\n  === {weight_name} ===")
+    out_dir = out_dir or OUTPUT_DIR
 
     aeonik_path = find_aeonik(aeonik_file)
     if not aeonik_path:
@@ -970,23 +1085,32 @@ def build_font(weight_name, aeonik_file, bai_file=None):
     # Read the line box off the Latin before anything is merged into it. The
     # merged face must lead exactly as Aeonik does, or switching a paragraph
     # between the two reflows the document.
-    assert_line_box_clears_thai(aeonik)
+    assert_line_box_matches_latin(aeonik)
     # Scaled to the Latin x-height and weight-matched before a single glyph is
     # copied, so everything downstream — GPOS anchors, ink bounds, the metrics
     # assertion — sees the Thai at its final size.
-    bai = prepare_bai("TH-Aeonik", weight_name, latin_font=aeonik)
+    bai = prepare_bai("TH-Aeonik", weight_name, latin_font=aeonik,
+                      mark_scale=mark_scale)
 
     if "CFF " not in aeonik:
         print(f"     !! Aeonik is not CFF format")
         return False
 
-    output_path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.ttf"
+    # A pristine, untouched copy of Aeonik's CFF table. Step 7 puts this back, so
+    # the shipped Latin charstrings are Aeonik's own bytes rather than anything
+    # this pipeline redrew. Read from the file a second time rather than
+    # deepcopied, so no mutation below can possibly reach it.
+    latin_cff = TTFont(str(aeonik_path))["CFF "]
 
-    # Step 0: CFF -> glyf, while the glyph set is still purely Latin
+    output_path = out_dir / f"TH-Aeonik-{weight_name}.otf"
+
+    # Step 0: CFF -> glyf, while the glyph set is still purely Latin. This is the
+    # intermediate working format for the merge only — every step below is written
+    # against `glyf`, and step 7 swaps the CFF back in.
     convert_to_glyf(aeonik)
 
     # Step 1: Copy Thai glyphs
-    copy_thai_glyphs(aeonik, bai)
+    thai_names = copy_thai_glyphs(aeonik, bai)
 
     # Step 2: Merge GPOS/GDEF/GSUB
     merge_ot_tables(aeonik, bai)
@@ -1033,38 +1157,49 @@ def build_font(weight_name, aeonik_file, bai_file=None):
     print(f"     [6] Coverage tables re-sorted: {n_cov} | "
           f"Mac cmap codes >255 dropped: {n_mac}")
 
-    # maxPoints / maxContours / maxComponent* are read by Windows to size its
-    # rasteriser buffers. They must describe the final glyph set, not the Latin
-    # one convert_to_glyf() left behind. Glyphs built by TTGlyphPen carry no
-    # bounds until asked, and maxp.recalc reads xMin off every one of them.
+    # `glyf` renderers place an outline at (lsb - xMin), so a stale lsb silently
+    # translates the whole glyph — Aeonik's BoldItalic '9' declares lsb 33 against
+    # an xMin of 31.
+    #
+    # This step was briefly deleted on 2026-08-04 on the reasoning that CFF ignores
+    # `hmtx` lsb, so a CFF output could not care. The reasoning was sound and the
+    # premise was not checked: fontTools' glyf glyph set applies that same
+    # (lsb - xMin) offset WHILE DRAWING, and convert_to_cff() draws every Thai glyph
+    # through exactly that glyph set. Deleting the sync therefore fed a shifted
+    # outline into the charstring — TH-Aeonik-BoldItalic's `ษ` counter collapsed
+    # from 55.2 to 3.9, i.e. the loop filled in solid, and qc_th_fonts check 10
+    # caught it. Keep the sync: it must run BEFORE the conversion, not because CFF
+    # reads lsb but because the pen does.
+    #
+    # recalcBounds is also required here — glyphs built by TTGlyphPen carry no
+    # bounds until asked, and both the sync and the conversion read xMin.
     glyf_table = aeonik["glyf"]
     hmtx = aeonik["hmtx"]
     shifted = 0
     for gn in aeonik.getGlyphOrder():
         glyph = glyf_table[gn]
         glyph.recalcBounds(glyf_table)
-        # `glyf` renderers place the outline at (lsb - xMin), so a stale lsb
-        # silently translates the whole glyph. CFF ignores hmtx lsb entirely,
-        # which is why Aeonik ships some that disagree with their own outlines —
-        # BoldItalic '9' declares lsb 33 against an xMin of 31, and inheriting
-        # that shifted every point of the glyph 2 units right. Harmless in the
-        # source, a visible defect the moment the font becomes TrueType.
         advance, lsb = hmtx.metrics[gn]
         x_min = getattr(glyph, "xMin", 0)
         if lsb != x_min:
             hmtx.metrics[gn] = (advance, x_min)
             shifted += 1
-    aeonik["maxp"].recalc(aeonik)
     if shifted:
-        print(f"     [6b] lsb re-synced to xMin on {shifted} glyph(s)")
+        print(f"     [6b] lsb re-synced to xMin on {shifted} glyph(s) — the CFF "
+              f"pen draws through the (lsb - xMin) offset")
+
+    # Step 7: put the CFF back — Aeonik's charstrings verbatim, Thai appended.
+    convert_to_cff(aeonik, latin_cff, thai_names)
+    assert_advance_single_source(aeonik)
 
     aeonik.save(str(output_path))
 
     size_kb = output_path.stat().st_size / 1024
     print(f"     Saved: {output_path.name} ({size_kb:.0f} KB)")
 
-    # Step 7: Verify
-    verify_font(weight_name)
+    # Step 8: Verify
+    if out_dir == OUTPUT_DIR:
+        verify_font(weight_name)
 
     return True
 
@@ -1074,7 +1209,14 @@ def main():
     parser = argparse.ArgumentParser(description="Build TH-Aeonik font family")
     parser.add_argument("--weights", default=None,
                         help="Comma-separated weights (default: all)")
+    parser.add_argument("--mark-scale", type=float, default=None,
+                        help="override th_thai_prep.MARK_SCALE (sweep knob for "
+                             "scripts/solve_mark_scale.py)")
+    parser.add_argument("--out-dir", default=None,
+                        help="write elsewhere than assets/fonts/aeonik-th, so a "
+                             "sweep does not overwrite the shipped faces")
     args = parser.parse_args()
+    out_dir = Path(args.out_dir) if args.out_dir else OUTPUT_DIR
 
     weights = WEIGHTS
     if args.weights:
@@ -1086,18 +1228,18 @@ def main():
     print("  Aeonik (Latin) + Bai Jamjuree (Thai) = TH Aeonik")
     print("=" * 70)
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     success = 0
     for wn, af in weights.items():
-        if build_font(wn, af):
+        if build_font(wn, af, mark_scale=args.mark_scale, out_dir=out_dir):
             success += 1
 
     total = len(weights)
     print(f"\n{'=' * 70}")
     status = "PASS" if success == total else "FAIL"
     print(f"  {status}: {success}/{total} fonts built")
-    print(f"  Output: {OUTPUT_DIR}")
+    print(f"  Output: {out_dir}")
     print(f"{'=' * 70}\n")
 
     return 0 if success == total else 1

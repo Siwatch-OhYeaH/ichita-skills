@@ -36,6 +36,9 @@ from pathlib import Path
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.scaleUpem import scale_upem
 
+sys.path.insert(0, str(Path(__file__).parent))
+from th_mark_scale import scale_thai_marks  # noqa: E402
+
 ROOT = Path(__file__).parent.parent
 BAI = ROOT / "assets" / "fonts" / "bai-jamjuree"
 
@@ -43,6 +46,24 @@ BAI = ROOT / "assets" / "fonts" / "bai-jamjuree"
 THAI_SCALE = {
     "TH-Aeonik": 0.914,
     "TH-Slussen": 0.968,
+}
+
+# Extra scale applied to MARKS ONLY, on top of THAI_SCALE, so a Thai stack fits
+# inside the Latin's own line box. Full reasoning and the transform are in
+# scripts/th_mark_scale.py; the short version is that TH-Aeonik led 28.3% looser
+# than Aeonik, Siwatch ruled out the two-font split, and one font has one `hhea`
+# — so the Thai has to fit 1200 and the marks are the only slack left.
+#
+# SOLVE THIS, DO NOT GUESS IT. `scripts/solve_mark_scale.py` sweeps candidates
+# and measures the resulting worst stack with thai_line_pitch, because the number
+# cannot be derived: shrinking a mark makes the consonant a smaller obstacle, so
+# th_mark_clearance's iterative lift re-settles and the stack height does not
+# move linearly with the scale.
+#
+# 1.000 is the pre-2026-08-04 behaviour and leaves the box at 1540.
+MARK_SCALE = {
+    "TH-Aeonik": 1.000,
+    "TH-Slussen": 1.000,
 }
 
 # Thai stem as a fraction of the Latin stem it sits beside, by usWeightClass.
@@ -486,15 +507,20 @@ def _glyph_height(font, ch):
     return None if not bp.bounds else bp.bounds[3] - bp.bounds[1]
 
 
-def prepare_bai(family, weight, latin_font=None, verbose=True):
+def prepare_bai(family, weight, latin_font=None, verbose=True, mark_scale=None):
     """Return a Bai TTFont scaled (and emboldened) ready to merge into `family`.
 
     The scale is applied with scaleUpem so that GPOS anchors, mark attachment
     points and advances all move with the outlines. Scaling glyphs alone would
     leave every tone mark anchored at its original height — the marks would
     detach from the consonants they sit on.
+
+    `mark_scale` overrides MARK_SCALE[family] and exists so
+    scripts/solve_mark_scale.py can sweep candidates without editing the constant.
     """
     scale = THAI_SCALE[family]
+    if mark_scale is None:
+        mark_scale = MARK_SCALE[family]
     bai_file, embolden = BUILD_TABLE[family][weight]
     src = BAI / bai_file
     if not src.exists():
@@ -555,6 +581,10 @@ def prepare_bai(family, weight, latin_font=None, verbose=True):
         # is not visible before scale_upem.
         if abs(embolden) >= EMBOLDEN_FLOOR:
             _repair_collapsed_counters(font, src, target, workdir, verbose)
+
+        # Last, so it sees final-size marks — and before the merge, which puts it
+        # ahead of th_mark_clearance.raise_upper_marks() as that pass requires.
+        scale_thai_marks(font, mark_scale, verbose)
         return font
 
 

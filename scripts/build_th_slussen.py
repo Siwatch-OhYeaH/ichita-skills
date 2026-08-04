@@ -5,15 +5,26 @@ Build TH-Slussen font family — unified pipeline.
 Merges Slussen (Latin) + Bai Jamjuree (Thai) into TH-Slussen with complete
 OpenType support for Thai text shaping on Windows.
 
+OUTPUT IS CFF (`.otf`), NOT TrueType, reversing the 2026-08-02 format decision.
+The full reasoning and the DirectWrite measurements are in scripts/th_cff.py,
+which both builders share. Slussen-specific point: Slussen carries **2712 hint
+operators across 1068 glyphs**, all of which the `glyf` flip discarded and which
+taking its CFF table wholesale restores. Aeonik has zero, so it lost nothing
+there — this family is the one that actually paid for the flip, exactly as the
+2026-08-01 post-mortem predicted it would be "the single most likely place this
+change is noticed".
+
 Pipeline steps:
-  0. Convert the Latin base from CFF to `glyf` — before any Thai is added
+  0. Convert the Latin base from CFF to `glyf` — the intermediate working format
+     for the merge only; step 7 puts the CFF back
   1. Copy Thai glyphs + variants from Bai Jamjuree (glyf outlines, verbatim)
   2. Union GPOS/GDEF/GSUB from Bai Jamjuree onto Slussen's own (mark positioning)
   3. Apply metadata — RIBBI naming, OS/2
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
   5. Vertical metrics — one box for hhea/sTypo/usWin, asserted to contain the ink
   6. Sort GSUB/GPOS Coverage tables + clean Mac cmap (Uniscribe compliance)
-  7. Verify — Thai cmap, Latin match, GPOS, OS/2 bits, metrics
+  7. Swap `glyf` back to CFF — Slussen's charstrings verbatim, Thai appended
+  8. Verify — Thai cmap, Latin match, GPOS, OS/2 bits, metrics
 
 Sources:
   Latin: Slussen OTF (OneDrive path preferred, fallback assets/fonts/slussen/)
@@ -52,6 +63,7 @@ from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E
                           fix_thai_gdef, prepare_bai)
 from th_mark_clearance import raise_upper_marks
 from th_baseline import seat_thai_on_baseline
+from th_cff import assert_advance_single_source, convert_to_cff
 
 warnings.filterwarnings("ignore")
 
@@ -299,11 +311,15 @@ def _copy_glyph(target_font, bai_font, bai_glyph_name, target_name, verbatim_ok)
 
 
 def copy_thai_glyphs(slussen_font, bai_font):
-    """Copy Thai glyphs from BaiJamjuree into the (now glyf-based) Slussen."""
+    """Copy Thai glyphs from BaiJamjuree into the (now glyf-based) Slussen.
+
+    Returns the set of names written, which step 7 needs to decide which glyphs
+    must NOT keep Slussen's own charstring — see th_cff.convert_to_cff().
+    """
     bai_cmap = bai_font.getBestCmap()
     if not bai_cmap:
         print("     !! No cmap in Bai Jamjuree")
-        return 0
+        return set()
 
     have = set(slussen_font.getGlyphOrder())
 
@@ -317,10 +333,12 @@ def copy_thai_glyphs(slussen_font, bai_font):
         if gn not in SKIP_GLYPHS and (gn in renamed or gn not in have)
     }
 
+    written = set()
     added = 0
     for cp, bai_gn in sorted(thai_mappings.items()):
         if _copy_glyph(slussen_font, bai_font, bai_gn, f"uni{cp:04X}", verbatim_ok):
             added += 1
+            written.add(f"uni{cp:04X}")
 
     glyphs = slussen_font["glyf"].glyphs
     for table in slussen_font["cmap"].tables:
@@ -337,23 +355,20 @@ def copy_thai_glyphs(slussen_font, bai_font):
             continue
         if _copy_glyph(slussen_font, bai_font, gn, gn, verbatim_ok):
             extra += 1
+            written.add(gn)
 
     slussen_font["maxp"].numGlyphs = len(slussen_font.getGlyphOrder())
 
-    # `gasp` tells GDI/DirectWrite to grid-fit and antialias a TrueType face.
-    # CFF needs none, so Slussen ships none; Bai does.
-    if "gasp" in bai_font:
-        slussen_font["gasp"] = copy_mod.deepcopy(bai_font["gasp"])
-
-    # post 3.0 stores no glyph names; the CFF build got them from the charset,
-    # `glyf` has no such fallback and every consumer would see glyph00001.
+    # Glyph names during the `glyf` stage: post 3.0 stores none and `glyf` has no
+    # charset to fall back on, so every name would read glyph00001 for the rest of
+    # the pipeline. Step 7 restores 3.0 once the CFF charset can supply them.
     slussen_font["post"].formatType = 2.0
     slussen_font["post"].extraNames = []
     slussen_font["post"].mapping = {}
     slussen_font["post"].glyphOrder = slussen_font.getGlyphOrder()
 
     print(f"     [1] Glyphs: {added} Thai cmap + {extra} extra (GPOS/GSUB)")
-    return added + extra
+    return written
 
 
 # ---------------------------------------------------------------------------
@@ -767,7 +782,7 @@ def fix_mac_cmap(font):
 def verify_font(weight_name, slussen_file):
     """Run full validation and print report. Returns True if all checks pass."""
     cfg = WEIGHT_CONFIG[weight_name]
-    path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.ttf"
+    path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.otf"
     if not path.exists():
         print(f"     [7] FAIL: Output file not found: {path}")
         return False
@@ -918,13 +933,19 @@ def build_font(weight_name, slussen_file, bai_file=None):
         print(f"     !! Slussen is not CFF format — cannot merge CFF glyphs")
         return False
 
-    output_path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.ttf"
+    # A pristine, untouched copy of Slussen's CFF table — read from the file a
+    # second time so no mutation below can reach it. Step 7 puts this back, which
+    # is what carries Slussen's 2712 hint operators through to the shipped font.
+    latin_cff = TTFont(str(slussen_path))["CFF "]
 
-    # Step 0: CFF -> glyf, while the glyph set is still purely Latin
+    output_path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.otf"
+
+    # Step 0: CFF -> glyf, while the glyph set is still purely Latin. Intermediate
+    # working format for the merge only; step 7 swaps the CFF back in.
     convert_to_glyf(slussen)
 
     # Step 1: Copy Thai glyphs (glyph by glyph)
-    copy_thai_glyphs(slussen, bai)
+    thai_names = copy_thai_glyphs(slussen, bai)
 
     # Step 2: Merge GPOS/GDEF/GSUB (Thai mark positioning)
     merge_ot_tables(slussen, bai)
@@ -967,10 +988,12 @@ def build_font(weight_name, slussen_file, bai_file=None):
     print(f"     [6] Coverage tables re-sorted: {n_cov} | "
           f"Mac cmap codes >255 dropped: {n_mac}")
 
-    # `glyf` renderers place an outline at (lsb - xMin), so a stale lsb silently
-    # translates the whole glyph. CFF ignores lsb entirely, so Slussen ships some
-    # that disagree with their own outlines — harmless there, a visible shift the
-    # moment the font becomes TrueType. maxp.recalc also needs real bounds.
+    # See the twin in build_th_aeonik.py for why this must stay. Short version:
+    # fontTools' glyf glyph set applies the (lsb - xMin) offset while DRAWING, and
+    # convert_to_cff() draws through that glyph set, so a stale lsb feeds a shifted
+    # outline into the charstring. Deleting this collapsed TH-Aeonik-BoldItalic's
+    # `ษ` counter from 55.2 to 3.9. Slussen needs it more, not less: it carries
+    # 42-49 disagreeing glyphs per weight against Aeonik's 0-2.
     glyf_table = slussen["glyf"]
     hmtx = slussen["hmtx"]
     shifted = 0
@@ -982,9 +1005,13 @@ def build_font(weight_name, slussen_file, bai_file=None):
         if lsb != x_min:
             hmtx.metrics[gn] = (advance, x_min)
             shifted += 1
-    slussen["maxp"].recalc(slussen)
     if shifted:
-        print(f"     [6b] lsb re-synced to xMin on {shifted} glyph(s)")
+        print(f"     [6b] lsb re-synced to xMin on {shifted} glyph(s) — the CFF "
+              f"pen draws through the (lsb - xMin) offset")
+
+    # Step 7: put the CFF back — Slussen's charstrings verbatim, Thai appended.
+    convert_to_cff(slussen, latin_cff, thai_names)
+    assert_advance_single_source(slussen)
 
     slussen.save(str(output_path))
 
@@ -1030,7 +1057,7 @@ def main():
     print(f"  {status}: {success}/{total} fonts built")
     print(f"  Output: {OUTPUT_DIR}")
     for wn, ok in results.items():
-        print(f"    {'OK' if ok else 'FAIL'}: TH-Slussen-{wn}.ttf")
+        print(f"    {'OK' if ok else 'FAIL'}: TH-Slussen-{wn}.otf")
     print(f"{'=' * 70}\n")
 
     return 0 if success == total else 1

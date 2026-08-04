@@ -60,6 +60,7 @@ from pathlib import Path
 
 import freetype
 import uharfbuzz as hb
+from fontTools.misc.psCharStrings import T2WidthExtractor
 from fontTools.ttLib import TTFont
 
 warnings.filterwarnings("ignore")
@@ -141,33 +142,61 @@ def raster(path, char, ppem):
 
 
 def check_advance_source(path):
-    """There must be exactly one place an advance width can come from.
+    """Every glyph must state ONE advance width, and Thai marks must state zero.
 
-    Successor to check_cff_widths(), and the reason the family moved to `glyf`.
+    REWRITTEN 2026-08-04, and the previous version is worth describing because it
+    was correct and is now inverted. It asserted "no CFF table, a real `glyf`
+    table" — i.e. it asserted the FORMAT, on the reasoning that `glyf` has no
+    width operand and so cannot express a disagreement at all. That was true, and
+    it is exactly the invariant this build deliberately gives up: the family ships
+    CFF again because Windows renders CFF and TrueType through different
+    rasterisers, and a merged font in the other format cannot render its Latin
+    identically (measured -15.8% ink at 11 pt in DirectWrite; see
+    scripts/th_cff.py).
 
-    In the CFF build a glyph carried its advance twice — once in `hmtx`, once as
-    the charstring width operand — and the two could disagree. Microsoft Print to
-    PDF builds the PDF /W array from the charstring, not from `hmtx`, so a
-    disagreement rendered correctly in Word and shredded the printed PDF. Thai
-    combining marks carry a zero advance in `hmtx`; given a real advance in /W,
-    every tone mark detaches from its consonant and each run overruns the next.
+    So the structural guarantee is replaced by an ASSERTION on the arithmetic, per
+    `verify-what-the-test-asserts`: pin the property, not the format that happened
+    to imply it.
 
-    `glyf` has no width operand, so that divergence is now unrepresentable. This
-    guard asserts the structural property rather than re-checking the arithmetic:
-    no CFF table, a real `glyf` table, and every Thai combining mark still
-    zero-advance in `hmtx` — which is now the only source /W can be built from.
+    The defect being guarded has not changed. A glyph can carry its advance twice
+    — once in `hmtx`, once as the charstring width operand — and Microsoft Print to
+    PDF builds the PDF /W array from the charstring, not from `hmtx`. A
+    disagreement renders correctly in Word and shreds the printed PDF: Thai
+    combining marks carry a zero `hmtx` advance, and given a real one in /W every
+    tone mark detaches from its consonant and each run overruns the next.
+
+    Verified to FAIL on a font whose `uni0E48` was given a 500-unit `hmtx`
+    advance against its zero-width charstring, and on a Latin glyph nudged by 7
+    units.
     """
     font = TTFont(path)
     bad = []
-    if "CFF " in font:
-        bad.append(("<table>", "no CFF ", "CFF  present — advance width is "
-                    "expressible in two disagreeing places again"))
-    if "glyf" not in font:
-        bad.append(("<table>", "glyf", "missing — not a TrueType build"))
-    if font.sfntVersion != "\000\001\000\000":
-        bad.append(("<header>", "0x00010000", f"sfntVersion {font.sfntVersion!r}"))
+    if "CFF " not in font:
+        bad.append(("<table>", "CFF ", "missing — this family ships CFF so its "
+                    "Latin rasterises exactly as the Latin source does"))
+        return bad
+    if font.sfntVersion != "OTTO":
+        bad.append(("<header>", "OTTO", f"sfntVersion {font.sfntVersion!r}"))
 
-    cmap, hmtx = font.getBestCmap(), font["hmtx"]
+    cff = font["CFF "].cff
+    top = cff[cff.fontNames[0]]
+    charstrings = top.CharStrings
+    hmtx = font["hmtx"]
+
+    for gn in font.getGlyphOrder():
+        charstring = charstrings[gn]
+        # First argument is the LOCAL SUBRS index, not the charstrings index —
+        # passing charstrings makes `callsubr` execute arbitrary glyph programs,
+        # which underflows on a subr-heavy font and silently passes otherwise.
+        private = charstring.private or top.Private
+        ex = T2WidthExtractor(getattr(private, "Subrs", []), cff.GlobalSubrs,
+                              private.nominalWidthX, private.defaultWidthX)
+        ex.execute(charstring)
+        width = ex.width if ex.gotWidth else private.defaultWidthX
+        if width != hmtx[gn][0]:
+            bad.append((gn, hmtx[gn][0], f"charstring says {width}"))
+
+    cmap = font.getBestCmap()
     for cp in list(range(0x0E31, 0x0E32)) + list(range(0x0E34, 0x0E3B)) + \
             list(range(0x0E47, 0x0E4F)):
         gn = cmap.get(cp)
@@ -297,7 +326,7 @@ def run():
     n_width = n_cov = n_clip = n_verbatim = 0
 
     for weight, (slussen_file, bai_file) in PAIRS.items():
-        merged = MERGED / f"TH-Slussen-{weight}.ttf"
+        merged = MERGED / f"TH-Slussen-{weight}.otf"
         refs = {"latin": SLUSSEN / slussen_file, "thai": BAI / bai_file}
         for p in (merged, *refs.values()):
             if not p.exists():

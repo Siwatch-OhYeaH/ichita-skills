@@ -122,8 +122,8 @@ def required_pitch(path: str) -> dict:
 
 # The families this repo ships or sets text in. Each entry is (label, glob).
 FAMILIES = [
-    ("TH-Aeonik", "assets/fonts/aeonik-th/TH-Aeonik-*.ttf"),
-    ("TH-Slussen", "assets/fonts/slussen-th/TH-Slussen-*.ttf"),
+    ("TH-Aeonik", "assets/fonts/aeonik-th/TH-Aeonik-*.otf"),
+    ("TH-Slussen", "assets/fonts/slussen-th/TH-Slussen-*.otf"),
     ("Bai Jamjuree", os.path.expanduser("~/.local/share/fonts/BaiJamjuree-*.ttf")),
 ]
 REFERENCES = [
@@ -133,6 +133,15 @@ REFERENCES = [
 
 # Ratios baked into skills/ichita-docx/scripts/md_to_docx.py. Regenerate with
 # this script after any font rebuild — the mark-clearance pass moves `top`.
+#
+# These are DOCUMENT-layer ratios and they are deliberately NOT the font's line
+# box any more. From 2026-08-04 TH-Aeonik's own box is Aeonik's 1200, which the
+# Thai does not fit — that is the accepted trade for identical Latin leading when
+# typing in plain Word (see build_th_aeonik.py above ASCENT). A *generated*
+# document is a different product: there the generator controls the XML, so
+# `w:lineRule="atLeast"` at the ratio below gives Thai the room the font can no
+# longer carry. Do not "reconcile" these two numbers — the divergence is the point,
+# and collapsing them would either re-loosen typed Latin or break generated Thai.
 EXPECTED = {
     "TH-Aeonik": 1.54,
     "TH-Slussen": 1.63,

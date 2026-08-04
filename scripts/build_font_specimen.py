@@ -26,12 +26,12 @@ OUT = ROOT / "test-output" / "th-font-specimen.html"
 
 # (css family, weight, style, path)
 FACES = [
-    ("THAeonik", 300, "normal", A / "aeonik-th/TH-Aeonik-Light.ttf"),
-    ("THAeonik", 300, "italic", A / "aeonik-th/TH-Aeonik-LightItalic.ttf"),
-    ("THAeonik", 400, "normal", A / "aeonik-th/TH-Aeonik-Regular.ttf"),
-    ("THAeonik", 400, "italic", A / "aeonik-th/TH-Aeonik-RegularItalic.ttf"),
-    ("THAeonik", 700, "normal", A / "aeonik-th/TH-Aeonik-Bold.ttf"),
-    ("THAeonik", 700, "italic", A / "aeonik-th/TH-Aeonik-BoldItalic.ttf"),
+    ("THAeonik", 300, "normal", A / "aeonik-th/TH-Aeonik-Light.otf"),
+    ("THAeonik", 300, "italic", A / "aeonik-th/TH-Aeonik-LightItalic.otf"),
+    ("THAeonik", 400, "normal", A / "aeonik-th/TH-Aeonik-Regular.otf"),
+    ("THAeonik", 400, "italic", A / "aeonik-th/TH-Aeonik-RegularItalic.otf"),
+    ("THAeonik", 700, "normal", A / "aeonik-th/TH-Aeonik-Bold.otf"),
+    ("THAeonik", 700, "italic", A / "aeonik-th/TH-Aeonik-BoldItalic.otf"),
 
     ("Aeonik", 300, "normal", A / "aeonik/Aeonik-Light.otf"),
     ("Aeonik", 300, "italic", A / "aeonik/Aeonik-LightItalic.otf"),
@@ -40,10 +40,10 @@ FACES = [
     ("Aeonik", 700, "normal", A / "aeonik/Aeonik-Bold.otf"),
     ("Aeonik", 700, "italic", A / "aeonik/Aeonik-BoldItalic.otf"),
 
-    ("THSlussen", 400, "normal", A / "slussen-th/TH-Slussen-Regular.ttf"),
-    ("THSlussen", 500, "normal", A / "slussen-th/TH-Slussen-Medium.ttf"),
-    ("THSlussen", 600, "normal", A / "slussen-th/TH-Slussen-SemiBold.ttf"),
-    ("THSlussen", 700, "normal", A / "slussen-th/TH-Slussen-Bold.ttf"),
+    ("THSlussen", 400, "normal", A / "slussen-th/TH-Slussen-Regular.otf"),
+    ("THSlussen", 500, "normal", A / "slussen-th/TH-Slussen-Medium.otf"),
+    ("THSlussen", 600, "normal", A / "slussen-th/TH-Slussen-SemiBold.otf"),
+    ("THSlussen", 700, "normal", A / "slussen-th/TH-Slussen-Bold.otf"),
 
     ("Slussen", 400, "normal", A / "slussen/Slussen-Regular.otf"),
     ("Slussen", 500, "normal", A / "slussen/Slussen-Medium.otf"),

@@ -89,15 +89,23 @@ FAMILIES = {
             "BoldItalic": "Aeonik-BoldItalic.otf",
             "BlackItalic": "Aeonik-BlackItalic.otf",
         },
-        # LINE box — deliberately larger than Aeonik's 1000/-200/0, because at
-        # Word's Single spacing this is the only room two Thai lines have.
-        "box": (1150, -390, 0),
-        # Minimum the Thai needs (thai_line_pitch.py), and the Latin box it is
-        # knowingly larger than. Both asserted, so neither drifts unnoticed.
-        "required_pitch": 1534,
+        # LINE box — Aeonik's own 1000/-200/0, to the unit, from 2026-08-04.
+        # TH Aeonik must be a drop-in Aeonik replacement, and one font has one
+        # `hhea`, so the Thai does NOT fit and that is deliberate. See the long
+        # note above ASCENT in build_th_aeonik.py.
+        "box": (1000, -200, 0),
+        # What the Thai WOULD need for two consecutive lines to clear. The box is
+        # knowingly below it, so this is recorded and reported, NOT asserted as a
+        # floor — asserting it would fail the build on the accepted trade.
+        "thai_wants_pitch": 1537,
         "latin_pitch": 1200,
-        # CLIP box — usWinAscent/usWinDescent, sized to the ink, not the line.
-        "clip": (1240, 560),
+        # usWin is a THIRD copy of the line box, not a clip box sized to the ink.
+        # Word leads off usWinAscent+usWinDescent, measured 2026-08-04: with hhea
+        # and sTypo both already at Aeonik's 1200 and usWin at 1800, Word still
+        # led TH Aeonik 1.504x Aeonik. So usWin must equal the line box, and the
+        # Thai ink is allowed outside it — Segoe UI overflows its own by 379.
+        "clip": (1000, 200),
+        "clip_equals_line_box": True,
     },
     "TH-Slussen": {
         "dir": ROOT / "assets/fonts/slussen-th",
@@ -281,7 +289,7 @@ def check_size_and_weight(fam, cfg):
     size_rows, weight_rows = [], []
     size_bad, weight_bad = [], []
     for w, latin_file in cfg["pairs"].items():
-        merged = cfg["dir"] / f"{fam}-{w}.ttf"
+        merged = cfg["dir"] / f"{fam}-{w}.otf"
         latin = cfg["latin_dir"] / latin_file
         if not merged.exists() or not latin.exists():
             continue
@@ -332,7 +340,7 @@ def check_aperture(fam, cfg):
     """
     rows, bad = [], []
     for w in cfg["pairs"]:
-        merged = cfg["dir"] / f"{fam}-{w}.ttf"
+        merged = cfg["dir"] / f"{fam}-{w}.otf"
         if not merged.exists():
             continue
         a, ch = min_aperture(merged)
@@ -366,13 +374,30 @@ def check_box(fam, cfg):
     only room two consecutive Thai lines have, and Aeonik's 1200 is 334 units
     short of what the Thai needs.
 
-    So this asserts the actual requirement in both directions — at least what the
-    Thai needs, and exactly the deliberate value, so the deviation from the Latin
-    cannot grow quietly the way it did in the 1710 build.
+    THIRD VERSION, 2026-08-04. The "at least what the Thai needs" floor is gone
+    for TH-Aeonik, because Siwatch reversed the trade: the Latin must lead exactly
+    as Aeonik does, the Latin/Complex-Script split that satisfies both was ruled
+    out, and shrinking the Thai marks was measured and cannot close the gap (a 25%
+    reduction buys 35 units; see scripts/solve_mark_scale.py). So the Thai
+    knowingly does not fit.
+
+    What is asserted is the NUMBER — the exact documented box — in both the merged
+    font and its Latin source. That is deliberate rather than lazy: this codebase
+    has repeatedly encoded a defect as a *relationship* that read like a principle
+    ("the line box equals the Latin source's" survived two days and four checks).
+    A number is falsifiable on sight.
+
+    `thai_wants_pitch` is reported, not asserted. Asserting it would fail the build
+    on the accepted trade; printing it keeps the shortfall visible so it cannot
+    grow past what was agreed.
     """
     asc, desc, gap = cfg["box"]
     pitch = asc - desc + gap
-    if pitch < cfg["required_pitch"]:
+    wants = cfg.get("thai_wants_pitch")
+    if wants is not None and pitch < wants:
+        # Reported, not a failure. See the docstring.
+        bad_pitch = None
+    elif cfg.get("required_pitch") and pitch < cfg["required_pitch"]:
         bad_pitch = (f"line box {pitch} is below the {cfg['required_pitch']} the "
                      f"Thai needs — two Thai lines will collide at Single spacing")
     else:
@@ -381,7 +406,7 @@ def check_box(fam, cfg):
     rows, bad = [], []
     seen = set()
     for w, latin_file in cfg["pairs"].items():
-        p = cfg["dir"] / f"{fam}-{w}.ttf"
+        p = cfg["dir"] / f"{fam}-{w}.otf"
         if not p.exists():
             continue
         f = TTFont(p, lazy=True)
@@ -415,9 +440,17 @@ def check_box(fam, cfg):
                 os2.sTypoLineGap) != (asc, desc, gap):
             bad.append(f"{w}: sTypo disagrees with hhea")
 
-        # c) clip box must contain every glyph's ink, or GDI cuts marks off.
-        clipped = hi > win_asc or lo < -win_desc
-        if clipped:
+        # c) usWin. Two different invariants, because the two families are on
+        #    two different trades:
+        #      clip_equals_line_box — usWin IS the line box (Word leads off it),
+        #        so the ink is allowed out and only the box is asserted.
+        #      otherwise — usWin is still the old ink-containing clip box.
+        if cfg.get("clip_equals_line_box"):
+            if (win_asc, -win_desc) != (asc, desc):
+                bad.append(f"{w}: clip {-win_desc}..{win_asc} != line box "
+                           f"{desc}..{asc} — Word leads off usWin, so a clip "
+                           f"box wider than the line box IS extra leading")
+        elif hi > win_asc or lo < -win_desc:
             bad.append(f"{w}: ink {lo:.0f}..{hi:.0f} escapes clip box "
                        f"{-win_desc}..{win_asc} — WILL CLIP")
         if os2.usWinAscent != win_asc or os2.usWinDescent != win_desc:
@@ -425,15 +458,24 @@ def check_box(fam, cfg):
                        f"!= expected {win_asc}/{win_desc}")
 
         got = box[0] - box[1] + box[2]      # this face's own pitch, not the expected
+        # TH-Aeonik carries `thai_wants_pitch` (the box is knowingly below it);
+        # TH-Slussen still carries `required_pitch` (the box is above it). Report
+        # whichever this family declares rather than assuming one of them exists.
+        want = cfg.get("thai_wants_pitch") or cfg.get("required_pitch")
+        note = ("Thai wants" if "thai_wants_pitch" in cfg else "Thai needs")
         rows.append(f"{w:<14} line {box[0]}/{box[1]}/{box[2]} = {got} "
-                    f"(Thai needs {cfg['required_pitch']}, Latin leads "
-                    f"{cfg['latin_pitch']}, {got / cfg['latin_pitch'] - 1:+.1%})  "
+                    f"({note} {want}, Latin leads {cfg['latin_pitch']}, "
+                    f"{got / cfg['latin_pitch'] - 1:+.1%})  "
                     f"clip {os2.usWinAscent}/{os2.usWinDescent}  "
                     f"ink {lo:.0f}..{hi:.0f}")
         f.close()
     if bad_pitch:
         bad.insert(0, bad_pitch)
-    record(f"3. {fam} line box clears two Thai lines, clip box contains ink",
+    label = ("line box == the Latin's exactly (Thai knowingly does not fit)"
+             if "thai_wants_pitch" in cfg else "line box clears two Thai lines")
+    tail = ("usWin == the line box"
+            if cfg.get("clip_equals_line_box") else "clip box contains ink")
+    record(f"3. {fam} {label}, {tail}",
            not bad, "\n".join(rows + bad))
     record(f"4. {fam} all weights share one line box",
            len(seen) == 1,
@@ -461,7 +503,7 @@ def check_shaping(fam, cfg):
     win_asc, win_desc = cfg["clip"]
     bad, worst = [], []
     for w in cfg["pairs"]:
-        p = cfg["dir"] / f"{fam}-{w}.ttf"
+        p = cfg["dir"] / f"{fam}-{w}.otf"
         if not p.exists():
             continue
         blob = hb.Blob.from_file_path(str(p))
@@ -493,10 +535,15 @@ def check_shaping(fam, cfg):
                      f"clip {-win_desc}..{win_asc}  "
                      f"(line {desc}..{asc}, overflow "
                      f"{max(0, hi - asc):.0f}/{max(0, -lo + desc):.0f} expected)")
-        if hi > win_asc or lo < -win_desc:
+        # Only asserted for families whose usWin is still an ink-containing clip
+        # box. Where usWin IS the line box, a shaped stack outside it is the
+        # accepted trade, not a defect — it is recorded in `worst` either way.
+        if not cfg.get("clip_equals_line_box") and (hi > win_asc or lo < -win_desc):
             bad.append(f"{w}: shaped stack reaches {lo:.0f}..{hi:.0f}, "
                        f"outside clip box {-win_desc}..{win_asc} — WILL CLIP")
-    record(f"5. {fam} shaped stacks stay inside the clip box "
+    scope = ("are measured against the line box"
+             if cfg.get("clip_equals_line_box") else "stay inside the clip box")
+    record(f"5. {fam} shaped stacks {scope} "
            f"({len(TEST_WORDS)} words)", not bad, "\n".join(worst + bad))
 
 
@@ -505,7 +552,7 @@ def check_ladder(fam, cfg):
     order = [w for w in cfg["pairs"] if "Italic" not in w]
     vals = []
     for w in order:
-        p = cfg["dir"] / f"{fam}-{w}.ttf"
+        p = cfg["dir"] / f"{fam}-{w}.otf"
         if p.exists():
             vals.append((w, stem(p, "กทบนผฝพฟ")))
     bad = []
@@ -532,7 +579,7 @@ def check_uniscribe(fam, cfg):
     import unicodedata
     bad, rows = [], []
     for w in cfg["pairs"]:
-        p = cfg["dir"] / f"{fam}-{w}.ttf"
+        p = cfg["dir"] / f"{fam}-{w}.otf"
         if not p.exists():
             continue
         f = TTFont(p, lazy=True)
@@ -571,7 +618,7 @@ def check_clearance(fam, cfg):
     """
     rows, bad = [], []
     for w in cfg["pairs"]:
-        p = cfg["dir"] / f"{fam}-{w}.ttf"
+        p = cfg["dir"] / f"{fam}-{w}.otf"
         if not p.exists():
             continue
         f = TTFont(p, lazy=True)
@@ -605,7 +652,7 @@ def check_baseline(fam, cfg):
     """
     rows, bad = [], []
     for w in cfg["pairs"]:
-        p = cfg["dir"] / f"{fam}-{w}.ttf"
+        p = cfg["dir"] / f"{fam}-{w}.otf"
         if not p.exists():
             continue
         f = TTFont(p, lazy=True)
