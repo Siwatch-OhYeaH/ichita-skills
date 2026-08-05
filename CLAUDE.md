@@ -77,47 +77,40 @@ Reach for the base skill for general editing, tracked changes, or anything non-b
 
 ## Bilingual Thai/Latin work
 
-The Thai side of the type system (`assets/fonts/aeonik-th/`, `slussen-th/`, `scripts/`, `qc/`)
-is a long-running font-engineering effort with its own hard-won constraints. Before touching
-weights, metrics, line pitch, or mark positioning:
+> **Read `docs/THAI-LATIN-FONT-ENGINEERING.md` before touching weights, metrics, line
+> pitch, mark positioning or glyph coverage.** It is the single, complete record — nine
+> sessions of measurements, ~30 defects, every falsified hypothesis, and the standard
+> rebuild/QC sequence. Six post-mortems and two plans were consolidated into it and moved
+> to `docs/archive/`; do not act on a conclusion from there without checking it first.
 
-1. Read `docs/postmortems/` — the same mistakes have been made and documented.
-2. **Word on Windows is the acceptance renderer, not HarfBuzz.** Linux shaping is structurally
-   blind to the Uniscribe defects this project keeps hitting. `powershell.exe` from WSL reaches
-   GDI, DirectWrite and Word COM — measure there.
-   **The outline format is part of the vertical metrics.** CFF and `glyf` rasterise through
-   different Windows engines (identical outlines, ~16–20% ink apart) *and* Word picks its line
-   pitch from a different field per format — `usWin` for CFF, `sTypo` for `glyf` with
-   USE_TYPO_METRICS, `max(hhea, usWin)` without it. So a format flip changes weight *and*
-   leading while every outline check stays green. `scripts/win_latin_parity.word_line_box()`
-   encodes the rule; never read a metric field directly to predict leading.
-3. **Rebuild all 18 faces from one code state**, copy to `~/.local/share/fonts/th-current/`,
-   `fc-cache -f`, *then* run QC. Committed fonts can disagree with the committed builder.
-4. `scripts/qc_th_fonts.py` check 6 (Thai Bold vs Black separation) **fails on purpose.** Do
-   not widen the tolerance to make it green. Bai has nothing heavier than Bold, so balanced
-   per-weight and Bold-distinct-from-Black are mutually exclusive from this source.
-5. Siwatch's visual defect reports are measurements to explain, not claims to verify.
-6. **Never prescribe `fix-th-fonts.sh --apply-system --restart`.** Siwatch installs via
-   Windows Settings. Give per-layer facts instead — `%LOCALAPPDATA%\Microsoft\Windows\Fonts`
-   shadows `C:\Windows\Fonts` — and close Word/PowerPoint before uninstalling.
-   `--check` is fine as a read-only report.
+The five things most likely to cost a day if you skip the document:
 
-Thai typography rule: Thai is sized to the Latin x-height and weight-matched by measured
-stem at ~0.89 of the Latin. **Aeonik's Latin is the benchmark, not Bai** — Siwatch ruled on
-this; Regular now runs ~+11% over Bai's own Regular by design. Before moving a ratio on a
-perceptual report, write down which two things were put side by side.
-
-**Ruled out, do not re-propose:** the Latin/Complex-Script two-font split. It is the clean
-fix for per-script line height and Siwatch rejected it — *"solve it with the font
-engineering, not by set up two separate fonts."* One font has one `hhea`, so the single-font
-answer is box → Aeonik's 1200 with the Thai shrunk to fit. Fix per-script problems in the
-font, never by asking for a document setting — the acceptance test is typing in plain Word.
+1. **Word on Windows is the acceptance renderer, not HarfBuzz.** Linux is structurally
+   blind to the Uniscribe defects this project keeps hitting. `powershell.exe` from WSL
+   reaches GDI, DirectWrite and Office COM — measure there.
+2. **The outline format is part of the vertical metrics, and PowerPoint reads none of
+   them.** Word takes CFF line pitch from `usWin`, `glyf`+USE_TYPO_METRICS from `sTypo`,
+   `glyf` without the bit from `max(hhea, usWin)`; PowerPoint uses a fixed 1.2 em for
+   every font. Never read a metric field to predict leading — use
+   `scripts/win_latin_parity.word_line_box()`.
+3. **The face is chosen by the document's language** — English-only → Aeonik (box 1200),
+   Thai or mixed → TH Aeonik (box 1537). Siwatch, 2026-08-05. The accepted cost is that
+   English-only paragraphs inside a mixed document lead ~28% wider; **do not "fix" it**,
+   fixing it is what produced the 08-04 defect.
+4. **Rebuild every face from one code state**, copy to `~/.local/share/fonts/th-current/`,
+   `fc-cache -f`, *then* run QC. Committed fonts disagree with the committed builder.
+   `qc_th_fonts.py` check 6 **fails on purpose** — expected state **19/20**.
+5. **Siwatch's visual defect reports are measurements to explain, not claims to verify.**
+   Every one has been correct. **Never prescribe `fix-th-fonts.sh --apply-system
+   --restart`** — he installs via Windows Settings; `--check` is a fine read-only report.
 
 ## Working agreements
 
 - **Look at the artifact.** Export to PDF or PNG and read it before claiming a visual fix.
   A green test is not evidence; verify what the test actually asserts.
 - Communication is bilingual TH/EN — never assume a Latin-only line is the whole case.
-- Post-mortems go in `docs/postmortems/YYYY-MM-DD-slug.md`. Plans in `docs/plans/`.
+- **Font findings go into `docs/THAI-LATIN-FONT-ENGINEERING.md`, not a new post-mortem.**
+  That file is the deliberate replacement for a growing pile of dated documents — update
+  the relevant section and the state in §13. Plans for non-font work go in `docs/plans/`.
 - `test-output/` is scratch. Regenerate freely; don't treat it as a fixture.
 - Font work is measured, not eyeballed: change one variable, re-measure, record the number.

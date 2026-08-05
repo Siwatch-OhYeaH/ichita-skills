@@ -76,24 +76,63 @@ THAI_SCALE = 0.9             # Thai 9pt / English 10pt — Bai Jamjuree one size
 # next. Siwatch's acceptance test, 2026-08-03: `สูง` on one line, `ซึ่ง` directly
 # below, "ต้องเว้นวรรคมากพอแบบชัดเจน".
 #
-# No Thai font clears this at its own line box — not Bai, and not Sarabun, which
-# needs 1.657 against a box of 1.300. The clearance has to come from the
-# document, because the alternatives are to break the rule that the merged line
-# box equals the Latin source's (that was the 42% leading defect) or to shrink
-# the marks back toward the fusing th_mark_clearance.py just fixed.
+# Bai Jamjuree does not clear this at its own line box — 1.639 needed against a box
+# of 1.250 — and this repo does not build Bai, so in SPLIT mode the paragraph
+# property is the only thing holding two Thai lines apart. Keep it.
+#
+# The claim that used to sit here — "the clearance has to come from the document,
+# because the alternative is to break the rule that the merged line box equals the
+# Latin source's" — is FALSIFIED. That rule was one day's trade, not a principle,
+# and it is gone: since 2026-08-05 the merged font carries its own clearance
+# (TH_LINE_RATIO below). The document layer is belt and braces there, and load-
+# bearing only for Bai.
 #
 # Regenerate after any font rebuild — the mark-clearance pass moves these:
 #     python3 scripts/thai_line_pitch.py --check
 THAI_LINE_RATIO = 1.64       # Bai Jamjuree worst face, × Thai pt (= 0.9 × Latin pt)
-TH_LINE_RATIO   = 1.63       # TH-Aeonik 1.539 / TH-Slussen 1.625, × Latin pt
+
+# TH-Aeonik's OWN line box, as a multiple of the Latin point size. 1.63 -> 1.537
+# on 2026-08-05, and the change is not a tweak: at 1.63 this would have ADDED 6%
+# of leading on top of a font that already carries its clearance.
+#
+# Until 2026-08-05 the merged font's box was Aeonik's 1200, too small for two Thai
+# lines, and this ratio was the only thing holding them apart — so it had to
+# exceed the box. The font is now sized to what the Thai needs (1537), so
+# `atLeast` at exactly 1.537 is a deliberate NO-OP: it matches the box, adds
+# nothing, and still fails safe if the font is missing and Word substitutes.
+#
+# Regenerate after any font rebuild — the mark-clearance pass moves this:
+#     python3 scripts/thai_line_pitch.py --check
+TH_LINE_RATIO   = 1.537      # TH-Aeonik's own box, 1537/1000 em
 
 # `atLeast`, never `Exactly`. Exactly is a fixed box and is where Word genuinely
 # clips marks; atLeast lets the line grow instead. The previous 1.46 ratio was
 # derived from one stack in isolation and paired with Exactly, so it both sat
 # ~2pt too tight and clipped when it was exceeded.
-# docs/postmortems/2026-08-02-th-font-line-box-overcorrection.md
+# docs/THAI-LATIN-FONT-ENGINEERING.md (§3); the original is docs/archive/2026-08-02-th-font-line-box-overcorrection.md
 MONO_FONT  = "Courier New"
-TH_AEONIK_MODE = False       # True when TH Aeonik (unified Latin+Thai) is installed
+
+# THE FONT IS A FUNCTION OF THE DOCUMENT'S LANGUAGE — Siwatch, 2026-08-05.
+#
+#     no Thai anywhere  ->  Aeonik      box 1200, native leading
+#     any Thai at all   ->  TH Aeonik   box 1537, one font for both scripts
+#
+# Set per document by select_fonts_for_source(), not hardcoded. False here is only
+# the value that applies before a source has been read.
+#
+# Why the generator decides and not a human: the generator has the whole document
+# in front of it, and a human declaring "this one is English-only" is a claim that
+# is wrong the moment somebody pastes a Thai place name into a table. `--font-mode`
+# exists for the case where the answer really is a person's call.
+#
+# This is also the change that makes any of the font work reach generated output.
+# `TH_AEONIK_MODE = False` was hardcoded until 2026-08-05, so every generated DOCX
+# used split fonts and none of the merged-font engineering touched them.
+TH_AEONIK_MODE = False
+
+# Thai block, U+0E00-U+0E7F. Detection is on the SOURCE TEXT, so it sees content
+# the reader will see, including Thai inside tables, headings and link labels.
+THAI_BLOCK = ('฀', '๿')
 
 # Check system font dirs + bundled Aeonik-Essentials-Web for Aeonik
 _font_dirs = [
@@ -107,18 +146,99 @@ _font_dirs = [
     "/usr/local/share/fonts",
 ]
 
-# TH Aeonik unified-font mode disabled — always use split fonts
-# (Aeonik for Latin + Bai Jamjuree for Thai). This preserves per-script
-# language tagging so Word's spell checker uses the correct dictionary
-# for each script (en-US for Latin, th-TH for Thai).
-TH_AEONIK_MODE = False
-
 # Aeonik detection for Latin script
 for _fd in _font_dirs:
     if os.path.isdir(_fd):
         if any("aeonik" in f.lower() for f in os.listdir(_fd)):
             BRAND_FONT = "Aeonik"
             break
+
+# The name that must resolve on the target machine for unified mode to be honest.
+# If it is not installed, Word substitutes and the document leads off whatever it
+# picked — so selection checks for it rather than assuming.
+TH_AEONIK_FAMILY = "TH Aeonik"
+
+
+def _font_files(font_dir, max_depth=2):
+    """Font filenames under `font_dir`, RECURSIVELY.
+
+    Recursive because font directories are nested in practice: this repo installs
+    to ~/.local/share/fonts/th-current/, and a flat os.listdir() of the parent
+    sees only the directory name. A non-recursive check reported TH Aeonik as
+    missing while 18 faces sat one level down.
+    """
+    out = []
+    base_depth = font_dir.rstrip(os.sep).count(os.sep)
+    for root, dirs, files in os.walk(font_dir):
+        if root.count(os.sep) - base_depth >= max_depth:
+            dirs[:] = []
+        out.extend(f.lower() for f in files)
+    return out
+
+
+def _has_th_aeonik():
+    """Is TH Aeonik installed? Checked, because unified mode depends on it."""
+    for fd in _font_dirs:
+        if os.path.isdir(fd):
+            if any("th-aeonik" in n or "th aeonik" in n
+                   for n in _font_files(fd)):
+                return True
+    return False
+
+
+def document_has_thai(text):
+    """True if `text` contains any Thai codepoint."""
+    lo, hi = THAI_BLOCK
+    return any(lo <= c <= hi for c in text)
+
+
+def select_fonts_for_source(text, mode="auto", quiet=False):
+    """Choose the font for this document and return the name chosen.
+
+    THE DECISION IS LOGGED, ALWAYS. A silent font choice is how
+    `TH_AEONIK_MODE = False` sat hardcoded for days while five days of font
+    engineering never reached a single generated document — nothing in the output
+    said which font it had used, so there was nothing to notice.
+
+    mode:
+      auto        any Thai in the source -> TH Aeonik, otherwise Aeonik
+      aeonik      force split fonts (Aeonik + Bai Jamjuree per script)
+      th-aeonik   force the unified merged face
+    """
+    global TH_AEONIK_MODE, BRAND_FONT
+
+    thai = document_has_thai(text)
+    if mode == "aeonik":
+        TH_AEONIK_MODE = False
+        why = "forced by --font-mode aeonik"
+    elif mode == "th-aeonik":
+        TH_AEONIK_MODE = True
+        why = "forced by --font-mode th-aeonik"
+    else:
+        TH_AEONIK_MODE = thai
+        why = ("source contains Thai" if thai else "source is Latin-only")
+
+    if TH_AEONIK_MODE:
+        if not _has_th_aeonik():
+            # Reported, not fixed by silently falling back. A fallback here would
+            # produce a document that looks right on this machine and reflows on
+            # Siwatch's, which is worse than a warning.
+            if not quiet:
+                print(f"  !! font: {TH_AEONIK_FAMILY} is not installed on this "
+                      f"machine. The DOCX will still request it — Word on a "
+                      f"machine that has it renders correctly, and one that does "
+                      f"not will substitute and reflow.")
+        BRAND_FONT = TH_AEONIK_FAMILY
+        detail = f"{TH_AEONIK_FAMILY} for both scripts, line box 1537"
+    else:
+        detail = (f"{BRAND_FONT} for Latin + {THAI_FONT} for Thai, "
+                  f"line box 1200")
+        if thai:
+            detail += "  (source HAS Thai — split fonts were forced)"
+
+    if not quiet:
+        print(f"  font: {detail}  [{why}]")
+    return BRAND_FONT
 
 
 def thai_line_pt(latin_pt):
@@ -129,7 +249,13 @@ def thai_line_pt(latin_pt):
     same size in unified mode, one step down in split mode.
     """
     if TH_AEONIK_MODE:
-        return Pt(math.ceil(latin_pt * TH_LINE_RATIO))
+        # NOT rounded up, unlike the split branch. This ratio IS the font's own
+        # box, so the exact value makes `atLeast` a no-op; ceil() to whole points
+        # would add up to a point of leading the font does not need — 15.37 pt
+        # becomes 16 pt at a 10 pt body size, which is the 4% nobody asked for.
+        return Pt(latin_pt * TH_LINE_RATIO)
+    # Rounded UP in split mode, where this property is the only thing keeping two
+    # Thai lines apart and erring generous is the safe direction.
     return Pt(math.ceil(latin_pt * THAI_SCALE * THAI_LINE_RATIO))
 
 # ── Import shared header/footer helpers ─────────────────────────────────────
@@ -612,19 +738,25 @@ def add_title_page_band(doc):
 
 # ── Main Conversion ──────────────────────────────────────────────────────────
 
-def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False):
+def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False,
+                       font_mode="auto"):
     """Convert a Markdown file to an Ichita-branded DOCX.
 
     Args:
         input_path: Path to source .md file
         output_path: Path to write .docx output
         logo_path: Path to logo PNG for header (default: bundled Ichita wordmark)
+        font_mode: "auto" (Thai in the source -> TH Aeonik), "aeonik", "th-aeonik"
     """
     if logo_path is None:
         logo_path = DEFAULT_LOGO
 
     with open(input_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
+
+    # BEFORE anything reads BRAND_FONT or thai_line_pt(). Every style below is
+    # built from the answer, so the decision has to be made first.
+    select_fonts_for_source("".join(lines), font_mode)
 
     doc = Document()
 
@@ -983,9 +1115,10 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False):
     print(f"  Size: {size:,} bytes ({size/1024:.1f} KB)")
     print(f"  Paragraphs: {para_count}, Tables: {table_count}")
     if TH_AEONIK_MODE:
-        print(f"  Font: {BRAND_FONT} (unified Latin+Thai)")
+        print(f"  Font: {BRAND_FONT} (unified Latin+Thai, line box 1537)")
     else:
-        print(f"  Font: {BRAND_FONT} + {THAI_FONT} (Thai, {THAI_SCALE}x)")
+        print(f"  Font: {BRAND_FONT} + {THAI_FONT} (Thai, {THAI_SCALE}x), "
+              f"line box 1200")
     print(f"  Brand: ICHITA -- Separation Technologies")
 
 
@@ -1006,6 +1139,12 @@ def main():
     parser.add_argument("--compact", action="store_true",
                         help="Tighter margins, spacing and heading sizes "
                              "(for dense one-page briefs)")
+    parser.add_argument("--font-mode", default="auto",
+                        choices=["auto", "aeonik", "th-aeonik"],
+                        help="auto (default): any Thai in the source selects "
+                             "TH Aeonik, otherwise Aeonik. aeonik: force split "
+                             "Aeonik + Bai Jamjuree. th-aeonik: force the unified "
+                             "merged face. The choice is printed either way.")
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
@@ -1023,7 +1162,8 @@ def main():
 
     print(f"Converting: {os.path.basename(args.input)}")
     print(f"Brand style: ICHITA")
-    convert_md_to_docx(args.input, output, logo_path=logo, compact=args.compact)
+    convert_md_to_docx(args.input, output, logo_path=logo, compact=args.compact,
+                       font_mode=args.font_mode)
 
 
 if __name__ == "__main__":

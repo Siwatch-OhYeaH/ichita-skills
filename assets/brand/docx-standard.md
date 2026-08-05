@@ -24,12 +24,42 @@
 
 ## Fonts
 
+**The face is chosen by the document's language** — brand policy, Siwatch
+2026-08-05. See `ichita-defaults.md` §4 for the reasoning; this is the DOCX side.
+
+### English-only documents — split fonts
+
 | Role            | Font              | Fallback            | Notes              |
 |-----------------|-------------------|----------------------|--------------------|
-| Latin           | Aeonik            | Calibri             |                    |
+| Latin           | Aeonik            | Calibri             | line box 1200      |
 | Thai            | Bai Jamjuree      | TH Sarabun New      | Scale 0.9x         |
 | Display numbers | Betatron          | —                   | Headlines, callouts |
 | Code            | Courier New       | —                   | Monospaced         |
+
+Line spacing: `w:lineRule="atLeast"` at `ceil(1.476 × Latin pt)`. Bai Jamjuree's
+own box (1250) is 314 units short of what its Thai needs, and this repo does not
+build Bai — so in split mode the paragraph property is the *only* thing holding
+two Thai lines apart. Keep it.
+
+### Thai or mixed documents — one unified font
+
+| Role            | Font              | Fallback            | Notes              |
+|-----------------|-------------------|----------------------|--------------------|
+| Latin **and** Thai | **TH Aeonik**  | Aeonik + Bai split  | line box **1537**, scale 1.0 |
+| Display numbers | Betatron          | —                   | Headlines, callouts |
+| Code            | Courier New       | —                   | Monospaced         |
+
+Line spacing: `atLeast` at `1.537 × Latin pt`, which is **exactly the font's own
+box and therefore a deliberate no-op**. It costs nothing and fails safe if the font
+is missing and Word substitutes. Do *not* raise it — the font already carries the
+clearance, and anything above 1.537 adds leading nobody asked for.
+
+Set `w:ascii`, `w:hAnsi`, `w:cs` and `w:eastAsia` all to `TH Aeonik`: one font for
+every script slot, so no run can pick up a different line height.
+
+**Selection is automatic.** `md_to_docx.py`, `html_to_docx.py` and
+`docx_helpers.resolve_font()` scan the source for Thai (U+0E00–U+0E7F) and log the
+face they chose. `--font-mode {auto,aeonik,th-aeonik}` overrides it.
 
 ---
 

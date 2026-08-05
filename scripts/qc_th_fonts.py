@@ -11,12 +11,25 @@ worse than no test — it was cited across two post-mortems as proof of success.
 
 WHAT "IDENTICAL TO THE SOURCE" MEANS HERE, per Siwatch 2026-08-02:
 
-  Latin outlines  identical to Aeonik / Slussen. Asserted per glyph.
-  Line box        NOT identical to Aeonik / Slussen, since 2026-08-03. At Word's
-                  Single spacing the line box is the only room two consecutive
-                  Thai lines have, and the Latin box is 334 units short. Check 3
-                  asserts it clears the Thai and that the deviation is exactly
-                  the documented one.
+  Latin outlines  identical to Aeonik / Slussen across ASCII, asserted per glyph
+                  in the builders' verify_font(). TWO DELIBERATE EXCEPTIONS since
+                  2026-08-05: `∆` U+2206 and `µ` U+00B5 carry the web cut's
+                  redrawn outline, because the Greek Δ and μ were harvested from
+                  there and a Greek letter cannot render 9 units apart from its
+                  maths twin in the same word. Both are outside ASCII, so the
+                  per-glyph assertion is untouched — but the claim "identical to
+                  Aeonik" now has two documented holes and must not be read as
+                  absolute. See scripts/th_greek.py.
+  Line box        NOT identical to Aeonik / Slussen, and since 2026-08-05 that is
+                  settled rather than contested. At Word's Single spacing the line
+                  box is the only room two consecutive Thai lines have, and the
+                  Latin box is 337 units short. The 2026-08-04 attempt to make
+                  TH Aeonik lead exactly as Aeonik does was reversed by choosing
+                  the FONT BY THE DOCUMENT'S LANGUAGE instead: English-only
+                  documents use Aeonik itself, mixed Thai/English use TH Aeonik,
+                  so no merged face has to lead like its Latin source. Check 3
+                  asserts the box clears the Thai AND that the deviation is
+                  exactly the documented one.
   Thai            NOT identical to Bai Jamjuree, deliberately. Bai's Thai is
                   drawn for Bai's own Latin, and Bai's own mark placement is
                   too tight to survive Word at text sizes. It is rescaled,
@@ -30,8 +43,10 @@ The reference here is the LATIN the Thai actually shares a line with:
              Latin were drawn together runs Thai ~0.89-0.93 of the Latin, and
              widens the gap toward Bold. Asserting 1.0 is what shipped an
              unreadable Bold on 2026-08-02.
-  3  box     line box (hhea == sTypo) clears two stacked Thai lines; clip box
-             (usWin) holds the ink
+  3  box     line box (hhea == sTypo == usWin) clears two stacked Thai lines.
+             usWin is a third copy of the line box, not a clip box sized to the
+             ink: Word leads CFF faces off usWin, and unifying all three sets is
+             what makes the pitch independent of which field a renderer reads
   4  family  all weights share one line box
   5  shaping real words with stacked vowels+tones stay inside the box,
              including the GSUB-only .small mark variants that no cmap walk
@@ -89,22 +104,31 @@ FAMILIES = {
             "BoldItalic": "Aeonik-BoldItalic.otf",
             "BlackItalic": "Aeonik-BlackItalic.otf",
         },
-        # LINE box — Aeonik's own 1000/-200/0, to the unit, from 2026-08-04.
-        # TH Aeonik must be a drop-in Aeonik replacement, and one font has one
-        # `hhea`, so the Thai does NOT fit and that is deliberate. See the long
-        # note above ASCENT in build_th_aeonik.py.
-        "box": (1000, -200, 0),
-        # What the Thai WOULD need for two consecutive lines to clear. The box is
-        # knowingly below it, so this is recorded and reported, NOT asserted as a
-        # floor — asserting it would fail the build on the accepted trade.
-        "thai_wants_pitch": 1537,
+        # LINE box — 1537, what the Thai measured out at, from 2026-08-05.
+        #
+        # Reverses the 1000/-200/0 pinned on 2026-08-04. TH Aeonik is no longer a
+        # drop-in Aeonik replacement: the font is chosen by the document's
+        # language, English-only documents use Aeonik itself, so nothing here has
+        # to lead like Aeonik. The 262-unit Thai overlap that 1200 forced is
+        # retired rather than tolerated.
+        #
+        # The split: ascent 1169 >= the family's worst upper stack (1139, Black),
+        # descent 368 >= its worst lower tail (341, AirItalic). Those two land on
+        # DIFFERENT faces and all 14 share one box, so the split is sized to the
+        # family envelope. The 57 units of slack keep the Latin optically centred
+        # — Aeonik's 1000/-200 grows by 169 above and 168 below.
+        "box": (1169, -368, 0),
+        # Now a FLOOR, asserted, not a recorded shortfall: the box meets it. The
+        # per-face version of this check runs in build_th_aeonik.assert_thai_clears()
+        # against the built file, where the shaped extents are real.
+        "required_pitch": 1537,
         "latin_pitch": 1200,
         # usWin is a THIRD copy of the line box, not a clip box sized to the ink.
-        # Word leads off usWinAscent+usWinDescent, measured 2026-08-04: with hhea
-        # and sTypo both already at Aeonik's 1200 and usWin at 1800, Word still
-        # led TH Aeonik 1.504x Aeonik. So usWin must equal the line box, and the
-        # Thai ink is allowed outside it — Segoe UI overflows its own by 379.
-        "clip": (1000, 200),
+        # Word leads off usWinAscent+usWinDescent for CFF faces, measured
+        # 2026-08-04: with hhea and sTypo both at 1200 and usWin at 1800, Word
+        # still led TH Aeonik 1.504x Aeonik. So usWin must equal the line box, and
+        # the Thai ink is allowed outside it — Segoe UI overflows its own by 379.
+        "clip": (1169, 368),
         "clip_equals_line_box": True,
     },
     "TH-Slussen": {
@@ -116,13 +140,25 @@ FAMILIES = {
             "SemiBold": "Slussen-Semibold.otf",
             "Bold": "Slussen-Bold.otf",
         },
-        # 1610 -> 1625 on 2026-08-03 (evening). The taper thinned SemiBold, the
-        # clearance pass then settled its marks 22 units higher, and the line box
-        # follows the ink. See build_th_slussen.py REQUIRED_PITCH.
-        "box": (1210, -415, 0),
-        "required_pitch": 1625,
+        # 1610 -> 1625 on 2026-08-03 (evening) -> 1602 on 2026-08-05, when Siwatch
+        # put this family on the same RULE as TH-Aeonik: box = the Thai's measured
+        # need + margin, hhea == sTypo == usWin. Not the same NUMBER — Slussen's
+        # Thai is taller, so 1602 against Aeonik's 1537.
+        #
+        # The split: ascent 1233 >= the worst upper stack (1185, Bold), descent 369
+        # >= the worst lower tail (354, Regular). Different faces again.
+        "box": (1233, -369, 0),
+        "required_pitch": 1602,
+        # Slussen's hhea is 1512, but it carries a 166-unit lineGap and ships CFF,
+        # so Word leads it off usWin 1596 — which is what the ratio in
+        # win_latin_parity.EXPECTED_LINE_RATIO is taken against. `latin_pitch` here
+        # is the hhea box, asserted only so a Slussen update cannot move silently.
         "latin_pitch": 1512,
-        "clip": (1390, 590),
+        # usWin was 1390/590 = 1980, an ink-containing clip box against a 1625 line
+        # box. For a CFF face that is a silent +21.7% of leading, and this family
+        # has shipped CFF since 2026-08-04. Unified 2026-08-05.
+        "clip": (1233, 369),
+        "clip_equals_line_box": True,
     },
 }
 
@@ -374,30 +410,36 @@ def check_box(fam, cfg):
     only room two consecutive Thai lines have, and Aeonik's 1200 is 334 units
     short of what the Thai needs.
 
-    THIRD VERSION, 2026-08-04. The "at least what the Thai needs" floor is gone
-    for TH-Aeonik, because Siwatch reversed the trade: the Latin must lead exactly
-    as Aeonik does, the Latin/Complex-Script split that satisfies both was ruled
-    out, and shrinking the Thai marks was measured and cannot close the gap (a 25%
-    reduction buys 35 units; see scripts/solve_mark_scale.py). So the Thai
-    knowingly does not fit.
+    THIRD VERSION, 2026-08-04. The "at least what the Thai needs" floor was
+    removed for TH-Aeonik, because the box went to Aeonik's 1200 and the Thai
+    knowingly did not fit. That is the version this comment used to end on.
 
-    What is asserted is the NUMBER — the exact documented box — in both the merged
-    font and its Latin source. That is deliberate rather than lazy: this codebase
-    has repeatedly encoded a defect as a *relationship* that read like a principle
-    ("the line box equals the Latin source's" survived two days and four checks).
-    A number is falsifiable on sight.
+    FOURTH VERSION, 2026-08-05, and the floor is back — for a reason that is not
+    "we changed our minds again". The 08-04 requirement was that Latin-only text
+    inside a TH-Aeonik document lead exactly as Aeonik does. Siwatch dissolved it
+    by choosing the font per document instead: English-only -> Aeonik, mixed ->
+    TH Aeonik. With no requirement to match Aeonik's box, both families are back
+    on one rule — box = the Thai's measured need + margin, with hhea, sTypo and
+    usWin all carrying it — and `required_pitch` is a real floor for both.
 
-    `thai_wants_pitch` is reported, not asserted. Asserting it would fail the build
-    on the accepted trade; printing it keeps the shortfall visible so it cannot
-    grow past what was agreed.
+    BOTH HALVES ARE ASSERTED, and each one alone has failed this repo before:
+
+      * THE NUMBER — the exact documented box, in the merged font and in its Latin
+        source. Pinning only a relationship is unreviewable: "the line box equals
+        the Latin source's" read like a principle for two days while encoding a
+        defect, and four checks asserted it.
+      * THE FLOOR — `required_pitch`. Pinning only a number is what let the box sit
+        337 units under the Thai with every check green. The per-face version runs
+        in build_th_aeonik.assert_thai_clears() against the built file, where the
+        shaped extents are measured rather than inherited from a config constant.
     """
     asc, desc, gap = cfg["box"]
     pitch = asc - desc + gap
-    wants = cfg.get("thai_wants_pitch")
-    if wants is not None and pitch < wants:
-        # Reported, not a failure. See the docstring.
-        bad_pitch = None
-    elif cfg.get("required_pitch") and pitch < cfg["required_pitch"]:
+    # One rule for both families since 2026-08-05. The `thai_wants_pitch` key that
+    # used to make this a report rather than a failure is gone, deliberately: a
+    # config key that downgrades an assertion is how the 08-04 shortfall stayed
+    # green, and leaving it in place would let the next box do the same.
+    if pitch < cfg["required_pitch"]:
         bad_pitch = (f"line box {pitch} is below the {cfg['required_pitch']} the "
                      f"Thai needs — two Thai lines will collide at Single spacing")
     else:
@@ -458,21 +500,16 @@ def check_box(fam, cfg):
                        f"!= expected {win_asc}/{win_desc}")
 
         got = box[0] - box[1] + box[2]      # this face's own pitch, not the expected
-        # TH-Aeonik carries `thai_wants_pitch` (the box is knowingly below it);
-        # TH-Slussen still carries `required_pitch` (the box is above it). Report
-        # whichever this family declares rather than assuming one of them exists.
-        want = cfg.get("thai_wants_pitch") or cfg.get("required_pitch")
-        note = ("Thai wants" if "thai_wants_pitch" in cfg else "Thai needs")
+        want = cfg["required_pitch"]
         rows.append(f"{w:<14} line {box[0]}/{box[1]}/{box[2]} = {got} "
-                    f"({note} {want}, Latin leads {cfg['latin_pitch']}, "
+                    f"(Thai needs {want}, Latin leads {cfg['latin_pitch']}, "
                     f"{got / cfg['latin_pitch'] - 1:+.1%})  "
                     f"clip {os2.usWinAscent}/{os2.usWinDescent}  "
                     f"ink {lo:.0f}..{hi:.0f}")
         f.close()
     if bad_pitch:
         bad.insert(0, bad_pitch)
-    label = ("line box == the Latin's exactly (Thai knowingly does not fit)"
-             if "thai_wants_pitch" in cfg else "line box clears two Thai lines")
+    label = "line box clears two Thai lines"
     tail = ("usWin == the line box"
             if cfg.get("clip_equals_line_box") else "clip box contains ink")
     record(f"3. {fam} {label}, {tail}",

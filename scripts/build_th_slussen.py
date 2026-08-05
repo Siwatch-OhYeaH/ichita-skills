@@ -21,7 +21,9 @@ Pipeline steps:
   2. Union GPOS/GDEF/GSUB from Bai Jamjuree onto Slussen's own (mark positioning)
   3. Apply metadata — RIBBI naming, OS/2
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
-  5. Vertical metrics — one box for hhea/sTypo/usWin, asserted to contain the ink
+  4b. Greek/math coverage via scripts/th_greek.py — for Slussen this is only the
+     Σ and ⌀ aliases; Slussen v1 already ships Δ, μ and Ω
+  5. Vertical metrics — ONE box carried by hhea, sTypo AND usWin
   6. Sort GSUB/GPOS Coverage tables + clean Mac cmap (Uniscribe compliance)
   7. Swap `glyf` back to CFF — Slussen's charstrings verbatim, Thai appended
   8. Verify — Thai cmap, Latin match, GPOS, OS/2 bits, metrics
@@ -30,10 +32,13 @@ Sources:
   Latin: Slussen OTF (OneDrive path preferred, fallback assets/fonts/slussen/)
   Thai:  Bai Jamjuree (local assets preferred, fallback system fonts)
 
-Line box (hhea = sTypo = 1074/-272/166) — Slussen's own, to the unit, so a
-  paragraph does not reflow when switched between Slussen and TH-Slussen.
-Clip box (usWin = 1310/590) — sized to contain the merged ink, which overflows
-  the line box by design. Every Thai font does this; see build_th_aeonik.py.
+Line box: hhea = sTypo = usWin = 1233/-369/0 = 1602, from 2026-08-05. ONE box in
+  all three metric sets, sized to what the Thai measured out at (need 1527 +
+  margin 75) rather than to Slussen's own. Unifying the three is the whole
+  cross-platform strategy: which field a renderer consults is not fixed — Word
+  takes CFF pitch from usWin — so the font yields 1602 whichever one is read.
+  usWin is NOT an ink-containing clip box any more; the ink is allowed outside,
+  exactly as Tahoma's and Segoe UI's are. See the long note above ASCENT.
 
 Acceptance test: scripts/compare_th_slussen.py — checks Thai against the LATIN
 it shares a line with (x-height, stem weight, ink containment). The previous
@@ -64,6 +69,7 @@ from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E
 from th_mark_clearance import raise_upper_marks
 from th_baseline import seat_thai_on_baseline
 from th_cff import assert_advance_single_source, convert_to_cff
+import th_greek
 
 warnings.filterwarnings("ignore")
 
@@ -99,43 +105,160 @@ MAC_ITALIC = 1 << 1
 #
 # Every weight shares these, otherwise bolding a word changes the line height.
 #
-# Raised from Slussen's own 1074/-272/166 = 1512 on 2026-08-03: at Word's Single
-# spacing the line box is the only room two consecutive Thai lines have, and the
-# measured requirement is 1573-1598 across the four faces. See the long note in
-# build_th_aeonik.py — Slussen gets off lightly at +5.8% because its own box was
-# already generous, where Aeonik's 1200 needed +28%.
-ASCENT, DESCENT, LINEGAP = 1210, -415, 0        # 1625; Slussen-Regular.otf is 1512
+# ---------------------------------------------------------------------------
+# 2026-08-05: THE FULL PARITY TREATMENT. Box 1625 -> 1602, and usWin unified.
+# ---------------------------------------------------------------------------
+#
+# Siwatch chose the consistent rule over the cheap fix. TH-Slussen now gets the
+# same RULE as TH-Aeonik — box = the Thai's measured need + margin, with hhea,
+# sTypo and usWin all carrying it — which is NOT the same NUMBER. Slussen's Thai
+# is taller, so 1602 where Aeonik lands at 1537. "Follows the Aeonik decision"
+# has been misread as "takes Aeonik's box" before; it means the rule.
+#
+# The usWin half is the important half, and it was a live latent defect rather
+# than a tidiness issue. Until now the built .otf carried usWin 1390/590 = 1980
+# against a 1625 line box, from the era when usWin was an ink-containing clip box.
+# Word leads CFF faces off usWin, and this family ships CFF since 2026-08-04 — so
+# installing it would have had Word lead TH Slussen at 1980, a silent +21.7% that
+# has nothing to do with the outlines and nothing to do with any decision anyone
+# took. The old .ttf hid it: the glyf branch ignores usWin entirely, which is why
+# the installed font measured 1627 and looked fine. A FORMAT FLIP RELOCATES THE
+# SPACING CONTROL — see win_latin_parity.word_line_box for the branch table.
+#
+# ---------------------------------------------------------------------------
+# THE SPLIT, measured across all four faces (scripts/thai_line_pitch.py):
+# ---------------------------------------------------------------------------
+#
+#   worst UPPER stack  1185  on TH-Slussen-Bold
+#   worst LOWER tail    354  on TH-Slussen-Regular
+#   envelope           1539  ->  1602 leaves 63 units of slack
+#
+# The two constraints land on DIFFERENT FACES and all four share one box, so the
+# split is sized to the family envelope, not to a face.
+#
+# How the slack is spent differs from TH-Aeonik's, and the reason is worth stating
+# because the rule is the same and only the binding constraint changed. Aeonik's
+# frame (1000/-200) could be grown symmetrically to 1537 and still clear the Thai
+# on both sides, so it was — the Latin stays optically centred. Slussen's frame is
+# usWin 1262/-334 = 1596 (usWin, because that is what Word leads a CFF face off,
+# not its hhea 1512 with a 166 gap). Growing THAT symmetrically to 1602 gives
+# 1265/-337, and 337 is below the Thai's 354 — the Thai binds on the bottom, so
+# the Latin cannot stay centred.
+#
+# Where the Latin-symmetric split is blocked, the slack goes over the Thai
+# envelope in proportion to each side's demand: 1185/1539 and 354/1539 of 63.
+#
+#   ascent  1185 + 48 = 1233   (48 spare above the worst stack)
+#   descent  354 + 15 =  369   (15 spare below the worst tail)
+#
+# Cost to the Latin: its baseline sits 29 units — 0.43 px at 11 pt — higher in the
+# line than in Slussen itself, with 35 units more below. Negligible, and it is the
+# direction that gives the Thai room rather than taking it.
+#
+# CONFIRM IN WORD after install: if the Latin reads high, these 63 units can be
+# redistributed without touching the box. The box is the decision; the split is a
+# measurement and is re-derivable.
+ASCENT, DESCENT, LINEGAP = 1233, -369, 0        # 1602; Slussen's own usWin is 1596
+
+# LINEGAP stays 0 and must: usWin has no lineGap field, so hhea == sTypo == usWin
+# is only expressible with the gap folded into the ascent and descent. This is why
+# Slussen's own 166-unit gap does not survive into the merged face.
 
 # Minimum the Thai needs, from scripts/thai_line_pitch.py: worst face (SemiBold)
-# 1550 of ink extent plus the 75-unit margin.
+# 1527 of shaped ink extent plus the 75-unit margin.
 #
 # 1603 -> 1625 on 2026-08-03 (evening), and NOT because anything got heavier —
 # the taper thinned SemiBold by 20 units. A thinner consonant is a smaller
 # obstacle, so th_mark_clearance's iterative lift settles the mark HIGHER before
 # it clears the 72 target, and the shaped stack grows 22 units taller. The line
-# box follows the ink, not the weight. Re-run thai_line_pitch.py --check after
-# any rebuild; this number moves whenever the clearance pass does.
-REQUIRED_PITCH = 1625
+# box follows the ink, not the weight. 1625 -> 1602 on 2026-08-05 is the same
+# effect in reverse plus the removal of the leftover headroom: the box is now
+# exactly need + margin. Re-run thai_line_pitch.py --check after any rebuild; this
+# number moves whenever the clearance pass does.
+REQUIRED_PITCH = 1602
 
-# Clip box. Measured static ink across the four faces is -535..+1255 (deepest
-# TH-Slussen-SemiBold:uni0E38.small, highest TH-Slussen-Bold:Aringacute); the
-# worst shaped stack lands at +1142 (อึ๋ม) / -349 (ทุก). Cleared with headroom.
-WIN_ASCENT, WIN_DESCENT = 1390, 590
+# The margin folded into REQUIRED_PITCH — thai_line_pitch.MARGIN, Leelawadee UI's
+# own spare, about one pixel at 11 pt / 96 dpi.
+MARGIN_UNITS = 75
+
+# usWin is the THIRD COPY OF THE LINE BOX, not a clip box sized to the ink.
+#
+# Was 1390/590 = 1980, sized to contain the measured static ink (-535..+1255,
+# deepest TH-Slussen-SemiBold:uni0E38.small, highest TH-Slussen-Bold:Aringacute).
+# That premise is retired for the same reason it was retired on TH-Aeonik: usWin
+# is not a clip bound in DirectWrite-era Word — Tahoma and Segoe UI both draw well
+# outside their own and neither clips — and it IS the spacing control for a CFF
+# face. A usWin wider than the line box is not headroom, it is extra leading.
+WIN_ASCENT, WIN_DESCENT = ASCENT, -DESCENT
 
 
-def assert_line_box_clears_thai(latin_src):
-    """The line box must hold two consecutive Thai lines apart. See the twin."""
+def assert_line_box(latin_src):
+    """Assert the line box: THE NUMBER, and its RELATIONSHIP to Slussen's.
+
+    Twin of build_th_aeonik.assert_line_box(), and the same both-halves discipline
+    — a number is reviewable on sight, a relationship catches a source change.
+    The Thai relationship half is assert_thai_clears(), per face, post-build.
+    """
     pitch = ASCENT - DESCENT + LINEGAP
-    if pitch < REQUIRED_PITCH:
+    if pitch != REQUIRED_PITCH:
         raise SystemExit(
-            f"     !! line box {pitch} is below the {REQUIRED_PITCH} the Thai "
-            f"needs — two consecutive Thai lines will collide at Single spacing. "
-            f"Re-derive with scripts/thai_line_pitch.py.")
+            f"     !! line box {pitch} is not the documented {REQUIRED_PITCH} — "
+            f"that is the box the Thai measured out at (thai_line_pitch.py). Fix "
+            f"ASCENT/DESCENT/LINEGAP, and if the Thai really needs a different box "
+            f"now, change REQUIRED_PITCH with it and say why.")
+    if (WIN_ASCENT, -WIN_DESCENT) != (ASCENT, DESCENT):
+        raise SystemExit(
+            f"     !! usWin {-WIN_DESCENT}..{WIN_ASCENT} is not the line box "
+            f"{DESCENT}..{ASCENT} — this family ships CFF and Word leads a CFF "
+            f"face off usWin, so a wider usWin IS extra leading")
     h = latin_src["hhea"]
+    o = latin_src["OS/2"]
     upem = latin_src["head"].unitsPerEm
-    latin = round((h.ascender - h.descender + h.lineGap) * 1000 / upem)
-    print(f"     [5] line box {pitch} (Thai needs {REQUIRED_PITCH}) vs Slussen's "
-          f"{latin} — deliberately {pitch / latin - 1:+.1%}, per Siwatch 2026-08-03")
+    latin_hhea = round((h.ascender - h.descender + h.lineGap) * 1000 / upem)
+    latin_win = round((o.usWinAscent + o.usWinDescent) * 1000 / upem)
+    print(f"     [5] line box {pitch} (Thai needs {REQUIRED_PITCH} = ink "
+          f"{REQUIRED_PITCH - MARGIN_UNITS} + margin {MARGIN_UNITS}) vs Slussen's "
+          f"usWin {latin_win} — {pitch / latin_win - 1:+.1%}. Same RULE as "
+          f"TH-Aeonik, not the same number (Siwatch 2026-08-05). Slussen's hhea is "
+          f"{latin_hhea}, which is NOT what Word leads a CFF face off.")
+
+
+def assert_thai_clears(output_path):
+    """box >= this face's own measured Thai requirement. The relationship half.
+
+    Twin of build_th_aeonik.assert_thai_clears(); see it for why this is measured
+    on the saved file, per face, rather than predicted from a metric field.
+    """
+    try:
+        from thai_line_pitch import required_pitch
+    except ImportError as exc:                       # pragma: no cover
+        raise SystemExit(
+            f"     !! cannot import thai_line_pitch ({exc}) — the Thai clearance "
+            f"half of the line-box assertion cannot run, and this build must not "
+            f"report a pass without it. Use the system python3.")
+
+    r = required_pitch(str(output_path))
+    pitch = ASCENT - DESCENT + LINEGAP
+    spare = pitch - r["required"]
+    if spare < 0:
+        raise SystemExit(
+            f"     !! line box {pitch} is {-spare:.0f} units BELOW what this face "
+            f"needs ({r['required']:.0f} = shaped ink {r['need']:.0f} + margin "
+            f"{MARGIN_UNITS}). Two consecutive Thai lines will overlap by "
+            f"{-spare - MARGIN_UNITS:.0f} units at Single spacing. Re-derive with "
+            f"scripts/thai_line_pitch.py; do NOT lower the margin.")
+    if ASCENT < r["top"]:
+        raise SystemExit(
+            f"     !! ascent {ASCENT} is below this face's worst upper stack "
+            f"{r['top']:.0f} — re-split ASCENT/DESCENT.")
+    if -DESCENT < -r["bottom"]:
+        raise SystemExit(
+            f"     !! descent {-DESCENT} is below this face's worst lower tail "
+            f"{-r['bottom']:.0f} — re-split ASCENT/DESCENT.")
+    print(f"     [8] Thai clearance: box {pitch} >= needs {r['required']:.0f} "
+          f"(ink {r['need']:.0f} + margin {MARGIN_UNITS}), spare {spare:+.0f}; "
+          f"ascent {ASCENT} >= worst stack {r['top']:.0f}, descent {-DESCENT} >= "
+          f"worst tail {-r['bottom']:.0f}")
 
 # Weight mapping: output_name -> slussen_file
 # Latin source only. Thai pairing lives in th_thai_prep.BUILD_TABLE: matching
@@ -617,16 +740,20 @@ def set_thai_bits(font):
 # ---------------------------------------------------------------------------
 
 def set_vertical_metrics(font):
-    """Line box from the Latin source; clip box from the measured ink."""
+    """One box, carried by all three metric sets. See assert_line_box().
+
+    Until 2026-08-05 this raised if the ink escaped usWin, on the premise that
+    usWin is a clip box that must contain every outline. That premise is retired:
+    usWin is the third copy of the LINE box, the ink is allowed outside it, and
+    Thai marks are drawn outside it on purpose — Tahoma overflows its own by 246
+    and Segoe UI by 379, and neither clips in Word. The assertion that replaces it
+    is usWin == the line box, in assert_line_box(), because for a CFF face a usWin
+    wider than the line box is not headroom, it is silent extra leading.
+    """
     os2 = font["OS/2"]
     hhea = font["hhea"]
 
-    # Checked against the CLIP box. Ink above the line box is normal.
     lo, hi = _ink_bounds(font)
-    if hi > WIN_ASCENT or lo < -WIN_DESCENT:
-        raise SystemExit(
-            f"     !! ink {lo:.0f}..{hi:.0f} escapes the clip box "
-            f"{-WIN_DESCENT}..{WIN_ASCENT} — raise WIN_ASCENT/WIN_DESCENT")
 
     os2.sTypoAscender, os2.sTypoDescender, os2.sTypoLineGap = ASCENT, DESCENT, LINEGAP
     hhea.ascent, hhea.descent, hhea.lineGap = ASCENT, DESCENT, LINEGAP
@@ -635,10 +762,10 @@ def set_vertical_metrics(font):
     os2.fsSelection |= USE_TYPO          # bit 7 — prefer the sTypo set
 
     over_up, over_dn = max(0, hi - ASCENT), max(0, -lo + DESCENT)
-    print(f"     [5] Metrics: line(hhea=sTypo)={ASCENT}/{DESCENT}/{LINEGAP} "
-          f"({ASCENT - DESCENT + LINEGAP}) clip(usWin)={WIN_ASCENT}/{WIN_DESCENT} "
-          f"ink {lo:.0f}..{hi:.0f} (overflows line box by {over_up:.0f}/{over_dn:.0f}, "
-          f"expected)")
+    print(f"     [5] Metrics: line(hhea=sTypo=usWin)={ASCENT}/{DESCENT}/{LINEGAP} "
+          f"({ASCENT - DESCENT + LINEGAP}) "
+          f"ink {lo:.0f}..{hi:.0f} (draws outside the box by "
+          f"{over_up:.0f}/{over_dn:.0f}, expected — Segoe UI overflows by 379)")
 
 
 def _ink_bounds(font):
@@ -828,19 +955,25 @@ def verify_font(weight_name, slussen_file):
     else:
         checks.append("Latin=SKIP(src not found)")
 
-    # 2. usWinAscent/Descent must cover the merged ink, or Windows clips it
+    # 2. usWin must EQUAL the line box, not cover the ink.
+    #
+    # This check used to assert usWin >= the ink, from the era when usWin was read
+    # as a clipping box. Inverted 2026-08-05: this family ships CFF, Word leads a
+    # CFF face off usWin, so any usWin wider than the line box is silent extra
+    # leading — 1980 against a 1625 box would have led TH Slussen +21.7% loose.
+    # The ink is allowed outside; it is reported here, not asserted.
     head = font["head"]
-    win_ok = (os2.usWinAscent >= head.yMax and os2.usWinDescent >= -head.yMin)
+    win_ok = (os2.usWinAscent == ASCENT and os2.usWinDescent == -DESCENT)
     checks.append(f"winAsc={os2.usWinAscent}(ink {head.yMax:+})")
     checks.append(f"winDes={os2.usWinDescent}(ink {head.yMin:+})")
     if not win_ok:
-        failures.append(f"clipping box does not cover ink: "
-                        f"win={os2.usWinAscent}/{os2.usWinDescent} "
-                        f"vs ink {head.yMax:+}/{head.yMin:+}")
+        failures.append(f"usWin {os2.usWinAscent}/{os2.usWinDescent} != the line "
+                        f"box {ASCENT}/{-DESCENT} — Word leads a CFF face off "
+                        f"usWin, so this is extra leading, not headroom")
 
     # 3. hhea is the box every weight must share, and it must equal sTypo AND
-    # the Latin source's. It is NOT required to contain the ink — that is what
-    # check 2 (usWin) is for. Conflating the two is what inflated this family to
+    # usWin. It is NOT required to contain the ink — Thai marks are drawn outside
+    # it on purpose. Conflating box with ink is what inflated this family to
     # 1280/-590 and added 24% of leading to every Slussen document.
     hhea_ok = (hhea.ascent == ASCENT and hhea.descent == DESCENT
                and hhea.lineGap == LINEGAP)
@@ -924,7 +1057,7 @@ def build_font(weight_name, slussen_file, bai_file=None):
 
     slussen = TTFont(str(slussen_path))
     # Read the line box off the Latin before anything is merged into it.
-    assert_line_box_clears_thai(slussen)
+    assert_line_box(slussen)
     # Scaled to the Latin x-height and weight-matched before any glyph is
     # copied, so GPOS anchors and the ink assertion all see final-size Thai.
     bai = prepare_bai("TH-Slussen", weight_name, latin_font=slussen)
@@ -979,6 +1112,15 @@ def build_font(weight_name, slussen_file, bai_file=None):
     # Step 4: Thai OS/2 bits
     set_thai_bits(slussen)
 
+    # Greek/math coverage. Slussen v1 already ships Δ, μ and Ω, so in practice this
+    # only aliases Σ -> ∑ and ⌀ -> Ø. `harvest_family` is passed so the resolver
+    # cannot graft an AEONIK outline into Slussen if a future Slussen source ever
+    # drops one of the three — every outline-level check would stay green if it did.
+    greek_names = th_greek.close_gaps(slussen, weight_name, slussen_path,
+                                      label="4b", harvest_family="Slussen")
+    if greek_names:
+        slussen["OS/2"].ulUnicodeRange1 |= (1 << 7)      # Greek and Coptic
+
     # Step 5: Vertical metrics (Slussen line box, Thai-safe clipping box)
     set_vertical_metrics(slussen)
 
@@ -1010,13 +1152,18 @@ def build_font(weight_name, slussen_file, bai_file=None):
               f"pen draws through the (lsb - xMin) offset")
 
     # Step 7: put the CFF back — Slussen's charstrings verbatim, Thai appended.
-    convert_to_cff(slussen, latin_cff, thai_names)
+    convert_to_cff(slussen, latin_cff, thai_names | greek_names)
     assert_advance_single_source(slussen)
 
     slussen.save(str(output_path))
 
     size_kb = output_path.stat().st_size / 1024
     print(f"     Saved: {output_path.name} ({size_kb:.0f} KB)")
+
+    # The relationship half of the line-box assertion, on the face that was
+    # actually written — the clearance pass and the baseline seat both move the
+    # shaped extents, so the finished file is the only honest place to measure.
+    assert_thai_clears(output_path)
 
     # Step 7: Verify
     passed = verify_font(weight_name, slussen_file)

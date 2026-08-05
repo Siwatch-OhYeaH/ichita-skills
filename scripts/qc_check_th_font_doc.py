@@ -73,13 +73,16 @@ SOURCE_OF = {
 # as ">= the Latin", so the deviation cannot grow quietly the way the 1.71 em
 # build's did. Sized by scripts/thai_line_pitch.py.
 EXPECTED_LINE_EM = {
-    # 2026-08-04: 1.5400 -> 1.2000. TH Aeonik now leads exactly as Aeonik does,
-    # because it has to be a drop-in replacement when typing in plain Word. The
-    # Thai knowingly does not fit — worst-case Thai-over-Thai stacks overlap by
-    # 262 units (3.9 px at 11 pt). See the long note above ASCENT in
-    # build_th_aeonik.py for why no mark scale can close that.
-    "TH Aeonik":  1.2000,      # Aeonik 1.2000, exact
-    "TH Slussen": 1.6250,      # Slussen 1.5120, +7.5% — unchanged, out of scope
+    # 2026-08-05: 1.2000 -> 1.5370, and TH Slussen 1.6250 -> 1.6020. Both families
+    # are now on ONE rule — box = the Thai's measured need + margin, carried by
+    # hhea, sTypo AND usWin — because the requirement that forced 1.2000 is gone.
+    # TH Aeonik no longer has to be a drop-in Aeonik replacement: the font is
+    # chosen by the document's language, so English-only documents use Aeonik
+    # itself. With that requirement retired, the 262-unit Thai overlap it forced is
+    # retired too, and both families now clear with the full 75-unit margin —
+    # exactly Leelawadee UI's own spare.
+    "TH Aeonik":  1.5370,      # Aeonik 1.2000, +28.1% by decision
+    "TH Slussen": 1.6020,      # Slussen 1.5120 hhea / 1.5960 usWin, +6.0% / +0.4%
 }
 
 
@@ -332,9 +335,10 @@ def check_pitch():
     # at 1.71 em against Aeonik's 1.20 em, and the 2026-08-02 QC caught it as
     # 42% of extra leading on the same paragraph.
     rows.append("")
-    rows.append("line box vs the Latin source (TH Aeonik is EXACT since "
-                "2026-08-04, and its Thai knowingly does not fit; TH Slussen "
-                "still carries the 2026-08-03 +7.5% so its Thai clears):")
+    rows.append("line box vs the Latin source (since 2026-08-05 both families are "
+                "sized to what their Thai needs, and the font is chosen by the "
+                "document's language — English-only documents use Aeonik itself, "
+                "so neither merged face has to lead like its Latin source):")
     for label, src_rel in SOURCE_OF.items():
         em_m, _ = effective_line_em(ROOT / FONT_FILES[label])
         em_s, _ = effective_line_em(ROOT / src_rel)

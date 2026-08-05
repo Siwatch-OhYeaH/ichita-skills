@@ -94,6 +94,7 @@ from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E
 from th_mark_clearance import raise_upper_marks
 from th_baseline import seat_thai_on_baseline
 from th_cff import assert_advance_single_source, convert_to_cff
+import th_greek
 
 warnings.filterwarnings("ignore")
 
@@ -684,69 +685,106 @@ def set_thai_bits(font):
 # over-correction.
 #
 # ---------------------------------------------------------------------------
-# 2026-08-04: the box is Aeonik's 1200, and the Thai deliberately does not fit.
+# 2026-08-05: the box is 1537 — what the Thai needs — and TH Aeonik is no longer
+# a drop-in Aeonik replacement. THE FONT CHOICE IS THE DOCUMENT'S LANGUAGE.
 # ---------------------------------------------------------------------------
 #
-# This reverses the 2026-08-03 trade. That day the box went to 1540 because two
-# consecutive Thai lines fused at Word's Single spacing, and 1540 is what the Thai
-# needs. The cost was that Latin-only lines led 28.3% looser than Aeonik, which
-# Siwatch rejected on 2026-08-04: TH Aeonik must be a drop-in Aeonik replacement,
-# and he ruled out the Latin/Complex-Script split that solves both
-# ("solve it with the font engineering, not by set up two separate fonts").
+# This reverses 2026-08-04, and it is not a regression of it. It dissolves the
+# conflict that produced that day's accepted defect.
 #
-# One font has one `hhea`, so "identical to Aeonik on Latin" and "room for Thai"
-# are not jointly satisfiable. Shrinking the Thai marks was the candidate way out
-# and it was MEASURED AND REJECTED — scripts/solve_mark_scale.py, sweeping the real
-# builder:
+# The history in one line each:
 #
-#     mark scale   top   bottom   need   required(+75)   vs 1200
-#        1.00     1139    -323    1462       1537         -337
-#        0.80     1096    -258    1354       1429         -229
-#        0.70     1078    -258    1336       1411         -211
-#        0.60     1061    -258    1319       1394         -194
+#     2026-08-03  box 1540, sized to the Thai. Latin-only lines led 28% loose.
+#     2026-08-04  box 1200, Aeonik's exactly. Thai-over-Thai overlapped 262u.
+#     2026-08-05  box 1537, sized to the Thai. English-only documents use
+#                 ACTUAL AEONIK, so nothing has to lead like Aeonik any more.
 #
-# A 25% mark reduction buys 35 units. Two floors, neither of which is a mark:
+# The 08-04 requirement was "a Latin-only paragraph in a TH-Aeonik document must
+# lead exactly as Aeonik does". One font has one `hhea`, so that requirement and
+# "room for two Thai lines" were not jointly satisfiable, and the Thai lost.
+# Siwatch's 08-05 decision removes the requirement instead of the room:
 #
-#   1. th_mark_clearance.raise_upper_marks() re-settles. A smaller mark is a
-#      smaller obstacle, so the pass lifts it higher to hold its 72-unit (one
-#      pixel) target, cancelling most of the height saved.
-#   2. `bottom` bottoms out at -258 on `ฐ` — a CONSONANT TAIL, not a mark. No mark
-#      scale can move it.
+#     English-only document  ->  Aeonik      box 1200, native leading
+#     Thai + English mixed   ->  TH Aeonik   box 1537
 #
-# The floor is ~1383 with the margin, ~1308 without, against 1200. So marks stay
-# at 1.000 (th_thai_prep.MARK_SCALE): shrinking them would cost tone-mark
-# legibility — ่ ้ ๊ ๋ differ by small strokes — and buy nothing.
+# CONFIRMED CONSEQUENCE, ACCEPTED EXPLICITLY: in a mixed document, English-only
+# paragraphs also lead +28% wider than the same text set in an Aeonik document.
+# That is the price of one `hhea`, and it is now paid only by documents that
+# contain Thai. Do not "fix" it — fixing it is what produced the 08-04 defect.
 #
-# THE ACCEPTED CONSEQUENCE, chosen by Siwatch 2026-08-04 with these numbers in
-# front of him: worst-case Thai stacks overlap the line above by about 262 units,
-# 3.9 px at 11 pt. That is a regression of the 2026-08-03 fix and it is deliberate.
-# Latin-only and mixed Thai/Latin lines are exact; Thai-over-Thai paragraphs at
-# Single spacing collide in the worst pairings.
+# What this retires: the 262-unit worst-case Thai-over-Thai overlap logged on
+# 08-04 as a permanent accepted cost. At 1537 clearance is satisfied with the
+# full 75-unit margin, so the overlap is gone rather than tolerated.
 #
-# How often the worst pairing occurs in real Thai prose is STILL UNMEASURED. The
-# only Thai document in this repo carries 382 Thai characters, so its zero
-# collisions over 1456 line pairs is not evidence. Answering it needs a real Thai
-# corpus and it is the open question against this trade.
+# Marks stay at 1.000 (th_thai_prep.MARK_SCALE) and that is still not re-openable.
+# scripts/solve_mark_scale.py swept the real builder on 08-04:
 #
-# Aeonik-Regular.otf hhea is exactly 1000/-200/0. Taken from the source at build
-# time and asserted, so an Aeonik update cannot move it silently.
-ASCENT, DESCENT, LINEGAP = 1000, -200, 0        # 1200 — Aeonik's own, to the unit
+#     mark scale   top   bottom   need   required(+75)
+#        1.00     1139    -323    1462       1537
+#        0.80     1096    -258    1354       1429
+#        0.70     1078    -258    1336       1411
+#        0.60     1061    -258    1319       1394
+#
+# A 25% mark reduction buys 35 units, because raise_upper_marks() re-lifts a
+# smaller mark to hold its one-pixel target, and `bottom` floors on `ฐ`'s
+# CONSONANT TAIL, which no mark scale can move. Shrinking marks would cost
+# tone-mark legibility (่ ้ ๊ ๋ differ by small strokes) and buy nothing. The
+# point is moot at 1537 anyway — the box now fits the marks at full size.
+#
+# ---------------------------------------------------------------------------
+# THE SPLIT IS A MEASUREMENT, NOT A PREFERENCE.
+# ---------------------------------------------------------------------------
+#
+# 1537 is the family's need. How it divides into ascent and descent is set by
+# three constraints, all measured (scripts/thai_line_pitch.py, all 14 faces):
+#
+#   1. ascent >= the worst UPPER stack, 1139 on TH-Aeonik-Black.
+#   2. descent >= the worst LOWER tail, 341 on TH-Aeonik-AirItalic.
+#   3. all 14 faces share ONE box (qc_th_fonts check 4), otherwise bolding a
+#      word changes the line height.
+#
+# Constraints 1 and 2 land on DIFFERENT FACES, so the split is sized to the
+# family's envelope (1139 + 341 = 1480), not to any one face. That leaves 57
+# units of slack inside the 1537.
+#
+# The slack is spent on keeping the LATIN optically where it was. Aeonik's own
+# frame is 1000/-200; growing it to 1169/-368 adds 169 above and 168 below, so a
+# Latin-only paragraph in a mixed document gains equal air on both sides and the
+# Latin stays centred in the taller line rather than sitting low in it. The
+# alternative candidate 1177/-360 clears the Thai equally well but pushes the
+# Latin 9 units off centre for no measured gain.
+#
+# Both Thai constraints keep spare room at this split: 30 units above the worst
+# stack, 27 below the worst tail.
+#
+# CONFIRM IN WORD after install (Phase 5): first-baseline position in an empty
+# document, and a Latin-only paragraph inspected for sitting low. Until that is
+# measured, the centring argument above is a construction argument.
+ASCENT, DESCENT, LINEGAP = 1169, -368, 0        # 1537 — what the Thai needs
 
-# What the Thai would need for two consecutive lines to clear, from
-# scripts/thai_line_pitch.py: worst face 1462 of ink extent plus a 75-unit margin.
-# The box above is deliberately BELOW this. It is recorded, not asserted, so the
-# shortfall stays visible and cannot grow silently — re-derive after any rebuild
-# that moves the marks: `python3 scripts/thai_line_pitch.py`.
-THAI_WANTS_PITCH = 1537
+# LINEGAP stays 0 and must. `usWin` has no lineGap field, so hhea == sTypo ==
+# usWin — the whole cross-platform strategy below — is only expressible with the
+# gap folded into the ascent and descent.
 
-# The margin folded into THAI_WANTS_PITCH — thai_line_pitch.MARGIN. It is
-# Leelawadee UI's own spare and about one pixel at 11 pt / 96 dpi. Named here so
-# the build can report the OVERLAP (ink vs box) separately from the SHORTFALL
-# (ink + margin vs box); they differ by this much and conflating them overstates
-# the collision by 28%.
+# What the Thai needs for two consecutive lines to clear, from
+# scripts/thai_line_pitch.py: worst face 1462 of shaped ink extent plus the
+# 75-unit margin. The box above now MEETS this, and assert_line_box() enforces it
+# per face against the built font. Re-derive after any rebuild that moves the
+# marks: `python3 scripts/thai_line_pitch.py`.
+THAI_NEEDS_PITCH = 1537
+
+# The margin folded into THAI_NEEDS_PITCH — thai_line_pitch.MARGIN. It is
+# Leelawadee UI's own spare and about one pixel at 11 pt / 96 dpi.
 MARGIN_UNITS = 75
 
-# usWin is the THIRD copy of Aeonik's box, not a clip box sized to the ink.
+# usWin is the THIRD copy of THE LINE BOX, not a clip box sized to the ink.
+#
+# 2026-08-05: the box it copies is now 1537 rather than Aeonik's 1200, but the
+# reason all three sets carry the same number is unchanged and is the entire
+# cross-platform strategy. Which vertical field a renderer consults is not fixed
+# (see the branch table in win_latin_parity.word_line_box), so rather than trying
+# to learn every renderer's rule, the font yields the same box whichever field is
+# read. That is what makes Word, PowerPoint, Excel, CoreText and browsers agree.
 #
 # It was 1240/560 until 2026-08-04, on the reasoning recorded in the line above it
 # at the time: "widening this does not touch line spacing — Word leads off hhea
@@ -770,13 +808,14 @@ MARGIN_UNITS = 75
 # branches and the full evidence table.
 #
 # This does not weaken the fix below — TH Aeonik ships CFF, so usWin really is its
-# spacing control, and the fix is additionally robust because it sets hhea, sTypo
-# and usWin all to 1200 and therefore lands on 1200 whichever branch applies.
+# spacing control, and the fix is robust by design rather than by luck because it
+# sets hhea, sTypo and usWin all to the same number and therefore lands on that
+# number whichever branch applies.
 # What it does mean: THE FORMAT IS PART OF THE VERTICAL METRICS. Flipping this
 # family back to glyf would silently move the spacing control off usWin, and the
 # 2026-08-04 CFF flip is what put it on usWin in the first place.
 #
-# So all three metric sets are now Aeonik's, and the ink is allowed out of the box.
+# So all three metric sets carry 1537, and the ink is allowed out of the box.
 # That is what the fonts Windows itself ships do — measured on this machine, ink
 # extent against usWin:
 #
@@ -795,59 +834,115 @@ MARGIN_UNITS = 75
 # which is Segoe UI's overflow. If Thai marks are ever reported clipped, this is
 # the first constant to suspect — but re-measure before moving it, because the
 # 2026-08-02 build raised it on a clipping premise that was never verified against
-# the artifact (docs/postmortems/2026-08-02-th-font-line-box-overcorrection.md).
+# the artifact (docs/THAI-LATIN-FONT-ENGINEERING.md (§3); the original is docs/archive/2026-08-02-th-font-line-box-overcorrection.md).
 WIN_ASCENT, WIN_DESCENT = ASCENT, -DESCENT
 
 
-LATIN_PITCH = 1200          # Aeonik-Regular.otf hhea, pinned as a number
+LINE_BOX = 1537             # what the Thai needs; pinned as a number
+LATIN_PITCH = 1200          # Aeonik-Regular.otf hhea, for the ratio, not a target
 
 
-def assert_line_box_matches_latin(latin_src):
-    """The line box must equal Aeonik's, to the unit.
+def assert_line_box(latin_src):
+    """Assert the line box: THE NUMBER, and its RELATIONSHIP to Aeonik's.
 
-    This inverts the 2026-08-03 assertion, which required the box to be at or
-    above what the Thai needs. That is now knowingly violated — see the long note
-    above ASCENT for the measurements and the trade.
+    Third flip of this assertion — 1610 -> 1200 -> 1537 — and it is designed so
+    the next one fails loudly instead of quietly. The lesson this repo keeps
+    re-learning cuts both ways:
 
-    Both halves are pinned:
+      * Pinning ONLY the number let a defect read as a principle for two days
+        while four separate checks asserted it. "The line box equals the Latin
+        source's" was never a principle; it was one day's trade.
+      * Pinning ONLY the relationship is unreviewable. A relationship cannot be
+        checked on sight; a number can.
 
-      * the NUMBER 1200, because `verify-what-the-test-asserts` is about exactly
-        this codebase and exactly this constant. "Equals the Latin source" read as
-        a principle for two days while encoding a defect, and four checks asserted
-        it. A relationship cannot be reviewed on sight; a number can.
-      * the RELATIONSHIP to the source, so an Aeonik update that changed its own
-        metrics would fail here rather than silently redefine "identical".
+    So both halves are asserted, here and in assert_thai_clears() below:
 
-    The Thai shortfall is printed every build. It is the accepted cost, so it has
-    to stay legible in the log rather than living only in a comment.
+      * THE NUMBER 1537, so the value is reviewable on sight.
+      * THE RATIO to Aeonik, so an Aeonik update cannot silently redefine what
+        "+28% wider than Aeonik" means. Aeonik's own box is still read from the
+        source at build time and asserted.
+      * THE THAI RELATIONSHIP — box >= this face's own measured requirement — in
+        assert_thai_clears(), against the BUILT font, per face. That is the half
+        that was missing on 08-04: the box was 337 units short of the Thai and no
+        assertion said so, because the only bar was a number.
     """
     pitch = ASCENT - DESCENT + LINEGAP
     h = latin_src["hhea"]
     upem = latin_src["head"].unitsPerEm
     latin = round((h.ascender - h.descender + h.lineGap) * 1000 / upem)
 
-    if pitch != LATIN_PITCH:
+    if pitch != LINE_BOX:
         raise SystemExit(
-            f"     !! line box {pitch} is not the documented {LATIN_PITCH} — "
-            f"TH Aeonik must lead exactly as Aeonik does. Fix ASCENT/DESCENT/"
-            f"LINEGAP, and if the target really changed, change LATIN_PITCH with it.")
+            f"     !! line box {pitch} is not the documented {LINE_BOX} — that is "
+            f"the box the Thai measured out at (thai_line_pitch.py). Fix "
+            f"ASCENT/DESCENT/LINEGAP, and if the Thai really needs a different "
+            f"box now, change LINE_BOX with it and say why.")
     if latin != LATIN_PITCH:
         raise SystemExit(
-            f"     !! Aeonik's own line box is {latin}, not the {LATIN_PITCH} this "
-            f"build is pinned to. The Latin source changed; re-derive the target "
-            f"rather than letting 'identical to Aeonik' quietly mean something new.")
+            f"     !! Aeonik's own line box is {latin}, not the {LATIN_PITCH} the "
+            f"documented +{LINE_BOX / LATIN_PITCH - 1:.1%} deviation is measured "
+            f"against. The Latin source changed; re-derive rather than letting the "
+            f"ratio quietly mean something new.")
 
-    # Two different numbers, and confusing them overstates the defect. THE
-    # OVERLAP is what a reader sees: worst stack ink minus the box. THE SHORTFALL
-    # additionally includes the 75-unit comfort margin, so it is what the Thai
-    # would need to look *right*, not the size of the collision.
-    overlap = (THAI_WANTS_PITCH - MARGIN_UNITS) - pitch
-    short = THAI_WANTS_PITCH - pitch
-    print(f"     [5] line box {pitch} == Aeonik's {latin} (exact). Thai ink needs "
-          f"{THAI_WANTS_PITCH - MARGIN_UNITS}, so worst-case Thai-over-Thai stacks "
-          f"OVERLAP by {overlap} units ({overlap / 68:.1f} px at 11 pt); "
-          f"{short} short of the +{MARGIN_UNITS} comfort margin. Accepted by "
-          f"Siwatch 2026-08-04.")
+    print(f"     [5] line box {pitch} (Thai needs {THAI_NEEDS_PITCH} = ink "
+          f"{THAI_NEEDS_PITCH - MARGIN_UNITS} + margin {MARGIN_UNITS}) vs Aeonik's "
+          f"{latin} — deliberately {pitch / latin - 1:+.1%}. TH Aeonik is the "
+          f"MIXED-LANGUAGE face by decision (Siwatch 2026-08-05); English-only "
+          f"documents use Aeonik itself, so nothing here has to lead like Aeonik.")
+
+
+def assert_thai_clears(output_path):
+    """box >= this face's own measured Thai requirement. The relationship half.
+
+    Measured on the SAVED font, by shaping the worst stacks — not predicted from a
+    metric field and not inherited from the family's worst face. Two reasons it
+    has to be per face and post-build:
+
+      * `top` moves whenever th_mark_clearance settles the marks differently, and
+        the clearance pass is weight-dependent. A box derived from last week's
+        worst face is not evidence about this face.
+      * The worst upper stack and the worst lower tail live on DIFFERENT faces
+        (Black and AirItalic), so only a per-face check can tell which constraint
+        a given face is actually near.
+
+    A future Thai change that needs more room fails HERE, at build time, instead
+    of silently overlapping in Word and waiting for a defect report.
+    """
+    try:
+        from thai_line_pitch import required_pitch
+    except ImportError as exc:                       # pragma: no cover
+        raise SystemExit(
+            f"     !! cannot import thai_line_pitch ({exc}) — the Thai clearance "
+            f"half of the line-box assertion cannot run, and this build must not "
+            f"report a pass without it. Use the system python3, which has "
+            f"uharfbuzz; venv_fonts/bin/python cannot run this build at all.")
+
+    r = required_pitch(str(output_path))
+    pitch = ASCENT - DESCENT + LINEGAP
+    spare = pitch - r["required"]
+    # Ascent and descent are checked separately from the total. A box big enough
+    # overall can still clip a mark at the top of the frame or a tail at the
+    # bottom if the split is wrong, and the total alone would not show it.
+    if spare < 0:
+        raise SystemExit(
+            f"     !! line box {pitch} is {-spare:.0f} units BELOW what this face "
+            f"needs ({r['required']:.0f} = shaped ink {r['need']:.0f} + margin "
+            f"{MARGIN_UNITS}). Two consecutive Thai lines will overlap by "
+            f"{-spare - MARGIN_UNITS:.0f} units at Single spacing. Re-derive the "
+            f"box with scripts/thai_line_pitch.py; do NOT lower the margin.")
+    if ASCENT < r["top"]:
+        raise SystemExit(
+            f"     !! ascent {ASCENT} is below this face's worst upper stack "
+            f"{r['top']:.0f} — the top of the stack sits above the line box, so "
+            f"the first line of a frame can clip. Re-split ASCENT/DESCENT.")
+    if -DESCENT < -r["bottom"]:
+        raise SystemExit(
+            f"     !! descent {-DESCENT} is below this face's worst lower tail "
+            f"{-r['bottom']:.0f} — re-split ASCENT/DESCENT.")
+    print(f"     [8] Thai clearance: box {pitch} >= needs {r['required']:.0f} "
+          f"(ink {r['need']:.0f} + margin {MARGIN_UNITS}), spare {spare:+.0f}; "
+          f"ascent {ASCENT} >= worst stack {r['top']:.0f}, descent {-DESCENT} >= "
+          f"worst tail {-r['bottom']:.0f}")
 
 
 def set_vertical_metrics(font):
@@ -1101,9 +1196,10 @@ def build_font(weight_name, aeonik_file, bai_file=None, mark_scale=None,
 
     aeonik = TTFont(str(aeonik_path))
     # Read the line box off the Latin before anything is merged into it. The
-    # merged face must lead exactly as Aeonik does, or switching a paragraph
-    # between the two reflows the document.
-    assert_line_box_matches_latin(aeonik)
+    # merged face no longer has to lead as Aeonik does — English-only documents
+    # use Aeonik itself — but Aeonik's own box is still what the documented +28%
+    # is measured against, so it is asserted rather than assumed.
+    assert_line_box(aeonik)
     # Scaled to the Latin x-height and weight-matched before a single glyph is
     # copied, so everything downstream — GPOS anchors, ink bounds, the metrics
     # assertion — sees the Thai at its final size.
@@ -1166,6 +1262,16 @@ def build_font(weight_name, aeonik_file, bai_file=None, mark_scale=None,
     # Step 4: Thai range bits
     set_thai_bits(aeonik)
 
+    # Step 4b: the Greek/math codepoints Aeonik v1 is missing. Same resolver as
+    # scripts/build_aeonik.py, so the two families cannot drift apart in coverage
+    # — which matters now that the font is chosen by the document's language: a
+    # character present in one and absent in the other falls back to a system font
+    # depending on whether the document happens to contain Thai.
+    greek_names = th_greek.close_gaps(aeonik, weight_name, aeonik_path,
+                                      label="4b")
+    if greek_names:
+        aeonik["OS/2"].ulUnicodeRange1 |= (1 << 7)      # Greek and Coptic
+
     # Step 5: Vertical metrics
     set_vertical_metrics(aeonik)
 
@@ -1207,7 +1313,11 @@ def build_font(weight_name, aeonik_file, bai_file=None, mark_scale=None,
               f"pen draws through the (lsb - xMin) offset")
 
     # Step 7: put the CFF back — Aeonik's charstrings verbatim, Thai appended.
-    convert_to_cff(aeonik, latin_cff, thai_names)
+    # The harvested Greek names MUST be in this set. Anything absent from it is
+    # taken from the pristine Latin CFF verbatim, so an outline written over an
+    # existing name (uni2206, uni00B5) would be silently discarded and the v1 twin
+    # would ship — the same trap uni0E3F fell into. See convert_to_cff's docstring.
+    convert_to_cff(aeonik, latin_cff, thai_names | greek_names)
     assert_advance_single_source(aeonik)
 
     aeonik.save(str(output_path))
@@ -1215,7 +1325,13 @@ def build_font(weight_name, aeonik_file, bai_file=None, mark_scale=None,
     size_kb = output_path.stat().st_size / 1024
     print(f"     Saved: {output_path.name} ({size_kb:.0f} KB)")
 
-    # Step 8: Verify
+    # Step 8: the relationship half of the line-box assertion, measured on the
+    # face that was actually written. Post-save on purpose — the mark clearance
+    # pass and the baseline seat both move the shaped extents, so the only honest
+    # place to measure them is the finished file.
+    assert_thai_clears(output_path)
+
+    # Step 9: Verify
     if out_dir == OUTPUT_DIR:
         verify_font(weight_name)
 

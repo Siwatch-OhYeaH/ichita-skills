@@ -50,7 +50,7 @@ from fontTools.pens.t2CharStringPen import T2CharStringPen
 _TRUETYPE_ONLY = ("glyf", "loca", "gasp", "cvt ", "fpgm", "prep")
 
 
-def convert_to_cff(font, latin_cff, thai_names, label="7"):
+def convert_to_cff(font, latin_cff, thai_names, label="7", kind="Thai"):
     """Replace `font`'s `glyf` outlines with CFF, in place.
 
     font        the merged font, still in `glyf` (the intermediate working format
@@ -139,7 +139,7 @@ def convert_to_cff(font, latin_cff, thai_names, label="7"):
 
     extra = f", {overridden} overridden" if overridden else ""
     print(f"     [{label}] glyf -> CFF: {reused} Latin charstrings verbatim, "
-          f"{appended} Thai appended (quad -> cubic, exact){extra} | "
+          f"{appended} {kind} appended (quad -> cubic, exact){extra} | "
           f"CFF fontName {ps_name}")
 
 

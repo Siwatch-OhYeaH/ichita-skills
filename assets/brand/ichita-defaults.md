@@ -146,6 +146,43 @@ const ICHITA_CHART_COLORS = ["2978FF", "263338", "82B0FF", "788F9C", "34A853", "
 
 ## 4. Typography
 
+### The two-font rule — pick the face from the document's language
+
+**Brand policy, decided by Siwatch 2026-08-05.** This is not an implementation
+detail; it changes which font a document is set in.
+
+| Document | Face | Line box | Why |
+|---|---|---|---|
+| **English only** | **Aeonik** | 1200 | Aeonik's own leading, unchanged |
+| **Thai, or Thai + English mixed** | **TH Aeonik** | 1537 | Sized to what Thai stacks actually need |
+
+TH Aeonik is Aeonik's Latin merged with a reworked Bai Jamjuree Thai — one font,
+one set of metrics, so Thai and Latin sit on a shared baseline at a matched weight.
+
+**Thai needs a taller line than Latin, and one font can only have one line
+height.** Thai stacks a base consonant, an upper vowel and a tone above the
+ascender, then hangs a below-vowel under the baseline. Measured, the worst
+combinations need 1537/1000 em against Aeonik's 1200 — so a font that leads like
+Aeonik cannot keep two Thai lines apart, and a font that keeps Thai apart cannot
+lead like Aeonik. Choosing the face per document is what resolves it.
+
+**The consequence, accepted deliberately:** in a mixed document, English-only
+paragraphs also lead ~28% wider than the same text in an English-only document.
+That is the price of one line height, and it is now paid only by documents that
+contain Thai. It is not a defect — do not "fix" it by forcing Aeonik onto a Thai
+document, which collides consecutive Thai lines.
+
+The generators decide this automatically from the source text (any Thai codepoint
+→ TH Aeonik) and print which font they chose. Override with `--font-mode` only
+when a person genuinely needs to.
+
+> **Never mix the two in one document.** A paragraph in Aeonik beside a paragraph
+> in TH Aeonik reflows at the boundary, because the two have different line boxes.
+
+**Coverage is identical between them.** Both carry Δ μ Ω Σ ⌀ — added 2026-08-05,
+because a character present in one and absent in the other would fall back to a
+system font depending only on whether the document happens to contain Thai.
+
 ### Font Family: Aeonik
 
 "A timeless and modern aesthetic... a structural workhorse that was meticulously engineered." Features: ligatures, fractions, case-sensitive punctuation, symbols, forms, arrows.

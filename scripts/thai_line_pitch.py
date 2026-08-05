@@ -6,34 +6,55 @@ below it. The lower vowel of the first line and the upper vowel + tone of the
 second must be *visibly* apart — "ต้องเว้นวรรคมากพอแบบชัดเจน".
 
 No Thai font clears that at a Latin line box. Measured at each font's own `hhea`
-pitch, in 1/1000 em:
+pitch, in 1/1000 em, as of the 2026-08-05 build:
 
     font            line box   worst stack   spare
-    Leelawadee UI       1330          1169    +161
-    TH-Slussen          1512          1455     +57
-    TH-Aeonik           1200          1384    -184
-    Sarabun             1300          1527    -227
-    Bai Jamjuree        1250          1498    -248
+    TH-Slussen          1602          1527     +75
+    TH-Aeonik           1537          1462     +75
+    Leelawadee UI       1330          1255     +75
+    Sarabun             1300          1582    -282
+    Bai Jamjuree        1250          1564    -314
+
+The two merged families now sit exactly where Leelawadee UI sits, and that is not
+a coincidence — MARGIN is Leelawadee's own spare, so matching it is the design
+target, reached by sizing the box to the measured stack rather than by shrinking
+marks.
 
 Sarabun — the nominated reference for correct Thai engineering — is *worse* than
-our merged face on pure geometry; it escapes only because `ส` and `ซ` differ in
-width, so the marks miss each other sideways. Only Leelawadee UI is comfortable,
-and it buys that with markedly smaller marks (upper vowel 201 units tall against
-TH-Aeonik's 273, tone 129 against 158, lower vowel 182 deep against 269), not
-with a taller box.
-
-So the clearance cannot come from the font without either breaking the rule that
-the line box equals the Latin source's, or shrinking the marks back toward the
-fusing that `th_mark_clearance.py` just fixed. It comes from the document, via
-`w:lineRule="atLeast"`. This module computes the number to put there.
+our merged faces on pure geometry; it escapes only because `ส` and `ซ` differ in
+width, so the marks miss each other sideways. Leelawadee UI buys its comfort with
+markedly smaller marks (upper vowel 201 units tall against TH-Aeonik's 273, tone
+129 against 158, lower vowel 182 deep against 269) rather than with a taller box;
+this project took the other route, because tone marks that differ by small
+strokes (่ ้ ๊ ๋) cannot afford to shrink.
 
     required_pitch = worst_upper_stack + |worst_lower_tail| + MARGIN
 
 MARGIN is Leelawadee UI's own spare, so a paragraph set to this pitch reads with
 the same breathing room as the one Thai font that gets this right by default.
 
+WHERE THE CLEARANCE COMES FROM — read this before trusting the table above.
+
+Until 2026-08-05 this docstring said the clearance "cannot come from the font
+without breaking the rule that the line box equals the Latin source's", and
+therefore had to come from the document via `w:lineRule="atLeast"`. THE RULE IT
+APPEALED TO NO LONGER EXISTS. It was never a principle — it was one day's trade,
+and it is the exact kind of stale premise this repo has been burned by twice.
+
+Siwatch's 2026-08-05 decision removes it: the font is chosen by the document's
+language, so English-only documents get Aeonik and only mixed Thai/English
+documents get TH Aeonik. Nothing has to lead like Aeonik, so THE FONT CARRIES ITS
+OWN CLEARANCE — TH-Aeonik's box is 1537 and TH-Slussen's 1602, each `required`
+below. That matters because the acceptance test is someone typing in plain Word,
+where no generator is around to set a paragraph property.
+
+The document-layer ratios in EXPECTED below are now belt and braces rather than
+the only thing holding two Thai lines apart. They still earn their place: they
+protect a document whose font is missing and got substituted, and Bai Jamjuree
+(box 1250 against a 1639 need) has no font-side fix at all.
+
 `atLeast`, never `Exactly` — `Exactly` is a fixed box and is where Word genuinely
-clips marks. See docs/postmortems/2026-08-02-th-font-line-box-overcorrection.md.
+clips marks. See docs/THAI-LATIN-FONT-ENGINEERING.md (§3); the original is docs/archive/2026-08-02-th-font-line-box-overcorrection.md.
 
 Usage:
     python3 scripts/thai_line_pitch.py                 # report every known font
@@ -134,14 +155,19 @@ REFERENCES = [
 # Ratios baked into skills/ichita-docx/scripts/md_to_docx.py. Regenerate with
 # this script after any font rebuild — the mark-clearance pass moves `top`.
 #
-# These are DOCUMENT-layer ratios and they are deliberately NOT the font's line
-# box any more. From 2026-08-04 TH-Aeonik's own box is Aeonik's 1200, which the
-# Thai does not fit — that is the accepted trade for identical Latin leading when
-# typing in plain Word (see build_th_aeonik.py above ASCENT). A *generated*
-# document is a different product: there the generator controls the XML, so
-# `w:lineRule="atLeast"` at the ratio below gives Thai the room the font can no
-# longer carry. Do not "reconcile" these two numbers — the divergence is the point,
-# and collapsing them would either re-loosen typed Latin or break generated Thai.
+# DOCUMENT-layer ratios. From 2026-08-05 they CONVERGE with the font's own line
+# box for the two merged families rather than diverging from it — TH-Aeonik's box
+# is 1537 against the 1.537 below, TH-Slussen's is 1602 against 1.602 — because
+# the font now carries its own clearance (see the docstring). `atLeast` takes the
+# larger of the two, so for those families this is a no-op that costs nothing and
+# fails safe if the font is missing and Word substitutes.
+#
+# Bai Jamjuree is the case that still needs the document layer: its box is 1250
+# against a 1639 need and this repo does not build it, so nothing but the
+# paragraph property can hold its lines apart.
+#
+# Regenerate after any rebuild — the mark-clearance pass moves `top`, and these
+# must stay at or above the `required` column this script prints.
 EXPECTED = {
     "TH-Aeonik": 1.54,
     "TH-Slussen": 1.63,

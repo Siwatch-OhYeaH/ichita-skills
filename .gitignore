@@ -2,3 +2,7 @@ __pycache__/
 venv_fonts/
 tmp/
 *.pyc
+
+# Large source material and stale prototype archives — kept locally, not in git
+assets/sample PDF/
+assets/fonts/**/*.7z

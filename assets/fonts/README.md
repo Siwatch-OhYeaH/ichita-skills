@@ -1,72 +1,131 @@
 # ICHITA Brand Fonts
 
-## Aeonik (Primary — Body & Headlines)
+**Which face to use is decided by the document's language** — Siwatch, 2026-08-05:
 
-14 weights in `aeonik/`:
+| Document | Face | Line box |
+|---|---|---|
+| English only | **Aeonik** (`aeonik-fixed/`) | 1200 |
+| Thai, or Thai + English mixed | **TH Aeonik** (`aeonik-th/`) | 1537 |
 
-| Weight | Regular | Italic |
-|--------|---------|--------|
-| Air | Aeonik-Air.otf | Aeonik-AirItalic.otf |
-| Thin | Aeonik-Thin.otf | Aeonik-ThinItalic.otf |
-| Light | Aeonik-Light.otf | Aeonik-LightItalic.otf |
-| Regular | Aeonik-Regular.otf | Aeonik-RegularItalic.otf |
-| Medium | Aeonik-Medium.otf | Aeonik-MediumItalic.otf |
-| Bold | Aeonik-Bold.otf | Aeonik-BoldItalic.otf |
-| Black | Aeonik-Black.otf | Aeonik-BlackItalic.otf |
+Never mix the two in one document; they have different line boxes, so the text reflows
+at the boundary. The generators pick automatically from the source text and log the
+choice. Rationale in `assets/brand/ichita-defaults.md` §4.
 
-## Betatron (Display — Logo-style headlines)
+**Before changing anything in this directory, read
+[`docs/THAI-LATIN-FONT-ENGINEERING.md`](../../docs/THAI-LATIN-FONT-ENGINEERING.md).**
+It is the complete record: what the metrics mean, why each build step exists, which
+renderer reads which field, and roughly thirty defects not to repeat.
 
-1 weight in `betatron/`:
+---
 
-| Weight | File |
-|--------|------|
-| Regular | Betatron-Regular.otf |
+## What is in here
 
-## Bai Jamjuree (Thai — Body & Headlines)
+| Directory | Contents | Status |
+|---|---|---|
+| `aeonik/` | Aeonik v1.000 desktop, 14 faces | **pristine source** — read by the builders, never installed |
+| `aeonik-fixed/` | Aeonik + Greek/math coverage, 14 faces | **BUILT — install this over the current Aeonik** |
+| `aeonik-th/` | TH Aeonik = Aeonik Latin + Bai Thai, 14 faces | **BUILT — install** |
+| `slussen/` | Slussen desktop, 4 faces | pristine source; incomplete (a 10-face set exists in an old `D:` build) |
+| `slussen-th/` | TH Slussen = Slussen + Bai Thai, 4 faces | **BUILT — install**; no documented brand role yet |
+| `aeonik-woff/` | Aeonik v2.000 web cut, 6 faces | source for the Greek harvest **only** — box 1140, respaced digits, do not migrate to |
+| `aeonik-th-web/` | TH Aeonik WOFF2 + WOFF + CSS, 8 faces | **BUILT AND HELD — do not serve**, licence unresolved |
+| `bai-jamjuree/` | Bai Jamjuree, 12 faces (OFL) | Thai source for the merges; also the split-mode Thai font |
+| `betatron/` | Betatron Regular | display numerals only — never body text |
 
-12 weights in `bai-jamjuree/` (OFL licensed):
+Generated directories are rebuilt by `scripts/build_aeonik.py`, `build_th_aeonik.py`,
+`build_th_slussen.py` and `build_th_web.py`. All merged output is **`.otf`/CFF**
+deliberately: a merged font must ship its Latin source's outline format or Windows
+renders the Latin 16–20% lighter through a different rasteriser.
 
-| Weight | Regular | Italic |
-|--------|---------|--------|
-| ExtraLight | BaiJamjuree-ExtraLight.ttf | BaiJamjuree-ExtraLightItalic.ttf |
-| Light | BaiJamjuree-Light.ttf | BaiJamjuree-LightItalic.ttf |
-| Regular | BaiJamjuree-Regular.ttf | BaiJamjuree-Italic.ttf |
-| Medium | BaiJamjuree-Medium.ttf | BaiJamjuree-MediumItalic.ttf |
-| SemiBold | BaiJamjuree-SemiBold.ttf | BaiJamjuree-SemiBoldItalic.ttf |
-| Bold | BaiJamjuree-Bold.ttf | BaiJamjuree-BoldItalic.ttf |
+### Weights
 
-## Installation
+Aeonik and TH Aeonik, 14 faces each: Air, Thin, Light, Regular, Medium, Bold, Black,
+plus an italic of each. TH Slussen, 4 faces: Regular, Medium, SemiBold, Bold. Betatron
+is Regular only.
 
-### Windows
+Bai Jamjuree ships 12 faces but only the ones named in
+`scripts/th_thai_prep.BUILD_TABLE` are used — **pairing is by measured stem, not by
+weight name**. Matching Bai Regular to Aeonik Regular once left Thai 25% lighter than
+the Latin beside it.
 
-```powershell
-# Option 1: Double-click each .otf file → "Install"
-# Option 2: Select all → right-click → "Install for all users"
-```
+---
 
-### macOS
+## Installing
+
+### Windows — the one that matters
+
+**Uninstall the obsolete faces first**, then install. **Close Word, PowerPoint AND
+Excel before either step**: a locked file is what produced `TH-Aeonik-Regular_0.ttf` and
+left a stale file registered under the family name, so measurements ran against the
+wrong file for a day.
+
+Install through **Windows Settings → Personalisation → Fonts**. Do **not** run
+`scripts/fix-th-fonts.sh --apply-system --restart`; `--check` is a fine read-only
+report.
+
+`%LOCALAPPDATA%\Microsoft\Windows\Fonts` (per-user) **shadows** `C:\Windows\Fonts`
+(system), so a stale per-user copy silently wins. Check both layers.
+
+Word caches font data per session; a full restart is required, not just reopening the
+document.
+
+What to install:
+
+- 14 from `aeonik-fixed/` — **over** the existing Aeonik. Same family name, so it *is*
+  Aeonik to Word; `nameID5` reads `Version 1.001; ICHITA Greek/math coverage`.
+- 14 from `aeonik-th/`
+- 4 from `slussen-th/`
+- `bai-jamjuree/` and `betatron/` if not already present
+
+### Linux — for the QC suites only
 
 ```bash
-cp assets/fonts/aeonik/*.otf ~/Library/Fonts/
-cp assets/fonts/bai-jamjuree/*.ttf ~/Library/Fonts/
-cp assets/fonts/betatron/*.otf ~/Library/Fonts/
+mkdir -p ~/.local/share/fonts/th-current
+cp assets/fonts/aeonik-th/TH-Aeonik-*.otf \
+   assets/fonts/slussen-th/TH-Slussen-*.otf ~/.local/share/fonts/th-current/
+cp assets/fonts/bai-jamjuree/*.ttf assets/fonts/betatron/*.otf ~/.local/share/fonts/
+fc-cache -f
 ```
 
-### Linux
+Install into `th-current/` and **rebuild before running QC** — a stale copy here feeds
+the document QC and has produced false passes.
+
+### macOS — **UNVERIFIED**
 
 ```bash
-mkdir -p ~/.local/share/fonts
-cp assets/fonts/aeonik/*.otf ~/.local/share/fonts/
-cp assets/fonts/bai-jamjuree/*.ttf ~/.local/share/fonts/
-cp assets/fonts/betatron/*.otf ~/.local/share/fonts/
-fc-cache -fv
+cp assets/fonts/{aeonik-fixed,aeonik-th,slussen-th}/*.otf ~/Library/Fonts/
+cp assets/fonts/bai-jamjuree/*.ttf assets/fonts/betatron/*.otf ~/Library/Fonts/
 ```
 
-## Usage in Brand
+Nothing on macOS has been measured — there is no Mac. The position that CoreText lands
+on the declared box because `hhea`, `sTypo` and `usWin` all carry it is a **construction
+argument, not a measurement**. The acceptance test to run is in
+`docs/archive/2026-08-05-completion-and-cross-platform-acceptance.md`.
 
-Per `ichita-defaults.md`:
-- **Headings**: Aeonik Bold / Medium
-- **Body**: Aeonik Regular
-- **Captions**: Aeonik Light
-- **Display/Logo**: Betatron Regular
-- **Thai text**: Bai Jamjuree (pairs well with Aeonik for Thai/English mixed content)
+---
+
+## Coverage
+
+Both Aeonik and TH Aeonik carry **Δ μ Ω Σ ⌀** across all 14 faces, added 2026-08-05.
+Coverage parity between the two is a requirement, not a nicety: a character present in
+one and absent in the other falls back to a system font depending only on whether the
+document happens to contain Thai.
+
+`Σ` → `∑` and `⌀` → `Ø` are aliases and **genuine shape compromises** — `∑` is drawn for
+maths and sits wider than a Greek sigma; `Ø` is a letter where `⌀` is a symbol. Revisit
+only if a real document reads wrong.
+
+`∆` U+2206 and `µ` U+00B5 carry the web cut's redrawn outline in the harvested faces,
+because a Greek letter and its maths twin must share one outline. Specimen sheets:
+`test-output/greek-aeonik-*.png`, regenerate with
+`python3 scripts/build_greek_specimen.py`.
+
+## Usage in brand
+
+Per `assets/brand/ichita-defaults.md`:
+
+- **Headings** Aeonik Bold / Medium — **Body** Aeonik Regular — **Captions** Aeonik Light
+- **Display numerals** Betatron Regular. **Never** for body text, labels or sentences.
+- **Thai** comes from TH Aeonik in a mixed document, or Bai Jamjuree at 0.9× in split
+  mode. Thai is sized to the Latin **x-height** and weight-matched by measured stem at
+  ~0.89 of the Latin, with **Aeonik as the benchmark, not Bai**.

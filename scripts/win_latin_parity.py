@@ -106,30 +106,40 @@ STEM_ROW_FRAC = 0.20
 # assertion would be permanently red for one of them — and a check that is always
 # red is a check nobody reads.
 #
-#   TH Aeonik  1.000 — Siwatch 2026-08-04: it must be a drop-in Aeonik
-#              replacement, so the box is Aeonik's 1200 to the unit. The Thai
-#              knowingly does not fit (worst stacks overlap by 262 units); the
-#              Latin/Complex-Script split that satisfies both was ruled out and
-#              shrinking the marks was measured and cannot close the gap.
-#              MEASURED in Word: 13.200 pt at 11 pt, identical to Aeonik.
-#   TH Slussen 1.241 — PREDICTED, NOT YET MEASURED. This is the ratio the faces
-#              THIS REPO SHIPS will have: usWin 1980 against Slussen's usWin
-#              1596, because both are CFF and word_line_box() reads usWin for
-#              CFF. It is red as of 2026-08-05 and correctly so — the installed
-#              TH Slussen is still the superseded .ttf, which lands at 1625/1596
-#              = 1.018 because the glyf branch ignores usWin entirely. Every
-#              TH-Slussen failure in this suite has that one cause.
-#              CONFIRM IT by installing the built .otf and re-running the Word
-#              pitch measurement; if Word leads TH Slussen at 21.8 pt rather
-#              than today's 17.9 pt, the prediction holds and the +24% box has
-#              to be re-decided rather than inherited by accident.
+#   TH Aeonik  1.281 — Siwatch 2026-08-05: TH AEONIK IS NO LONGER A DROP-IN
+#              AEONIK REPLACEMENT. The font is chosen by the document's language
+#              — English-only documents use Aeonik itself, mixed Thai/English use
+#              TH Aeonik — so the box is 1537, sized to what the Thai measured
+#              out at, and 1537/1200 = 1.281.
+#              This reverses the 1.000 pinned on 2026-08-04, and it is not a
+#              regression of it: the 08-04 requirement existed only so Latin-only
+#              text inside a TH-Aeonik document would lead like Aeonik. Once
+#              English-only documents use actual Aeonik that requirement is gone,
+#              and with it the 262-unit Thai overlap it forced.
+#              ACCEPTED CONSEQUENCE: English-only paragraphs inside a MIXED
+#              document also lead +28% wider. One font has one hhea.
+#              MEASURE in Word after install: 1537/em = 16.91 pt at 11 pt Single.
+#   TH Slussen 1.004 — 1602 against Slussen's own usWin 1596. Slussen gets the
+#              same RULE as Aeonik, not the same number: box = the Thai's
+#              measured need + margin, with hhea/sTypo/usWin unified. Slussen's
+#              Thai is taller, so 1602 where Aeonik lands at 1537 — and because
+#              Slussen's own Latin box is already generous, the same rule leaves
+#              it within 0.4% of its source rather than 28% over.
+#              Replaces the 1.241 pinned on 2026-08-05, which was a PREDICTION of
+#              what the then-built faces would do (usWin 1980 against 1596) and
+#              was labelled as such. That usWin/box disagreement is exactly what
+#              this phase fixed: 1980 against a 1625 box would have had Word lead
+#              TH Slussen at +21.7% for reasons that had nothing to do with the
+#              outlines.
 #
-# Pinning the ratio rather than the relationship is deliberate: "the line box
+# Pinning the ratio rather than only the relationship is deliberate: "the line box
 # equals the Latin source's" read as a principle in this repo for two days while
-# encoding a defect, and four separate checks asserted it.
+# encoding a defect, and four separate checks asserted it. The relationship half
+# lives where it can be measured against the Thai — build_th_aeonik.
+# assert_thai_clears() and its Slussen twin, per face, on the built file.
 EXPECTED_LINE_RATIO = {
-    "TH Aeonik": 1.000,
-    "TH Slussen": 1.241,
+    "TH Aeonik": 1.281,
+    "TH Slussen": 1.004,
 }
 
 # The box is an integer count of font units, so a ratio can only land within
@@ -639,9 +649,13 @@ def main() -> int:
             print(f"FAIL  {f}")
         print(f"\n{len(fails)} parity failure(s), {len(errors)} probe error(s)")
         return 1
+    # The engine count is reported, not assumed. `--from-dir` silently drops to
+    # DirectWrite alone, because GDI+ cannot load CFF off disk — so a hardcoded
+    # "2 engines" would have claimed twice the coverage the run actually had.
     print(f"OK  Latin renders identically to its source across "
           f"{len(pairs)} famil{'y' if len(pairs) == 1 else 'ies'} "
-          f"x {len(args.sizes)} size(s) x 2 engines")
+          f"x {len(args.sizes)} size(s) x {len(engines)} engine(s) "
+          f"({', '.join(engines)})")
     return 0
 
 
