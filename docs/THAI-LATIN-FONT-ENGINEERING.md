@@ -609,6 +609,57 @@ call `require_aeonik_source()` before doing any work and stop with the paths the
 looked in. They must never fall back to `aeonik/`: an unavailable source is
 recoverable, a quietly wrong one is not.
 
+### Thai through PDF, measured 2026-08-06
+
+Three results from building `skills/ichita-convert`, all on a Thai+Latin
+fixture rendered from the current build.
+
+**1. The May PDF's Thai corruption does not reproduce.** That file extracts
+`น˗˓าตาล` for `น้ำตาล`, tone marks arriving as U+02D7/U+02D3. A DOCX rendered
+through LibreOffice headless and extracted with pymupdf returns **311 of 311
+Thai characters, NFC-identical to source**. The old build's glyph naming was
+the cause, as suspected; the current build maps `U+0E49 → uni0E49` cleanly.
+The check now runs on every inbound conversion
+(`md_clean.assert_thai_intact`), so a regression fails loudly.
+
+**2. LibreOffice embeds the merged faces as Type1C and gets the text layer
+right.** Measured line pitch read back out of the PDF is **15.4 pt at 10 pt
+body = 1.54 em**, against TH Aeonik's declared 1537 box — an independent
+confirmation that the font's own metrics drive the layout, from a renderer
+that is not Word.
+
+It does re-resolve the Latin script slot: the DOCX sets `w:ascii`/`w:hAnsi`/
+`w:cs` to `TH Aeonik` on every run, and the PDF embeds `Aeonik-Regular` for the
+Latin runs anyway. TH Aeonik is installed and `fc-match` resolves it, so this
+is LibreOffice's slot handling, not a missing font. Both are brand faces and
+the pitch stays uniform, so it is noted, not chased — Word is the acceptance
+renderer.
+
+**3. weasyprint writes a wrong `ToUnicode` for Thai — and the render is
+correct.** Every `า` (U+0E32) extracts as `ำ` (U+0E33). A 160 dpi crop shows
+the glyphs are right; only the text layer is wrong, so search, copy-paste and
+re-ingestion return corrupted Thai while the page looks perfect.
+
+Mechanism: HarfBuzz decomposes ำ into ํ + า for shaping, so the า glyph is
+reached from two source codepoints. `ToUnicode` is keyed by glyph id and the
+last write wins — the whole subset ends up carrying one entry,
+`<02c1> <0e33>`.
+
+**Not the font.** TH Aeonik's cmap has exactly one codepoint per glyph and
+**zero** Thai glyphs reachable from more than one, checked with fontTools.
+**Pre-decomposing ำ to ํ + า in the source does not fix it** — the extracted
+text then comes back decomposed and NFC will not recompose it, because U+0E33
+has no canonical decomposition. 319 characters out for 311 in. Falsified; do
+not re-propose.
+
+Consequence: weasyprint is fine for English-only delivery and for Thai that
+only has to be looked at. Use LibreOffice where the Thai must be searchable.
+
+**4. Word COM is not automatable unattended from WSL.** Two attempts, both
+hung past 100 s with `Visible = false` and both orphaned a windowless
+`WINWORD.EXE` — the §9 failure exactly. Both cleaned up. Run it attended with
+Word visible, and check for orphans before and after.
+
 ### Open items
 
 1. **Install on Windows** (Siwatch) — 18 merged faces from

@@ -1,6 +1,7 @@
 # ichita-convert — document conversion with markdown as the centre
 
-**Status:** Phase 0 complete 2026-08-06. Phases 1–6 not started.
+**Status:** COMPLETE 2026-08-06. All phases delivered; see the
+"Outcome" section at the end for what was measured and what was left open.
 **Owner decision of record:** Siwatch, 2026-08-06.
 
 ---
@@ -309,3 +310,54 @@ Phase 0 first (unblocks QC) — **done**. Then 1 → 2 → 3 as the usable core.
 in parallel with 2–3 once a Thai fixture DOCX exists. Phase 5 depends on 1–3. This is a
 measured project — each phase gates on a measurement, and the Phase 2 Thai gate may send us
 back to the fonts.
+
+---
+
+## Outcome — 2026-08-06
+
+All six phases delivered. `skills/ichita-convert/` exists with one entry point,
+16 end-to-end tests and 27 unit tests, all green.
+
+### Gates
+
+| Gate | Result |
+|---|---|
+| Phase 0 — `qc_th_fonts.py` | 19/20, check 6 red on purpose |
+| Phase 0 — `thai_line_pitch.py --check` | OK, both families spare +75 |
+| **Phase 2 — Thai byte-identical through PDF** | **PASS, 311/311 after NFC** |
+| Round trip, twice — `b.md == d.md` | identical |
+| md → PDF embeds only brand fonts | PASS |
+
+### Findings that changed the design
+
+- **Finding 2 does not reproduce.** The May PDF's Thai corruption was the old
+  build's glyph naming. The current build round-trips Thai exactly. This gate
+  could have sent the whole project back to the fonts; it did not.
+- **Four defects were in `md_to_docx.py`, not in the conversion.** Soft-wrapped
+  source lines became separate Word paragraphs; bullets used a PUA codepoint in
+  `Symbol`, which LibreOffice substituted and embedded as OpenSymbol. Both
+  fixed at the source. Bold headings, italic blockquotes and hand-drawn
+  numbered lists are brand choices, so those are undone in `md_clean` instead.
+- **weasyprint's Thai text layer is wrong while the render is right** — every
+  `า` extracts as `ำ`. This decides the delivery engine: LibreOffice for Thai.
+  §13 of the font doc has the mechanism and the falsified fix.
+- **Word COM hangs unattended from WSL** and orphans `WINWORD.EXE`. Measured
+  twice, cleaned up both times, and now skipped by the bake-off with the reason
+  attached.
+- **The reconcile sidecar carries the merge base**, a gzipped snapshot of the
+  Markdown. The plan said provenance only; without the base there is no
+  three-way merge, and a snapshot cannot drift the way a formatting model
+  would. Documented in `reference/reconcile.md`.
+
+### Left open, deliberately
+
+1. **`assets/brand/ichita-defaults.md` asset table is stale** — lines 87–91 and
+   531–541 point at `assets/ichita/…`, a layout that does not exist, and name
+   several files that exist nowhere. The font row was corrected; the rest needs
+   someone who knows which assets were intended.
+2. **The two existing briefs in `skills/ichita-exe-brief/output/` still declare
+   `AeonikTH`** and render off-brand. `assets/brand/ichita.css` is the
+   replacement, but rebuilding those two documents against it is its own job.
+3. **Inline emphasis is not recovered from PDF** — see the limitations section
+   of `reference/inbound.md`.
+4. **Word Print-to-PDF is unmeasured.** Needs an attended run.

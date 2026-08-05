@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!--
+  A hand-designed brief, the way Claude builds one: fixed .page geometry, a
+  grid of cards, content living in class names rather than in headings and
+  paragraphs. The inbound HTML leg has to make a readable document out of this,
+  not just strip the tags.
+
+  Note what it does NOT do: declare a single font, colour or margin of its own.
+  Everything comes from assets/brand/ichita.css. That is the fix for the two
+  existing briefs, both of which carried their own copy of the brand and both
+  of which named a font family that does not exist.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ICHITA — Q3 Capability Brief</title>
+<link rel="stylesheet" href="../../../../assets/brand/ichita.css">
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="header-tag">Capability Brief &middot; Q3 2026</div>
+      <div class="header-title">ICHITA Co., Ltd.<br><span>Separation Technologies</span></div>
+      <div class="header-subtitle">Original Equipment Manufacturer &middot; Chonburi, Thailand</div>
+    </div>
+    <div style="text-align:right;"><div class="header-meta">ichita.co.th</div></div>
+  </div>
+  <div class="accent-line"></div>
+  <div class="body">
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-num">2569</div><div class="stat-unit">m&sup3;/day</div><div class="stat-label">Installed capacity</div></div>
+      <div class="stat-card"><div class="stat-num">94.2</div><div class="stat-unit">%</div><div class="stat-label">Colour removal</div></div>
+      <div class="stat-card"><div class="stat-num">0.68</div><div class="stat-unit">kWh/m&sup3;</div><div class="stat-label">Specific energy</div></div>
+      <div class="stat-card"><div class="stat-num">18</div><div class="stat-unit">years</div><div class="stat-label">In operation</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <div class="section-title">Positioning</div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-title">What we build</div>
+        <div class="info-text">Chromatographic separation, decolorization and membrane
+        filtration skids, delivered as pre-piped modules. Site work is limited to
+        feed, permeate, concentrate and CIP tie-ins.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <div class="section-title">Core Capabilities</div>
+      </div>
+      <div class="three-col">
+        <div class="cap-card">
+          <div class="cap-title">Chromatographic Separation</div>
+          <div class="cap-text">SMB and batch chromatography for sugar purification and amino acids.</div>
+          <div class="cap-market">Food &amp; Bev &middot; Pharma</div>
+        </div>
+        <div class="cap-card">
+          <div class="cap-title">Decolorization</div>
+          <div class="cap-text">Activated carbon and ion exchange resin systems for colour removal.</div>
+          <div class="cap-market">Sugar Mills &middot; Palm Oil</div>
+        </div>
+        <div class="cap-card">
+          <div class="cap-title">Membrane Filtration</div>
+          <div class="cap-text">NF and RO trains rated to 2569 m&sup3;/day at 0.68 kWh/m&sup3;.</div>
+          <div class="cap-market">Industrial Water</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-num">03</div>
+        <div class="section-title">Reference Plant</div>
+      </div>
+      <table class="data-table">
+        <tr><th>Client</th><th>Duty</th><th>Capacity</th><th>Year</th></tr>
+        <tr><td>Siam Refinery</td><td>NF decolorization</td><td>2569 m&sup3;/day</td><td>2025</td></tr>
+        <tr><td>Eastern Sugar</td><td>SMB chromatography</td><td>1800 m&sup3;/day</td><td>2024</td></tr>
+        <tr><td>Chonburi Water</td><td>BWRO</td><td>4200 m&sup3;/day</td><td>2023</td></tr>
+      </table>
+    </div>
+
+    <div class="vision">
+      <div class="vision-label">Vision</div>
+      <div class="vision-text">Separation is a process problem before it is an equipment
+      problem. We design the process, then build to it.</div>
+    </div>
+
+  </div>
+  <div class="footer">
+    <div class="footer-text">ICHITA &middot; Separation Technologies</div>
+    <div class="footer-page">1</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Inbound
+pymupdf>=1.24          # pdf -> text and figures; reads the exact character stream
+markdownify>=0.12      # html -> markdown
+beautifulsoup4>=4.12   # html preprocessing before markdownify
+
+# Outbound
+markdown>=3.5          # md -> html
+weasyprint>=60         # html -> pdf
+python-docx>=0.8.11    # sidecar hashing and the docx emitter
+
+# Not installable with pip — see install.sh:
+#   pandoc     docx -> md, and the only engine that reads Word's revision marks
+#   soffice    LibreOffice headless; the delivery PDF engine, see reference/pdf-delivery.md
+#   pdftoppm   poppler-utils; renders a PDF page to PNG so you can look at it
