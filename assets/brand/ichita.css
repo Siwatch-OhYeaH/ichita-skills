@@ -1,0 +1,334 @@
+/* ============================================================================
+   ICHITA brand stylesheet — the single source of truth for HTML and print.
+   ----------------------------------------------------------------------------
+   Import this. Do NOT re-declare @font-face, colours or page geometry in a
+   document; the two executive briefs did, both got the family name wrong, and
+   both rendered in a system font for months without anyone noticing.
+
+   Values come from assets/brand/ichita-defaults.md, which comes from
+   Ichita_Brand_Guidelines_V1.0.pdf. Change them there first, then here.
+
+   Paths are relative to this file (assets/brand/). Load it with a base_url of
+   assets/brand/ or link it from the document; weasyprint resolves url() against
+   the stylesheet, not the document.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   1. Fonts
+   ---------------------------------------------------------------------------
+   The family names below are what the files actually declare — verified with
+   fontTools, not assumed. `AeonikTH` is NOT one of them and never was.
+
+   There is no generic fallback on purpose. A `sans-serif` at the end of the
+   stack is how off-brand output ships silently: the page still renders, so
+   nobody looks. If a glyph is missing you want to see tofu and fix the font.
+   --------------------------------------------------------------------------- */
+
+/* -- Aeonik — Latin. English-only documents. Line box 1200. ---------------- */
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Air.otf')          format('opentype'); font-weight: 100; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-AirItalic.otf')    format('opentype'); font-weight: 100; font-style: italic; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Thin.otf')         format('opentype'); font-weight: 200; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-ThinItalic.otf')   format('opentype'); font-weight: 200; font-style: italic; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Light.otf')        format('opentype'); font-weight: 300; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-LightItalic.otf')  format('opentype'); font-weight: 300; font-style: italic; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Regular.otf')      format('opentype'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-RegularItalic.otf')format('opentype'); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Medium.otf')       format('opentype'); font-weight: 500; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-MediumItalic.otf') format('opentype'); font-weight: 500; font-style: italic; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Bold.otf')         format('opentype'); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-BoldItalic.otf')   format('opentype'); font-weight: 700; font-style: italic; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Black.otf')        format('opentype'); font-weight: 900; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-BlackItalic.otf')  format('opentype'); font-weight: 900; font-style: italic; }
+
+/* -- TH Aeonik — Aeonik Latin + Bai Thai. Thai or mixed. Line box 1537. ---- */
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Air.otf')          format('opentype'); font-weight: 100; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-AirItalic.otf')    format('opentype'); font-weight: 100; font-style: italic; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Thin.otf')         format('opentype'); font-weight: 200; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-ThinItalic.otf')   format('opentype'); font-weight: 200; font-style: italic; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Light.otf')        format('opentype'); font-weight: 300; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-LightItalic.otf')  format('opentype'); font-weight: 300; font-style: italic; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Regular.otf')      format('opentype'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-RegularItalic.otf')format('opentype'); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Medium.otf')       format('opentype'); font-weight: 500; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-MediumItalic.otf') format('opentype'); font-weight: 500; font-style: italic; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Bold.otf')         format('opentype'); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-BoldItalic.otf')   format('opentype'); font-weight: 700; font-style: italic; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Black.otf')        format('opentype'); font-weight: 900; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-BlackItalic.otf')  format('opentype'); font-weight: 900; font-style: italic; }
+
+/* -- Betatron — display numerals ONLY. Never body text, labels or sentences. */
+@font-face { font-family: 'Betatron'; src: url('../fonts/betatron/Betatron-Regular.otf') format('opentype'); font-weight: 400; font-style: normal; }
+
+/* ---------------------------------------------------------------------------
+   2. Tokens
+   --------------------------------------------------------------------------- */
+:root {
+  /* Palette — ichita-defaults.md §3. Hex here carries the `#`; the copies in
+     ichita-defaults.md do not, because those are PptxGenJS format. */
+  --ichita-white:      #FFFFFF;
+  --ichita-blue:       #2978FF;   /* accent ONLY — never a page background */
+  --ichita-blue-light: #82B0FF;
+  --ichita-grey-01:    #CFD9DB;   /* the canvas */
+  --ichita-grey-02:    #788F9C;   /* muted text, captions, borders */
+  --ichita-grey-03:    #263338;   /* primary text, dark bg, logo default */
+  --ichita-blue-black: #171C21;   /* deepest anchor */
+  --ichita-alt-row:    #F0F4F5;   /* table zebra, soft fill */
+
+  /* Type. The document's language picks the family — see .doc-th below. */
+  --ichita-font:       'Aeonik';
+  --ichita-font-num:   'Betatron';
+
+  /* Page geometry. A4, full-bleed; the .page element carries its own margin. */
+  --ichita-page-w:     210mm;
+  --ichita-page-h:     297mm;
+  --ichita-mx:         28px;      /* horizontal content margin */
+
+  /* Scale. Briefs run dense; body copy is 10–11.5px at A4. */
+  --ichita-fs-body:    11.5px;
+  --ichita-fs-small:   9.5px;
+  --ichita-fs-micro:   8px;
+  --ichita-lh-body:    1.55;
+}
+
+/* ---------------------------------------------------------------------------
+   3. The language rule
+   ---------------------------------------------------------------------------
+   English-only -> Aeonik (line box 1200). Thai or mixed -> TH Aeonik (1537).
+   Siwatch, 2026-08-05. Never mix the two in one document: they have different
+   line boxes, so the text reflows at the boundary.
+
+   The emitter decides and stamps the class; nothing here sniffs the content.
+   English-only paragraphs inside a Thai document lead ~28% wider. That is the
+   accepted cost of the rule — do not "fix" it, fixing it is what produced the
+   2026-08-04 defect.
+   --------------------------------------------------------------------------- */
+.doc-th { --ichita-font: 'TH Aeonik'; }
+.doc-th body, body.doc-th { line-height: 1.62; }   /* 1537/1200 x 1.27 headroom */
+
+/* ---------------------------------------------------------------------------
+   4. Base
+   --------------------------------------------------------------------------- */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+@page { size: 210mm 297mm; margin: 0; }
+
+body {
+  font-family: var(--ichita-font);
+  font-size: var(--ichita-fs-body);
+  line-height: var(--ichita-lh-body);
+  color: var(--ichita-grey-03);
+  background: #ddd;                       /* screen only; print resets to white */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.page {
+  width: var(--ichita-page-w);
+  height: var(--ichita-page-h);
+  background: var(--ichita-white);
+  margin: 24px auto;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+.page:last-child { page-break-after: auto; }
+
+/* ---------------------------------------------------------------------------
+   5. Header / footer furniture
+   --------------------------------------------------------------------------- */
+.header {
+  background: var(--ichita-blue-black);
+  padding: 14px var(--ichita-mx) 12px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+.header-tag {
+  font-size: 7.5px; font-weight: 600; letter-spacing: 2px;
+  color: var(--ichita-blue); text-transform: uppercase; margin-bottom: 3px;
+}
+.header-title { font-size: 16px; font-weight: 700; color: var(--ichita-white); line-height: 1.2; }
+.header-title span { color: var(--ichita-blue); }
+.header-subtitle { font-size: 9px; color: var(--ichita-grey-02); margin-top: 4px; line-height: 1.45; }
+.header-meta { font-size: var(--ichita-fs-micro); color: var(--ichita-grey-02); text-align: right; }
+
+/* The header is Blue Black, so the logo is the white colourway. That is the
+   only case where the white logo is permitted — ichita-defaults.md §2. */
+.logo-block { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 5px; }
+.logo-block img { height: 16px; }
+
+.accent-line { height: 2px; background: var(--ichita-blue); }
+
+.body { padding: 14px var(--ichita-mx) 0; }
+
+.footer {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--ichita-blue-black); padding: 5px var(--ichita-mx);
+  display: flex; align-items: center; justify-content: space-between; height: 24px;
+}
+.footer-text {
+  font-size: 7px; color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.footer-page { font-size: var(--ichita-fs-micro); color: var(--ichita-blue); font-weight: 600; }
+
+/* ---------------------------------------------------------------------------
+   6. Sections and grid
+   --------------------------------------------------------------------------- */
+.section { margin-bottom: 11px; }
+.section-header {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+  border-bottom: 1px solid var(--ichita-grey-01); padding-bottom: 3px;
+}
+.section-num {
+  background: var(--ichita-blue-black); color: var(--ichita-blue);
+  font-size: 7.5px; font-weight: 700; padding: 2px 5px;
+  border-radius: 2px; letter-spacing: 1px;
+}
+.section-title { font-size: 11px; font-weight: 700; color: var(--ichita-blue-black); }
+
+.two-col   { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.four-col  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+
+/* ---------------------------------------------------------------------------
+   7. Stat cards — the only place Betatron is allowed
+   --------------------------------------------------------------------------- */
+.stat-row  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.stat-row.three { grid-template-columns: repeat(3, 1fr); }
+.stat-card { background: var(--ichita-blue-black); border-radius: 4px; padding: 8px 10px; text-align: center; }
+.stat-num  { font-size: 19px; font-weight: 700; color: var(--ichita-blue); line-height: 1.1; }
+.stat-num.betatron { font-family: var(--ichita-font-num); font-weight: 400; }
+.stat-unit  { font-size: var(--ichita-fs-micro); color: var(--ichita-blue-light); font-weight: 500; }
+.stat-label { font-size: 8.5px; color: #AAB8CC; margin-top: 3px; line-height: 1.3; }
+
+/* ---------------------------------------------------------------------------
+   8. Boxes and cards
+   --------------------------------------------------------------------------- */
+.info-box {
+  background: var(--ichita-alt-row); border-left: 3px solid var(--ichita-blue);
+  border-radius: 0 4px 4px 0; padding: 8px 10px;
+}
+.info-box-title { font-size: 10px; font-weight: 700; color: var(--ichita-blue-black); margin-bottom: 4px; }
+.info-text { font-size: 10.5px; color: #333333; line-height: 1.55; }
+
+.highlight-box { background: var(--ichita-blue-black); border-radius: 4px; padding: 8px 12px; }
+.highlight-box .info-text      { color: #DDE4F0; }
+.highlight-box .info-box-title { color: var(--ichita-blue); }
+
+.cap-card {
+  border: 1px solid var(--ichita-grey-01); border-top: 3px solid var(--ichita-blue);
+  border-radius: 4px; padding: 8px 10px;
+}
+.cap-title  { font-size: 10px; font-weight: 700; color: var(--ichita-blue-black); margin-bottom: 3px; }
+.cap-text   { font-size: var(--ichita-fs-small); color: #444444; line-height: 1.45; }
+.cap-market { font-size: var(--ichita-fs-micro); color: var(--ichita-blue); font-weight: 600; margin-top: 3px; }
+
+.init-card {
+  background: var(--ichita-alt-row); border-radius: 4px; padding: 8px 10px;
+  border-left: 3px solid var(--ichita-blue);
+}
+.init-num {
+  font-size: 7.5px; font-weight: 700; letter-spacing: 1px;
+  color: var(--ichita-blue); text-transform: uppercase; margin-bottom: 2px;
+}
+.init-title { font-size: 10px; font-weight: 700; color: var(--ichita-blue-black); margin-bottom: 3px; }
+
+.vision {
+  background: var(--ichita-blue-black); border-radius: 4px; padding: 10px 14px;
+  margin-top: 8px; border-left: 4px solid var(--ichita-blue);
+}
+.vision-label {
+  font-size: 7.5px; font-weight: 700; letter-spacing: 2px;
+  color: var(--ichita-blue); text-transform: uppercase; margin-bottom: 4px;
+}
+.vision-text { font-size: 10px; color: #DDE4F0; font-style: italic; line-height: 1.6; }
+
+/* ---------------------------------------------------------------------------
+   9. Tables
+   --------------------------------------------------------------------------- */
+.data-table { width: 100%; border-collapse: collapse; font-size: var(--ichita-fs-small); }
+.data-table th {
+  background: var(--ichita-blue); color: var(--ichita-white);
+  font-weight: 600; padding: 4px 8px; text-align: left; font-size: 9px;
+}
+.data-table td { padding: 4px 8px; border-bottom: 0.5px solid var(--ichita-grey-01); }
+.data-table tr:nth-child(even) td { background: var(--ichita-alt-row); }
+.data-table strong { color: var(--ichita-blue-black); }
+
+/* ---------------------------------------------------------------------------
+   10. Flowing prose — what convert.py emits from markdown
+   ---------------------------------------------------------------------------
+   The card classes above are for hand-designed pages. A converted document is
+   a linear stream, so it needs plain element styling too.
+   --------------------------------------------------------------------------- */
+.prose h1 {
+  font-size: 20px; font-weight: 700; color: var(--ichita-blue-black);
+  line-height: 1.2; margin: 0 0 10px;
+}
+.prose h2 {
+  font-size: 14px; font-weight: 700; color: var(--ichita-blue-black);
+  margin: 16px 0 6px; padding-bottom: 3px;
+  border-bottom: 1px solid var(--ichita-grey-01);
+}
+.prose h3 { font-size: 11.5px; font-weight: 700; color: var(--ichita-grey-03); margin: 12px 0 4px; }
+.prose h4 { font-size: 10.5px; font-weight: 600; color: var(--ichita-grey-02); margin: 10px 0 4px; }
+.prose p  { margin: 0 0 7px; }
+.prose ul, .prose ol { margin: 0 0 8px; padding-left: 18px; }
+.prose li { margin-bottom: 3px; }
+.prose a  { color: var(--ichita-blue); text-decoration: none; }
+.prose strong { color: var(--ichita-blue-black); font-weight: 700; }
+.prose blockquote {
+  border-left: 3px solid var(--ichita-blue); background: var(--ichita-alt-row);
+  padding: 7px 10px; margin: 0 0 8px; color: #333333;
+}
+.prose hr { border: none; border-top: 1px solid var(--ichita-grey-01); margin: 12px 0; }
+.prose img { max-width: 100%; height: auto; display: block; margin: 8px 0; }
+.prose figure { margin: 10px 0; }
+.prose figcaption {
+  font-size: var(--ichita-fs-micro); color: var(--ichita-grey-02);
+  margin-top: 3px; line-height: 1.4;
+}
+.prose table {
+  width: 100%; border-collapse: collapse;
+  font-size: var(--ichita-fs-small); margin: 0 0 10px;
+}
+.prose th {
+  background: var(--ichita-blue); color: var(--ichita-white);
+  font-weight: 600; padding: 4px 8px; text-align: left; font-size: 9px;
+}
+.prose td { padding: 4px 8px; border-bottom: 0.5px solid var(--ichita-grey-01); }
+.prose tbody tr:nth-child(even) td { background: var(--ichita-alt-row); }
+
+/* Monospace is the one place a non-brand family is unavoidable — Aeonik has no
+   fixed-pitch cut, and misaligned code is worse than off-brand code. */
+.prose code, .prose pre {
+  font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+  font-size: 9px;
+}
+.prose code { background: var(--ichita-alt-row); padding: 1px 4px; border-radius: 2px; }
+.prose pre {
+  background: var(--ichita-grey-03); color: var(--ichita-grey-01);
+  padding: 8px 10px; border-radius: 4px; margin: 0 0 10px;
+  overflow-x: auto; line-height: 1.45;
+}
+.prose pre code { background: none; padding: 0; color: inherit; }
+
+/* ---------------------------------------------------------------------------
+   11. Print
+   --------------------------------------------------------------------------- */
+@media print {
+  body  { background: var(--ichita-white); }
+  .page { margin: 0; box-shadow: none; }
+  .print-btn, .no-print { display: none !important; }
+  .prose h1, .prose h2, .prose h3 { page-break-after: avoid; }
+  .prose table, .prose figure, .prose pre { page-break-inside: avoid; }
+}
+
+/* Screen-only affordance for hand-designed briefs that offer a print button. */
+.print-btn {
+  position: fixed; top: 16px; right: 16px;
+  background: var(--ichita-blue); color: var(--ichita-white); border: none;
+  padding: 8px 20px; border-radius: 4px;
+  font-size: 12px; font-weight: 600; cursor: pointer; z-index: 999;
+}
+.print-btn:hover { background: #1A5FD6; }
