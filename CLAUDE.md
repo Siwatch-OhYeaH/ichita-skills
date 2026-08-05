@@ -72,8 +72,19 @@ Layer 2  ichita-skills@ichita  (this repo)       brand identity on top
 | `ichita-pptx` | Branded decks from scratch: PptxGenJS, process diagrams, html2pptx |
 | `ichita-template` | Restyle an existing PPTX, or generate from the Company Demo base |
 | `ichita-exe-brief` | Executive brief pipeline: content → branded HTML → print-ready PDF |
+| `ichita-convert` | Conversion between docx/md/html/pdf, and merging a hand-edited DOCX back |
 
 Reach for the base skill for general editing, tracked changes, or anything non-branded.
+
+**Markdown is the record.** Read a client DOCX or PDF in through
+`ichita-convert` rather than into context — a 49 KB DOCX is 2.4 KB of Markdown,
+a 129 KB PDF is 2.4 KB. Its two hard rules, which colleagues get wrong: **Print
+to PDF, never Save as PDF** (Office cannot embed CFF and substitutes Calibri
+silently), and **a DOCX edited and left on a desktop is not the record** — hand
+it back and `convert.py reconcile` it.
+
+Brand CSS for any HTML output lives in `assets/brand/ichita.css`. Import it;
+never re-declare `@font-face`, colours or page geometry in a document.
 
 ## Bilingual Thai/Latin work
 
