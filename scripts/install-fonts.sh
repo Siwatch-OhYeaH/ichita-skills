@@ -71,11 +71,19 @@ collect_fonts() {
         exit 1
     fi
 
-    # Collect .otf and .ttf from all subdirectories
+    # Collect .otf and .ttf from all subdirectories EXCEPT the build sources.
+    #
+    # aeonik-v1000/ is CoType's pristine v1.000 — the input to build_aeonik.py,
+    # never installed. Its faces share both the family name AND the filenames of
+    # the v1.001 build in aeonik/, and this loop flattens everything to a single
+    # destination by basename, so including it would come down to sort order
+    # deciding which Aeonik the machine ends up with. That is precisely the
+    # stale-file-wins failure documented in THAI-LATIN-FONT-ENGINEERING.md §9.
     while IFS= read -r -d '' f; do
         FONT_FILES+=("$f")
         count=$((count + 1))
-    done < <(find "$ASSETS_DIR" \( -name "*.otf" -o -name "*.ttf" \) -type f -print0 | sort -z)
+    done < <(find "$ASSETS_DIR" -type d -name "aeonik-v1000" -prune -o \
+                  \( -name "*.otf" -o -name "*.ttf" \) -type f -print0 | sort -z)
 
     if [[ $count -eq 0 ]]; then
         echo "ERROR: No .otf or .ttf files found under $ASSETS_DIR" >&2

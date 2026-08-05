@@ -67,7 +67,7 @@ from fontTools.misc.psCharStrings import T2WidthExtractor
 from fontTools.ttLib import TTFont
 
 ASSETS = Path(__file__).parent.parent / "assets" / "fonts"
-MERGED, AEONIK, BAI = ASSETS / "aeonik-th", ASSETS / "aeonik", ASSETS / "bai-jamjuree"
+MERGED, AEONIK, BAI = ASSETS / "th-aeonik", ASSETS / "aeonik", ASSETS / "bai-jamjuree"
 
 PAIRS = {
     "Regular":       ("Aeonik-Regular.otf",       "BaiJamjuree-Regular.ttf"),

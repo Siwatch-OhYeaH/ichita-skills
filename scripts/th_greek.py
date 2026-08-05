@@ -89,7 +89,7 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 
 ROOT = SCRIPTS.parent
-WEB_DIR = ROOT / "assets" / "fonts" / "aeonik-woff"
+WEB_DIR = ROOT / "assets" / "fonts" / "aeonik-web"
 
 # Where the decompressed web cut is cached. freetype cannot read WOFF2, and the
 # harvest needs a rasterisable file as well as an outline, so the .woff2 is

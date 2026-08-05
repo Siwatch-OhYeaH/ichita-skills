@@ -32,7 +32,7 @@ import pikepdf
 from fontTools.ttLib import TTFont
 
 ROOT = Path(__file__).parent.parent
-FONT_DIRS = [ROOT / "assets/fonts/aeonik-th", ROOT / "assets/fonts/slussen-th"]
+FONT_DIRS = [ROOT / "assets/fonts/th-aeonik", ROOT / "assets/fonts/th-slussen"]
 
 # Thai combining marks: zero advance in hmtx, must be zero in /W too
 MARKS = set(range(0x0E31, 0x0E32)) | set(range(0x0E34, 0x0E3B)) | set(range(0x0E47, 0x0E4F))

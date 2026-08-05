@@ -81,7 +81,7 @@ SLUSSEN_ONEDRIVE = Path("/mnt/c/Users/OhYeaH/OneDrive/Documents/Slussen/Slussen"
 SLUSSEN_LOCAL = ASSETS / "fonts" / "slussen"
 BAI_LOCAL = ASSETS / "fonts" / "bai-jamjuree"
 BAI_SYSTEM = Path.home() / ".local" / "share" / "fonts"
-OUTPUT_DIR = ASSETS / "fonts" / "slussen-th"
+OUTPUT_DIR = ASSETS / "fonts" / "th-slussen"
 
 # fsSelection bits
 ITALIC = 1 << 0

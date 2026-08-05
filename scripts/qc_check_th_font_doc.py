@@ -54,8 +54,8 @@ PITCH_BLOCKS = [
 ]
 
 FONT_FILES = {
-    "TH Aeonik":     "assets/fonts/aeonik-th/TH-Aeonik-Regular.otf",
-    "TH Slussen":    "assets/fonts/slussen-th/TH-Slussen-Regular.otf",
+    "TH Aeonik":     "assets/fonts/th-aeonik/TH-Aeonik-Regular.otf",
+    "TH Slussen":    "assets/fonts/th-slussen/TH-Slussen-Regular.otf",
     "Bai Jamjuree":  "assets/fonts/bai-jamjuree/BaiJamjuree-Regular.ttf",
     "Aeonik (base)": "assets/fonts/aeonik/Aeonik-Regular.otf",
 }

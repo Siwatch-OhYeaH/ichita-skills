@@ -9,7 +9,7 @@ from fontTools.ttLib import TTFont
 
 AEONIK_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "aeonik"
 BAI_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "bai-jamjuree"
-OUTPUT_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "aeonik-th"
+OUTPUT_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "th-aeonik"
 
 # Character ranges
 LATIN_RANGES = [(0x0000, 0x00FF), (0x0100, 0x017F), (0x0180, 0x024F)]

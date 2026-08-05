@@ -27,7 +27,7 @@ Thai glyph bounds analysis (across all 10 fonts):
 from pathlib import Path
 from fontTools.ttLib import TTFont
 
-FONTS_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "slussen-th"
+FONTS_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "th-slussen"
 
 TARGET_METRICS = {
     "sTypoLineGap": 166,    # Restore original

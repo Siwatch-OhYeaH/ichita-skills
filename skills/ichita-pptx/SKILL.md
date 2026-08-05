@@ -25,7 +25,7 @@ Before generating PPTX:
 1. **Install PptxGenJS** (in caller's project): `npm install pptxgenjs` — or globally: `npm install -g pptxgenjs`
 2. **Install Ichita brand fonts** (one-time, system-wide):
    - Run `bash assets/fonts/install-fonts.sh` from this repo's root, OR
-   - Manually copy `assets/fonts/aeonik-th/*.otf` and `assets/fonts/aeonik/*.otf` to `~/.local/share/fonts/` (Linux), `~/Library/Fonts/` (macOS), or `%LOCALAPPDATA%\Microsoft\Windows\Fonts\` (Windows), then run `fc-cache -fv` (Linux/macOS).
+   - Manually copy `assets/fonts/th-aeonik/*.otf` and `assets/fonts/aeonik/*.otf` to `~/.local/share/fonts/` (Linux), `~/Library/Fonts/` (macOS), or `%LOCALAPPDATA%\Microsoft\Windows\Fonts\` (Windows), then run `fc-cache -fv` (Linux/macOS).
    - Verify with: `fc-list | grep -i "TH Aeonik"` — must list TH-Aeonik-Regular/Bold OTFs.
 
 Without fonts installed, PowerPoint/LibreOffice will fall back to system defaults and the deck will not be brand-compliant.

@@ -66,7 +66,7 @@ from fontTools.ttLib import TTFont
 warnings.filterwarnings("ignore")
 
 ASSETS = Path(__file__).parent.parent / "assets" / "fonts"
-MERGED, SLUSSEN, BAI = ASSETS / "slussen-th", ASSETS / "slussen", ASSETS / "bai-jamjuree"
+MERGED, SLUSSEN, BAI = ASSETS / "th-slussen", ASSETS / "slussen", ASSETS / "bai-jamjuree"
 
 # merged filename stem -> (slussen source, bai source)
 PAIRS = {

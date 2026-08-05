@@ -23,7 +23,7 @@ for judging SHAPE, and a shape is a shape in any rasteriser. Anything about weig
 stem pixels or leading has to be measured with scripts/win_latin_parity.py instead.
 
     python3 scripts/build_greek_specimen.py
-    python3 scripts/build_greek_specimen.py --dir assets/fonts/aeonik-th \
+    python3 scripts/build_greek_specimen.py --dir assets/fonts/th-aeonik \
         --prefix TH-Aeonik
 """
 from __future__ import annotations
@@ -209,7 +209,7 @@ def sheet_before_after(src_dir, prefix, out_path, px=110):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--dir", default="assets/fonts/aeonik-fixed")
+    ap.add_argument("--dir", default="assets/fonts/aeonik")
     ap.add_argument("--prefix", default="Aeonik")
     ap.add_argument("--out-dir", default="test-output")
     args = ap.parse_args()

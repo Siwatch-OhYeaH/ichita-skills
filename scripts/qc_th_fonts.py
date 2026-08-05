@@ -83,7 +83,7 @@ from th_thai_prep import APERTURE_FLOOR, WEIGHT_RATIO  # noqa: E402
 
 FAMILIES = {
     "TH-Aeonik": {
-        "dir": ROOT / "assets/fonts/aeonik-th",
+        "dir": ROOT / "assets/fonts/th-aeonik",
         "latin_dir": ROOT / "assets/fonts/aeonik",
         # merged weight -> Latin source it must match
         # All 14 Aeonik faces. Ordered lightest-first so the ladder check in
@@ -132,7 +132,7 @@ FAMILIES = {
         "clip_equals_line_box": True,
     },
     "TH-Slussen": {
-        "dir": ROOT / "assets/fonts/slussen-th",
+        "dir": ROOT / "assets/fonts/th-slussen",
         "latin_dir": ROOT / "assets/fonts/slussen",
         "pairs": {
             "Regular": "Slussen-Regular.otf",

@@ -78,8 +78,8 @@ USERFONTS="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
 # rebuild. Accepting both lets this script clean up across that transition.
 declare -A CUR
 BUILT=()
-for f in "$REPO"/assets/fonts/aeonik-th/*.otf "$REPO"/assets/fonts/aeonik-th/*.ttf \
-         "$REPO"/assets/fonts/slussen-th/*.otf "$REPO"/assets/fonts/slussen-th/*.ttf; do
+for f in "$REPO"/assets/fonts/th-aeonik/*.otf "$REPO"/assets/fonts/th-aeonik/*.ttf \
+         "$REPO"/assets/fonts/th-slussen/*.otf "$REPO"/assets/fonts/th-slussen/*.ttf; do
     [ -f "$f" ] || continue
     CUR["$(basename "$f")"]="$(sha256sum "$f" | cut -c1-12)"
     BUILT+=("$f")

@@ -4,8 +4,8 @@
 
 | Document | Face | Line box |
 |---|---|---|
-| English only | **Aeonik** (`aeonik-fixed/`) | 1200 |
-| Thai, or Thai + English mixed | **TH Aeonik** (`aeonik-th/`) | 1537 |
+| English only | **Aeonik** (`aeonik/`) | 1200 |
+| Thai, or Thai + English mixed | **TH Aeonik** (`th-aeonik/`) | 1537 |
 
 Never mix the two in one document; they have different line boxes, so the text reflows
 at the boundary. The generators pick automatically from the source text and log the
@@ -22,13 +22,13 @@ renderer reads which field, and roughly thirty defects not to repeat.
 
 | Directory | Contents | Status |
 |---|---|---|
-| `aeonik/` | Aeonik v1.000 desktop, 14 faces | **pristine source** — read by the builders, never installed |
-| `aeonik-fixed/` | Aeonik + Greek/math coverage, 14 faces | **BUILT — install this over the current Aeonik** |
-| `aeonik-th/` | TH Aeonik = Aeonik Latin + Bai Thai, 14 faces | **BUILT — install** |
+| `aeonik-v1000/` | Aeonik v1.000 desktop, 14 faces | **pristine source** — read by the builders, **never installed** |
+| `aeonik/` | Aeonik v1.001 = v1.000 + Greek/math coverage, 14 faces | **BUILT — install this over the current Aeonik** |
+| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, 14 faces | **BUILT — install** |
 | `slussen/` | Slussen desktop, 4 faces | pristine source; incomplete (a 10-face set exists in an old `D:` build) |
-| `slussen-th/` | TH Slussen = Slussen + Bai Thai, 4 faces | **BUILT — install**; no documented brand role yet |
-| `aeonik-woff/` | Aeonik v2.000 web cut, 6 faces | source for the Greek harvest **only** — box 1140, respaced digits, do not migrate to |
-| `aeonik-th-web/` | TH Aeonik WOFF2 + WOFF + CSS, 8 faces | **BUILT AND HELD — do not serve**, licence unresolved |
+| `th-slussen/` | TH Slussen = Slussen + Bai Thai, 4 faces | **BUILT — install**; no documented brand role yet |
+| `aeonik-web/` | Aeonik v2.000 web cut, 6 faces | source for the Greek harvest **only** — box 1140, respaced digits, do not migrate to |
+| `th-aeonik-web/` | TH Aeonik WOFF2 + WOFF + CSS, 8 faces | **BUILT AND HELD — do not serve**, licence unresolved |
 | `bai-jamjuree/` | Bai Jamjuree, 12 faces (OFL) | Thai source for the merges; also the split-mode Thai font |
 | `betatron/` | Betatron Regular | display numerals only — never body text |
 
@@ -71,18 +71,18 @@ document.
 
 What to install:
 
-- 14 from `aeonik-fixed/` — **over** the existing Aeonik. Same family name, so it *is*
+- 14 from `aeonik/` — **over** the existing Aeonik. Same family name, so it *is*
   Aeonik to Word; `nameID5` reads `Version 1.001; ICHITA Greek/math coverage`.
-- 14 from `aeonik-th/`
-- 4 from `slussen-th/`
+- 14 from `th-aeonik/`
+- 4 from `th-slussen/`
 - `bai-jamjuree/` and `betatron/` if not already present
 
 ### Linux — for the QC suites only
 
 ```bash
 mkdir -p ~/.local/share/fonts/th-current
-cp assets/fonts/aeonik-th/TH-Aeonik-*.otf \
-   assets/fonts/slussen-th/TH-Slussen-*.otf ~/.local/share/fonts/th-current/
+cp assets/fonts/th-aeonik/TH-Aeonik-*.otf \
+   assets/fonts/th-slussen/TH-Slussen-*.otf ~/.local/share/fonts/th-current/
 cp assets/fonts/bai-jamjuree/*.ttf assets/fonts/betatron/*.otf ~/.local/share/fonts/
 fc-cache -f
 ```
@@ -93,7 +93,7 @@ the document QC and has produced false passes.
 ### macOS — **UNVERIFIED**
 
 ```bash
-cp assets/fonts/{aeonik-fixed,aeonik-th,slussen-th}/*.otf ~/Library/Fonts/
+cp assets/fonts/{aeonik,th-aeonik,th-slussen}/*.otf ~/Library/Fonts/
 cp assets/fonts/bai-jamjuree/*.ttf assets/fonts/betatron/*.otf ~/Library/Fonts/
 ```
 

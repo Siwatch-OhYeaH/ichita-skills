@@ -38,7 +38,7 @@ except ImportError:
 # Paths
 AEONIK_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "aeonik"
 BAI_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "bai-jamjuree"
-OUTPUT_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "aeonik-th"
+OUTPUT_DIR = Path(__file__).parent.parent / "assets" / "fonts" / "th-aeonik"
 
 # Character ranges
 LATIN_RANGES = [

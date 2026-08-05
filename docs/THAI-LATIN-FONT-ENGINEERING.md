@@ -578,10 +578,33 @@ worse — it selected unified mode from *installation*, silently giving English-
 briefs the 1537 box. All three (`md_to_docx.py`, `html_to_docx.py`,
 `docx_helpers.resolve_font()`) now select from content and **log the choice**.
 
+### Directory layout, reconciled 2026-08-06
+
+The font directories were renamed to a consistent `th-` prefix, and the Aeonik build
+was promoted over its own source. Both had been left uncommitted, so 80 files showed
+as deleted and every path constant in `scripts/` pointed at a directory that no longer
+existed — `qc_th_fonts.py` could not run at all.
+
+| Was | Is | Note |
+|---|---|---|
+| `aeonik-th/` | `th-aeonik/` | |
+| `slussen-th/` | `th-slussen/` | |
+| `aeonik-th-web/` | `th-aeonik-web/` | |
+| `aeonik-woff/` | `aeonik-web/` | Greek harvest source only |
+| `aeonik-fixed/` | `aeonik/` | the v1.001 build is now *the* Aeonik |
+| `aeonik/` (v1.000) | `aeonik-v1000/` | **pristine source, never installed** |
+
+The last two rows are the one that can bite. `aeonik/` used to be CoType's pristine
+v1.000 and is now our v1.001 Greek/math build, so `build_aeonik.py` would have read
+its own output as its input. The pristine faces were restored from git into
+`aeonik-v1000/` and `build_th_aeonik.AEONIK_LOCAL` repointed there — input and output
+are separate directories again. Both carry the family name `Aeonik`; only `aeonik/`
+is ever installed.
+
 ### Open items
 
 1. **Install on Windows** (Siwatch) — 18 merged faces from
-   `assets/fonts/{aeonik-th,slussen-th}`, plus **14 from `assets/fonts/aeonik-fixed`
+   `assets/fonts/{th-aeonik,th-slussen}`, plus **14 from `assets/fonts/aeonik`
    over the current Aeonik** (same family name; `nameID5` reads
    `Version 1.001; ICHITA Greek/math coverage`). §9 for the traps.
 2. **Then re-run `win_office_pitch.py` and `win_latin_parity.py`** against the
@@ -595,7 +618,7 @@ briefs the 1537 box. All three (`md_to_docx.py`, `html_to_docx.py`,
    is written in `docs/archive/2026-08-05-completion-and-cross-platform-acceptance.md`.
    The unified-metrics argument for CoreText is a **construction argument, not a
    measurement** — do not let it harden into a claim.
-6. **Web fonts built and HELD, not served** — `assets/fonts/aeonik-th-web/`. Serving
+6. **Web fonts built and HELD, not served** — `assets/fonts/th-aeonik-web/`. Serving
    redistributes CoType's outlines merged with Bai; unresolved licence question, as is
    harvesting from the web cut in the first place.
 7. **Unmeasured:** how often the worst Thai pairing occurs in real prose. The repo's
@@ -632,11 +655,11 @@ briefs the 1537 box. All three (`md_to_docx.py`, `html_to_docx.py`,
 ```bash
 python3 scripts/build_th_aeonik.py && python3 scripts/build_th_slussen.py
 python3 scripts/build_aeonik.py
-cp assets/fonts/{aeonik-th/TH-Aeonik,slussen-th/TH-Slussen}-*.otf \
+cp assets/fonts/{th-aeonik/TH-Aeonik,th-slussen/TH-Slussen}-*.otf \
    ~/.local/share/fonts/th-current/ && fc-cache -f
 python3 scripts/thai_line_pitch.py --check
 python3 scripts/qc_th_fonts.py
 python3 scripts/build_th_font_qc.py && python3 scripts/qc_check_th_font_doc.py
-python3 scripts/win_latin_parity.py --from-dir "TH Aeonik" assets/fonts/aeonik-th \
-                                    --from-dir "TH Slussen" assets/fonts/slussen-th
+python3 scripts/win_latin_parity.py --from-dir "TH Aeonik" assets/fonts/th-aeonik \
+                                    --from-dir "TH Slussen" assets/fonts/th-slussen
 ```

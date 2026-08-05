@@ -69,7 +69,7 @@ from th_cff import assert_advance_single_source, convert_to_cff  # noqa: E402
 warnings.filterwarnings("ignore")
 
 ROOT = SCRIPTS.parent
-OUTPUT_DIR = ROOT / "assets" / "fonts" / "aeonik-fixed"
+OUTPUT_DIR = ROOT / "assets" / "fonts" / "aeonik"
 
 FACES = [
     "Air", "Thin", "Light", "Regular", "Medium", "Bold", "Black",

@@ -143,8 +143,8 @@ def required_pitch(path: str) -> dict:
 
 # The families this repo ships or sets text in. Each entry is (label, glob).
 FAMILIES = [
-    ("TH-Aeonik", "assets/fonts/aeonik-th/TH-Aeonik-*.otf"),
-    ("TH-Slussen", "assets/fonts/slussen-th/TH-Slussen-*.otf"),
+    ("TH-Aeonik", "assets/fonts/th-aeonik/TH-Aeonik-*.otf"),
+    ("TH-Slussen", "assets/fonts/th-slussen/TH-Slussen-*.otf"),
     ("Bai Jamjuree", os.path.expanduser("~/.local/share/fonts/BaiJamjuree-*.ttf")),
 ]
 REFERENCES = [

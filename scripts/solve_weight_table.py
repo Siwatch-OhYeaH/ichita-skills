@@ -49,8 +49,8 @@ TOL = 2.0
 MAX_ITER = 7
 
 FAMILIES = {
-    "TH-Aeonik": ("build_th_aeonik", "aeonik-th"),
-    "TH-Slussen": ("build_th_slussen", "slussen-th"),
+    "TH-Aeonik": ("build_th_aeonik", "th-aeonik"),
+    "TH-Slussen": ("build_th_slussen", "th-slussen"),
 }
 
 

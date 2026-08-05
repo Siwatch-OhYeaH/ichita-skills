@@ -41,8 +41,8 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 ROOT = SCRIPTS.parent
 
-SRC_DIR = ROOT / "assets" / "fonts" / "aeonik-th"
-OUT_DIR = ROOT / "assets" / "fonts" / "aeonik-th-web"
+SRC_DIR = ROOT / "assets" / "fonts" / "th-aeonik"
+OUT_DIR = ROOT / "assets" / "fonts" / "th-aeonik-web"
 
 # The weights a web page actually uses. Not all 14 — a webfont payload is a cost
 # per visitor, and Air/Thin/Black exist for display work that does not happen in a

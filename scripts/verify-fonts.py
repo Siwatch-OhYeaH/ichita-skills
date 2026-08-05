@@ -356,7 +356,7 @@ def main() -> int:
         print("unknown")
 
     # ── TH-Aeonik (full validation) ───────────────────────────────────────────
-    th_aeonik_dir = font_dir / "aeonik-th"
+    th_aeonik_dir = font_dir / "th-aeonik"
     th_aeonik_fonts = sorted(th_aeonik_dir.glob("TH-Aeonik-*.otf")) if th_aeonik_dir.is_dir() else []
 
     print(f"\n{'=' * 80}")

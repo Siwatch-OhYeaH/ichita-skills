@@ -20,7 +20,7 @@ SCRIPT_DIR = Path(__file__).parent
 ASSETS = SCRIPT_DIR.parent / "assets"
 AEONIK_DIR = ASSETS / "fonts" / "aeonik"
 BAI_DIR = ASSETS / "fonts" / "bai-jamjuree"
-OUTPUT_DIR = ASSETS / "fonts" / "aeonik-th"
+OUTPUT_DIR = ASSETS / "fonts" / "th-aeonik"
 
 # Thai Unicode block
 THAI_START = 0x0E00

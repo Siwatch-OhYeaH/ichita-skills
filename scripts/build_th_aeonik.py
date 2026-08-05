@@ -101,12 +101,15 @@ warnings.filterwarnings("ignore")
 SCRIPT_DIR = Path(__file__).parent
 ASSETS = SCRIPT_DIR.parent / "assets"
 
-# Source directories
+# Source directories. The Latin base must be CoType's pristine v1.000, never
+# `fonts/aeonik/` — that directory now holds our v1.001 Greek/math build, and
+# feeding a build's own output back in as its source is how a version string
+# gets applied twice and a build stops being reproducible.
 AEONIK_D_DRIVE = Path("/mnt/d/Doccument/New Identity/Aeonik-font-download/Aeonik-font-download")
-AEONIK_LOCAL = ASSETS / "fonts" / "aeonik"
+AEONIK_LOCAL = ASSETS / "fonts" / "aeonik-v1000"
 BAI_SYSTEM = Path.home() / ".local" / "share" / "fonts"
 BAI_LOCAL = ASSETS / "fonts" / "bai-jamjuree"
-OUTPUT_DIR = ASSETS / "fonts" / "aeonik-th"
+OUTPUT_DIR = ASSETS / "fonts" / "th-aeonik"
 
 # fsSelection bits
 ITALIC = 1 << 0
@@ -1347,7 +1350,7 @@ def main():
                         help="override th_thai_prep.MARK_SCALE (sweep knob for "
                              "scripts/solve_mark_scale.py)")
     parser.add_argument("--out-dir", default=None,
-                        help="write elsewhere than assets/fonts/aeonik-th, so a "
+                        help="write elsewhere than assets/fonts/th-aeonik, so a "
                              "sweep does not overwrite the shipped faces")
     args = parser.parse_args()
     out_dir = Path(args.out_dir) if args.out_dir else OUTPUT_DIR
