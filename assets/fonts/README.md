@@ -116,9 +116,10 @@ maths and sits wider than a Greek sigma; `Ø` is a letter where `⌀` is a symbo
 only if a real document reads wrong.
 
 `∆` U+2206 and `µ` U+00B5 carry the web cut's redrawn outline in the harvested faces,
-because a Greek letter and its maths twin must share one outline. Specimen sheets:
-`test-output/greek-aeonik-*.png`, regenerate with
-`python3 scripts/build_greek_specimen.py`.
+because a Greek letter and its maths twin must share one outline.
+
+Specimen sheets are not committed — regenerate with
+`python3 scripts/build_greek_specimen.py` (→ `test-output/greek-aeonik-*.png`).
 
 ## Usage in brand
 

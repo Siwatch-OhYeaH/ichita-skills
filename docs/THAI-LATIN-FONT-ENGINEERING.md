@@ -269,6 +269,17 @@ its maths twin must share one outline. The harvested outline is written into the
 **twin's existing glyph name**, so the source's own kern pairs and GSUB lookups keep
 pointing at the glyph the reader now sees.
 
+Specimen sheets are **not committed** — regenerate them, they take seconds:
+
+```bash
+python3 scripts/build_greek_specimen.py     # -> test-output/greek-aeonik-*.png
+```
+
+Sheet 1 is the grid of all five codepoints beside their twins at all 14 weights,
+sheet 2 is running text (`Δp`, `µS/cm`, `m³/h`, `H₂O`, `±`, `≤`, `Ω`), sheet 3 is
+before/after for the two glyphs that changed. FreeType render — **judge shape there,
+never weight or leading**; for those use `win_latin_parity.py`.
+
 ### The extrapolation defect, and the check that catches it
 
 First build shipped four faces whose `μ` had **hairline stems and a bowl 8× heavier**,

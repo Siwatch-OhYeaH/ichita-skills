@@ -3,6 +3,16 @@ venv_fonts/
 tmp/
 *.pyc
 
-# Large source material and stale prototype archives — kept locally, not in git
+# Generated artifacts. All of these are rebuilt by scripts/ in one command, and
+# committing them only produces binary diff noise on every font change.
+#   test-output/ is declared scratch in CLAUDE.md — regenerate, never treat as a fixture
+test-output/*.pdf
+test-output/*.docx
+test-output/*.png
+# build intermediate: build_th_font_qc.py writes it before pandoc reads it
+qc/qc-reference.docx
+
+# Large source material and prototype archives — kept locally, not in git.
+# The .7z font archives are redundant: the .otf/.ttf they contain are tracked.
 assets/sample PDF/
 assets/fonts/**/*.7z
