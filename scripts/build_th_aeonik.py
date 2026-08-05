@@ -757,10 +757,24 @@ MARGIN_UNITS = 75
 #     Aeonik      75.80 pt / 5 = 15.16 pt per line
 #     TH Aeonik  114.00 pt / 5 = 22.80 pt per line   ratio 1.504
 #
-# 1.504 is usWin 1800/1200, not hhea 1200/1200 = 1.000. Word leads off
-# usWinAscent+usWinDescent. Siwatch reported it as the Latin line spacing still
-# being wrong after the hhea fix, and he was right: hhea and sTypo were both
-# already Aeonik's exactly, and the leading was still 50% over.
+# 1.504 is usWin 1800/1200, not hhea 1200/1200 = 1.000. Siwatch reported it as the
+# Latin line spacing still being wrong after the hhea fix, and he was right: hhea
+# and sTypo were both already Aeonik's exactly, and the leading was still 50% over.
+#
+# 2026-08-05, IMPORTANT BOUND ON THAT CONCLUSION. It was written here as "Word
+# leads off usWinAscent+usWinDescent", full stop. That is over-general. Word's
+# pitch was then measured for 15 installed families and usWin is only the source
+# for CFF faces; a glyf face with USE_TYPO_METRICS set ignores usWin entirely
+# (Bai Jamjuree carries usWin 1786 and Word leads it at 1250; Sarabun 1853 and
+# leads at 1300). See scripts/win_latin_parity.word_line_box for the three
+# branches and the full evidence table.
+#
+# This does not weaken the fix below — TH Aeonik ships CFF, so usWin really is its
+# spacing control, and the fix is additionally robust because it sets hhea, sTypo
+# and usWin all to 1200 and therefore lands on 1200 whichever branch applies.
+# What it does mean: THE FORMAT IS PART OF THE VERTICAL METRICS. Flipping this
+# family back to glyf would silently move the spacing control off usWin, and the
+# 2026-08-04 CFF flip is what put it on usWin in the first place.
 #
 # So all three metric sets are now Aeonik's, and the ink is allowed out of the box.
 # That is what the fonts Windows itself ships do — measured on this machine, ink
@@ -771,6 +785,10 @@ MARGIN_UNITS = 75
 #     Leelawadee UI  usWin 1330   ink 1287   -43
 #     Tahoma         usWin 1207   ink 1453   +246
 #     Segoe UI       usWin 1330   ink 1709   +379
+#
+# Read that table for CLIPPING only, not for spacing. All four Windows fonts in it
+# are glyf, so none of them is led off usWin at all — Bai Jamjuree's 1786 is not
+# its line box, it is only the bound its ink is measured against.
 #
 # Tahoma and Segoe UI both draw well outside usWin and neither clips in Word, so
 # usWin is not a clip bound in DirectWrite-era Word. TH Aeonik lands at +391 here,

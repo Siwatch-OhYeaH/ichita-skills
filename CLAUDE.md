@@ -85,6 +85,12 @@ weights, metrics, line pitch, or mark positioning:
 2. **Word on Windows is the acceptance renderer, not HarfBuzz.** Linux shaping is structurally
    blind to the Uniscribe defects this project keeps hitting. `powershell.exe` from WSL reaches
    GDI, DirectWrite and Word COM — measure there.
+   **The outline format is part of the vertical metrics.** CFF and `glyf` rasterise through
+   different Windows engines (identical outlines, ~16–20% ink apart) *and* Word picks its line
+   pitch from a different field per format — `usWin` for CFF, `sTypo` for `glyf` with
+   USE_TYPO_METRICS, `max(hhea, usWin)` without it. So a format flip changes weight *and*
+   leading while every outline check stays green. `scripts/win_latin_parity.word_line_box()`
+   encodes the rule; never read a metric field directly to predict leading.
 3. **Rebuild all 18 faces from one code state**, copy to `~/.local/share/fonts/th-current/`,
    `fc-cache -f`, *then* run QC. Committed fonts can disagree with the committed builder.
 4. `scripts/qc_th_fonts.py` check 6 (Thai Bold vs Black separation) **fails on purpose.** Do

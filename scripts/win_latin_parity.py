@@ -37,9 +37,16 @@ WHAT IS ASSERTED, and why each one is separate:
     ink          total darkness. Catches antialiasing/gamma differences that
                  leave the stem pixel count intact — TH-Slussen matched Slussen
                  on stems and was still 20.4% lighter.
-    lineSpacing  the font's own line box on the real renderer. This is the
-                 assertion for the second half of the 2026-08-04 work (box
-                 1540 -> Aeonik's 1200); Word and PowerPoint both lead off it.
+    lineSpacing  what the GRAPHICS API reports as the line box: GDI+ returns
+                 hhea ascent+descent+lineGap, WPF returns hhea ascent+descent.
+                 NEITHER is what Word leads off, so this column is reference
+                 only and nothing is asserted against it. It is printed because
+                 a disagreement between it and wordBox is the tell that the
+                 font's metric fields do not agree with each other.
+    wordBox      the box Word actually leads off, derived from the resolved file
+                 by word_line_box() below. THIS is the line-spacing assertion.
+                 Measured 2026-08-05 across 15 installed families, and it is not
+                 one field: see word_line_box() for the branch and the evidence.
 
 Also reported: the font FILE Windows resolved. The installed fonts are a third
 artifact layer and go stale silently — on 2026-08-04 the current
@@ -87,6 +94,14 @@ STEM_ROW_FRAC = 0.20
 
 # Line box as a ratio of the Latin source's, per family, pinned as a NUMBER.
 #
+# The ratio is taken over word_line_box(), NOT over the lineSpacing the graphics
+# APIs report. The previous version of this constant compared WPF's number for
+# one family against GDI+'s for the same family across two engine rows, which are
+# different quantities (WPF omits hhea lineGap, GDI+ includes it). Slussen has a
+# 166-unit lineGap, so the identical font scored 1.207x in dwrite and 1.075x in
+# gdi and one of the two was always red for reasons that had nothing to do with
+# the font.
+#
 # These two families deliberately differ, so a single "must equal the Latin"
 # assertion would be permanently red for one of them — and a check that is always
 # red is a check nobody reads.
@@ -96,22 +111,110 @@ STEM_ROW_FRAC = 0.20
 #              knowingly does not fit (worst stacks overlap by 262 units); the
 #              Latin/Complex-Script split that satisfies both was ruled out and
 #              shrinking the marks was measured and cannot close the gap.
-#   TH Slussen 1.207 — still carries the 2026-08-03 trade: box 1625 against
-#              Slussen's 1346, so two Thai lines clear. NOT changed on 2026-08-04
-#              because only TH Aeonik was in scope. Whether Slussen should follow
-#              Aeonik is an open decision, not an oversight.
+#              MEASURED in Word: 13.200 pt at 11 pt, identical to Aeonik.
+#   TH Slussen 1.241 — PREDICTED, NOT YET MEASURED. This is the ratio the faces
+#              THIS REPO SHIPS will have: usWin 1980 against Slussen's usWin
+#              1596, because both are CFF and word_line_box() reads usWin for
+#              CFF. It is red as of 2026-08-05 and correctly so — the installed
+#              TH Slussen is still the superseded .ttf, which lands at 1625/1596
+#              = 1.018 because the glyf branch ignores usWin entirely. Every
+#              TH-Slussen failure in this suite has that one cause.
+#              CONFIRM IT by installing the built .otf and re-running the Word
+#              pitch measurement; if Word leads TH Slussen at 21.8 pt rather
+#              than today's 17.9 pt, the prediction holds and the +24% box has
+#              to be re-decided rather than inherited by accident.
 #
 # Pinning the ratio rather than the relationship is deliberate: "the line box
 # equals the Latin source's" read as a principle in this repo for two days while
 # encoding a defect, and four separate checks asserted it.
 EXPECTED_LINE_RATIO = {
     "TH Aeonik": 1.000,
-    "TH Slussen": 1.207,
+    "TH Slussen": 1.241,
 }
 
 # The box is an integer count of font units, so a ratio can only land within
 # rounding of the documented value.
 LINE_RATIO_TOL = 0.002
+
+
+def word_line_box(wsl_path):
+    """Return the line box Word leads off, in units per 1000 em, or None.
+
+    "Word leads off usWinAscent+usWinDescent" is what this repo believed on
+    2026-08-04 and it is not true in general. Word's line pitch was measured on
+    2026-08-05 for 15 installed families (six paragraphs at 11 pt, Single, baseline
+    travel / 5, via Word COM) and compared against each file's three metric sets.
+    Three branches fit all 15; no single field fits any 10 of them:
+
+        format  bit 7   field Word uses          evidence
+        CFF     set     usWin                    Slussen 1595 (usWin 1596, hhea 1512)
+                                                 TH Aeonik pre-fix 1.504x = 1800/1200
+        glyf    set     sTypo (== hhea here)     Bai Jamjuree 1250 (usWin 1786!)
+                                                 Sarabun 1300 (usWin 1853), Noto 1364,
+                                                 Gabriola 1700, Sitka 1250, Ubuntu 1123,
+                                                 TH Slussen 1627
+        glyf    clear   max(hhea, usWin)         Arial 1150 (hhea 1150 > usWin 1117),
+                                                 Times 1150, Ebrima 1359, Segoe Print
+                                                 1764, DilleniaUPC 1305 (hhea only 600!),
+                                                 Ink Free 1236 (usWin 1238 > hhea 1200)
+
+    Two consequences worth keeping in mind before editing any vertical metric:
+
+      * The 2026-08-04 TH-Aeonik fix is correct for the format it ships. It ships
+        CFF, so usWin genuinely is its spacing control. The fix was also made
+        robust by accident rather than by design — it set hhea, sTypo and usWin
+        all to 1200, so it lands on 1200 in every branch above.
+      * A format flip silently relocates the spacing control. TH Slussen is glyf
+        today and Word ignores its usWin 1980; rebuild it as CFF and that 1980
+        becomes the line box. Nothing about the outlines changes.
+
+    bit 7 is OS/2.fsSelection USE_TYPO_METRICS. In every glyf font measured here
+    sTypo and hhea agreed, so which of the two the set-bit branch reads is NOT
+    established — only that usWin is not it. Slussen is the single measured font
+    where a CFF face has usWin != hhea, so the CFF branch rests on it plus the
+    pre-fix TH-Aeonik observation.
+    """
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        return None
+    try:
+        font = TTFont(wsl_path, fontNumber=0, lazy=True)
+    except Exception:
+        return None
+    try:
+        os2, hhea, head = font["OS/2"], font["hhea"], font["head"]
+        per_em = 1000.0 / head.unitsPerEm
+        hhea_box = (hhea.ascent - hhea.descent + hhea.lineGap) * per_em
+        typo_box = (os2.sTypoAscender - os2.sTypoDescender
+                    + os2.sTypoLineGap) * per_em
+        win_box = (os2.usWinAscent + os2.usWinDescent) * per_em
+        is_cff = "CFF " in font or "CFF2" in font
+        use_typo = bool(os2.fsSelection & (1 << 7))
+        if is_cff:
+            box, field = win_box, "usWin"
+        elif use_typo:
+            box, field = typo_box, "sTypo"
+        else:
+            box, field = max(hhea_box, win_box), (
+                "hhea" if hhea_box >= win_box else "usWin")
+        return {"box": box, "field": field,
+                "format": "CFF" if is_cff else "glyf",
+                "useTypo": use_typo, "hhea": hhea_box,
+                "sTypo": typo_box, "usWin": win_box}
+    except KeyError:
+        return None
+    finally:
+        font.close()
+
+
+def _wsl_path(win_path):
+    """Convert a Windows path as reported by the probe to a WSL path, or None."""
+    if not win_path:
+        return None
+    out = subprocess.run(["wslpath", "-u", win_path],
+                         capture_output=True, text=True)
+    return out.stdout.strip() if out.returncode == 0 else None
 
 # GDI and DirectWrite are measured in SEPARATE PowerShell processes, and that is
 # not tidiness — it is a correctness requirement found the hard way.
@@ -391,9 +494,10 @@ def probe(fonts, sizes, ink_text=INK_TEXT, probe_glyph=PROBE_GLYPH,
     return rows, errors
 
 
-def compare(rows, pairs, ink_tol_pct=INK_TOL_PCT):
+def compare(rows, pairs, ink_tol_pct=INK_TOL_PCT, word_boxes=None):
     """Check every TH face against its Latin source. Returns a list of failures."""
     index = {(r["engine"], r["font"], r["size"]): r for r in rows}
+    word_boxes = word_boxes or {}
     fails = []
     for latin, merged in pairs:
         for (engine, name, size), row in sorted(index.items()):
@@ -429,18 +533,32 @@ def compare(rows, pairs, ink_tol_pct=INK_TOL_PCT):
                 if abs(delta) > ink_tol_pct:
                     fails.append(f"{where}: ink {delta:+.1f}% vs {latin} "
                                  f"(tolerance +/-{ink_tol_pct:.0f}%)")
-            # Line box against this family's DOCUMENTED ratio, not against 1.0.
-            # An undocumented family defaults to 1.0 — a new merged face is meant
-            # to match its Latin unless someone writes down why it does not.
+        # Line box ONCE per pair, off the file rather than per engine row: the
+        # box is a property of the font, and the two engines report two different
+        # quantities for it (see the note on EXPECTED_LINE_RATIO). Compared
+        # against this family's DOCUMENTED ratio, not against 1.0 — an
+        # undocumented family defaults to 1.0, because a new merged face is meant
+        # to match its Latin unless someone writes down why it does not.
+        box, src_box = word_boxes.get(merged), word_boxes.get(latin)
+        if box is None or src_box is None:
+            fails.append(f"{merged}: no file to read the line box from — the "
+                         f"probe reports a resolved path only for dwrite rows, "
+                         f"so this needs the dwrite engine to have run")
+        elif src_box["box"]:
             want = EXPECTED_LINE_RATIO.get(merged, 1.0)
-            got = row["lineSpacing"] / src["lineSpacing"] if src["lineSpacing"] else 0
+            got = box["box"] / src_box["box"]
             if abs(got - want) > LINE_RATIO_TOL:
                 fails.append(
-                    f"{where}: line box {row['lineSpacing']:.0f} vs {latin} "
-                    f"{src['lineSpacing']:.0f} = {got:.3f}x, but the documented "
-                    f"ratio is {want:.3f}x. Either the box drifted or the trade "
-                    f"changed — if the latter, update EXPECTED_LINE_RATIO and say "
-                    f"why.")
+                    f"{merged}: line box {box['box']:.0f} ({box['format']}, so "
+                    f"Word leads off {box['field']}) vs {latin} "
+                    f"{src_box['box']:.0f} ({src_box['format']}/"
+                    f"{src_box['field']}) = {got:.3f}x, but the documented ratio "
+                    f"is {want:.3f}x. Check the FORMAT first: a CFF face is led "
+                    f"off usWin and a glyf face with USE_TYPO_METRICS ignores "
+                    f"usWin entirely, so a format flip moves the box without "
+                    f"touching a single metric. Otherwise the box drifted or the "
+                    f"trade changed — if the trade, update EXPECTED_LINE_RATIO "
+                    f"and say why.")
     return fails
 
 
@@ -483,17 +601,38 @@ def main() -> int:
         print(json.dumps(rows, indent=2))
 
     print(f"{'engine':7s} {'font':14s} {'pt':>3s} {'capH':>5s} {'bboxW':>6s} "
-          f"{'stems':>8s} {'ink':>10s} {'advance':>8s} {'lineBox':>8s}  file")
+          f"{'stems':>8s} {'ink':>10s} {'advance':>8s} {'apiBox':>8s}  file")
     for r in sorted(rows, key=lambda r: (r["engine"], r["size"], r["font"])):
         adv = f"{r['advance']:8.3f}" if r["advance"] >= 0 else f"{'-':>8s}"
         print(f"{r['engine']:7s} {r['font']:14s} {r['size']:3d} {r['capH']:5d} "
               f"{r['bboxW']:6d} {r['stems']:>8s} {r['ink']:10,.0f} {adv} "
               f"{r['lineSpacing']:8.0f}  {r['file'] or '-'}")
 
+    # apiBox above is what GDI+/WPF report and is NOT Word's line pitch. The box
+    # Word leads off is read from the file, so it needs the path the probe
+    # resolved — which only the dwrite rows carry.
+    word_boxes = {}
+    for r in rows:
+        if r["font"] in word_boxes or not r["file"]:
+            continue
+        path = _wsl_path(r["file"])
+        if path:
+            box = word_line_box(path)
+            if box:
+                word_boxes[r["font"]] = box
+    if word_boxes:
+        print(f"\n{'font':14s} {'wordBox':>8s} {'field':>7s} {'fmt':>5s} "
+              f"{'useTypo':>8s} {'hhea':>7s} {'sTypo':>7s} {'usWin':>7s}")
+        for name in sorted(word_boxes):
+            b = word_boxes[name]
+            print(f"{name:14s} {b['box']:8.0f} {b['field']:>7s} {b['format']:>5s} "
+                  f"{str(b['useTypo']):>8s} {b['hhea']:7.0f} {b['sTypo']:7.0f} "
+                  f"{b['usWin']:7.0f}")
+
     for e in errors:
         print(f"ERROR  {e}")
 
-    fails = compare(rows, pairs, args.ink_tol)
+    fails = compare(rows, pairs, args.ink_tol, word_boxes)
     print()
     if fails or errors:
         for f in fails:
