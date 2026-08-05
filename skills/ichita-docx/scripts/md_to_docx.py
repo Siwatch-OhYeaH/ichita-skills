@@ -738,6 +738,67 @@ def add_title_page_band(doc):
 
 # ── Main Conversion ──────────────────────────────────────────────────────────
 
+def _brand_the_bullets(doc):
+    """Draw list bullets in the brand font instead of Symbol.
+
+    python-docx's default template sets every bullet level to U+F0B7 in the
+    `Symbol` font — a Private Use Area codepoint that only means "bullet" if
+    that exact font resolves. It does not travel: LibreOffice substitutes
+    OpenSymbol and embeds it, so a delivered PDF carries a non-brand font for
+    nothing but the bullets.
+
+    U+2022 is a real bullet and TH Aeonik and Aeonik both have it, so the
+    glyph comes from the same face as the text beside it.
+    """
+    try:
+        numbering = doc.part.numbering_part.element
+    except (AttributeError, KeyError, NotImplementedError):
+        return 0
+
+    w = nsdecls("w").split('"')[1]
+    changed = 0
+    for lvl_text in numbering.iter(f'{{{w}}}lvlText'):
+        # U+F0B7 Symbol bullet, U+F0A7 Wingdings square, U+F075 diamond —
+        # the three PUA markers python-docx's template ships with.
+        if lvl_text.get(f'{{{w}}}val') not in ('\uf0b7', '\uf0a7', '\uf075'):
+            continue
+        lvl_text.set(f'{{{w}}}val', '•')
+        lvl = lvl_text.getparent()
+        rpr = lvl.find(f'{{{w}}}rPr')
+        if rpr is None:
+            rpr = parse_xml(f'<w:rPr {nsdecls("w")}/>')
+            lvl.append(rpr)
+        for old in rpr.findall(f'{{{w}}}rFonts'):
+            rpr.remove(old)
+        rpr.insert(0, parse_xml(
+            f'<w:rFonts {nsdecls("w")} w:ascii="{BRAND_FONT}" '
+            f'w:hAnsi="{BRAND_FONT}" w:cs="{BRAND_FONT}"/>'))
+        changed += 1
+    return changed
+
+
+def _starts_block(line):
+    """True if `line` opens a new Markdown block rather than continuing a paragraph.
+
+    Must stay in step with the branches of the main loop below — anything the
+    loop handles before its "Regular paragraph" case belongs here, or a soft-wrap
+    join would swallow it.
+    """
+    s = line.strip()
+    if not s:
+        return True
+    return bool(
+        re.match(r'^---+\s*$', s)          # horizontal rule
+        or s.startswith(':::')             # KPI card fence, open or close
+        or s.startswith('```')             # code fence
+        or (s.startswith('|') and '|' in s[1:])   # table row
+        or s.startswith('#')               # heading
+        or s.startswith('>')               # blockquote
+        or re.match(r'^\d+\.\s+', s)       # numbered list item
+        or re.match(r'^[-*+]\s+', s)       # bullet list item
+    )
+
+
 def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False,
                        font_mode="auto"):
     """Convert a Markdown file to an Ichita-branded DOCX.
@@ -868,6 +929,8 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False,
         lb.font.name = BRAND_FONT
         lb.font.size = Pt(10)
         lb.font.color.rgb = ICHITA_BLUE_GREY3
+
+    _brand_the_bullets(doc)
 
     # ── Page margins ──
     v_margin = Cm(1.4) if compact else Cm(2.5)
@@ -1092,11 +1155,26 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False,
             continue
 
         # ── Regular paragraph ──
+        #
+        # A Markdown paragraph runs until a blank line or the next block, so
+        # soft-wrapped source lines are ONE paragraph. Emitting one Word
+        # paragraph per source line put a paragraph break mid-sentence — every
+        # document wrapped at 90 columns came out with the breaks baked in, and
+        # Word then refused to reflow across them.
+        para_lines = [stripped.strip()]
+        j = i + 1
+        while j < len(lines):
+            nxt = lines[j].rstrip('\n')
+            if not nxt.strip() or _starts_block(nxt):
+                break
+            para_lines.append(nxt.strip())
+            j += 1
+
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(2)
         p.paragraph_format.space_after = Pt(5)
-        add_formatted_text(p, stripped)
-        i += 1
+        add_formatted_text(p, " ".join(para_lines))
+        i = j
 
     # ── ICHITA branded header + footer ──
     if _HAS_BRANDED_HEADER_FOOTER:
