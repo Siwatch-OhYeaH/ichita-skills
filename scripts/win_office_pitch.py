@@ -79,6 +79,19 @@ fonts by family name and has no off-disk equivalent of win_latin_parity's
 accompanied by the resolved font name and a substitution fails the run rather than
 reporting a plausible number.
 
+THIS SCRIPT CAN LOCK THE FONTS YOU ARE ABOUT TO INSTALL. Each application is quit in
+a `finally`, but a hard error — or killing the Python process — orphans WINWORD.EXE /
+POWERPNT.EXE / EXCEL.EXE with NO WINDOW. They hold font files open while being
+invisible in the taskbar and Alt-Tab. That happened on 2026-08-05: two orphaned
+WINWORD.EXE blocked a font install with Office apparently closed, which is the same
+shape as the old install-script bug that matched process names rather than open
+documents. Before installing fonts, check and clear:
+
+    powershell.exe -NoProfile -Command "Get-Process WINWORD,POWERPNT,EXCEL \
+      -ErrorAction SilentlyContinue | Select Name,Id,MainWindowHandle"
+    # MainWindowHandle 0 means orphan
+    powershell.exe -NoProfile -Command "Stop-Process -Name WINWORD,POWERPNT,EXCEL -Force"
+
     python3 scripts/win_office_pitch.py
     python3 scripts/win_office_pitch.py --fonts Aeonik "TH Aeonik"
     python3 scripts/win_office_pitch.py --apps word excel --json

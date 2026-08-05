@@ -438,6 +438,25 @@ not the font box**.
 - Word caches font data per session; a full restart is required, not just a reopen.
 - If a fresh print is still stale after a reboot, the remaining suspect is
   `FNTCACHE.DAT`.
+- **`win_office_pitch.py` can leave orphaned Office processes, and they lock fonts.**
+  The COM probe quits each application in a `finally`, but a hard error or a killed
+  Python process orphans `WINWORD.EXE` / `POWERPNT.EXE` / `EXCEL.EXE` with **no window**
+  — so they are invisible in the taskbar and Alt-Tab while still holding font files
+  open. Encountered 2026-08-05: two orphaned `WINWORD.EXE` blocked a font install with
+  the applications apparently closed. This is the same shape as the old install-script
+  bug where the Office guard matched **process names rather than open documents**.
+  **Check before every install, not after a failure:**
+
+  ```bash
+  powershell.exe -NoProfile -Command "Get-Process WINWORD,POWERPNT,EXCEL \
+    -ErrorAction SilentlyContinue | Select Name,Id,MainWindowHandle"
+  # MainWindowHandle 0 = orphan, safe to kill:
+  powershell.exe -NoProfile -Command "Stop-Process -Name WINWORD,POWERPNT,EXCEL -Force"
+  ```
+
+  Font Cache service operations need admin, and an installed system-level font offers
+  only *Hide* rather than *Delete* in Settings — so an orphan holding a lock is easier
+  to hit than to diagnose.
 
 Three bugs in the install tooling, worth remembering as a pattern: the pending-delete
 queue was scoped to the wrong file set, `$null` was written where `NULL` was meant, and
