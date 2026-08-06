@@ -63,7 +63,8 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 
 import th_greek                                              # noqa: E402
-from build_th_aeonik import convert_to_glyf, find_aeonik      # noqa: E402
+from build_th_aeonik import (convert_to_glyf, find_aeonik,    # noqa: E402
+                             require_aeonik_source)
 from th_cff import assert_advance_single_source, convert_to_cff  # noqa: E402
 
 warnings.filterwarnings("ignore")
@@ -252,6 +253,7 @@ def main() -> int:
     ap.add_argument("--check", action="store_true",
                     help="report what each face would get and write nothing")
     args = ap.parse_args()
+    require_aeonik_source()
 
     out_dir = Path(args.out_dir) if args.out_dir else OUTPUT_DIR
     faces = ([f.strip() for f in args.faces.split(",")] if args.faces

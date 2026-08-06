@@ -101,12 +101,19 @@ warnings.filterwarnings("ignore")
 SCRIPT_DIR = Path(__file__).parent
 ASSETS = SCRIPT_DIR.parent / "assets"
 
-# Source directories. The Latin base must be CoType's pristine v1.000, never
-# `fonts/aeonik/` — that directory now holds our v1.001 Greek/math build, and
-# feeding a build's own output back in as its source is how a version string
-# gets applied twice and a build stops being reproducible.
+# Source directories.
+#
+# The Latin base must be CoType's pristine v1.000 and is NOT in the repo —
+# Siwatch keeps it locally and archives the old cuts himself, deliberately, so
+# that nobody browsing assets/fonts/ has to work out which of two identically
+# named Aeoniks to install.
+#
+# It must never be `fonts/aeonik/`. That directory holds our v1.001 Greek/math
+# build, and feeding a build's own output back in as its source applies the
+# version string twice and stops the build being reproducible. find_aeonik()
+# fails loudly rather than falling back to it.
 AEONIK_D_DRIVE = Path("/mnt/d/Doccument/New Identity/Aeonik-font-download/Aeonik-font-download")
-AEONIK_LOCAL = ASSETS / "fonts" / "aeonik-v1000"
+AEONIK_LOCAL = ASSETS / "fonts" / "aeonik-v1000"   # git-ignored local drop point
 BAI_SYSTEM = Path.home() / ".local" / "share" / "fonts"
 BAI_LOCAL = ASSETS / "fonts" / "bai-jamjuree"
 OUTPUT_DIR = ASSETS / "fonts" / "th-aeonik"
@@ -228,11 +235,37 @@ WEIGHT_CONFIG.update({
 # ---------------------------------------------------------------------------
 
 def find_aeonik(filename):
+    """Locate one pristine Aeonik v1.000 face.
+
+    Returns None when it is not there, and the caller must treat that as fatal.
+    Do NOT add `fonts/aeonik/` as a fallback: that is our v1.001 build, and a
+    silent fallback to it would rebuild the merged fonts from output that has
+    already been through this pipeline once. The failure has to be visible —
+    an unavailable source is recoverable, a quietly wrong one is not.
+    """
     for d in [AEONIK_D_DRIVE, AEONIK_LOCAL]:
         p = d / filename
         if p.exists():
             return p
     return None
+
+
+def require_aeonik_source():
+    """Fail before doing any work if the pristine Latin source is missing."""
+    if find_aeonik("Aeonik-Regular.otf") is None:
+        sys.exit(
+            "ERROR: pristine Aeonik v1.000 not found. Looked in:\n"
+            f"  {AEONIK_D_DRIVE}\n"
+            f"  {AEONIK_LOCAL}\n"
+            "\n"
+            "It is not kept in the repo — see assets/fonts/README.md. Drop the\n"
+            "14 original CoType faces into the second path (git-ignored) or\n"
+            "mount the D: drive, then re-run.\n"
+            "\n"
+            "assets/fonts/aeonik/ is NOT a substitute: it holds our v1.001\n"
+            "Greek/math build, and building from it would apply this pipeline\n"
+            "to its own output."
+        )
 
 
 def find_bai(filename):
@@ -1353,6 +1386,7 @@ def main():
                         help="write elsewhere than assets/fonts/th-aeonik, so a "
                              "sweep does not overwrite the shipped faces")
     args = parser.parse_args()
+    require_aeonik_source()
     out_dir = Path(args.out_dir) if args.out_dir else OUTPUT_DIR
 
     weights = WEIGHTS

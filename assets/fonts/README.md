@@ -22,8 +22,7 @@ renderer reads which field, and roughly thirty defects not to repeat.
 
 | Directory | Contents | Status |
 |---|---|---|
-| `aeonik-v1000/` | Aeonik v1.000 desktop, 14 faces | **pristine source** — read by the builders, **never installed** |
-| `aeonik/` | Aeonik v1.001 = v1.000 + Greek/math coverage, 14 faces | **BUILT — install this over the current Aeonik** |
+| `aeonik/` | Aeonik v1.001 = v1.000 + Greek/math coverage, 14 faces | **BUILT — install this. It is the only Aeonik here.** |
 | `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, 14 faces | **BUILT — install** |
 | `slussen/` | Slussen desktop, 4 faces | pristine source; incomplete (a 10-face set exists in an old `D:` build) |
 | `th-slussen/` | TH Slussen = Slussen + Bai Thai, 4 faces | **BUILT — install**; no documented brand role yet |
@@ -31,6 +30,26 @@ renderer reads which field, and roughly thirty defects not to repeat.
 | `th-aeonik-web/` | TH Aeonik WOFF2 + WOFF + CSS, 8 faces | **BUILT AND HELD — do not serve**, licence unresolved |
 | `bai-jamjuree/` | Bai Jamjuree, 12 faces (OFL) | Thai source for the merges; also the split-mode Thai font |
 | `betatron/` | Betatron Regular | display numerals only — never body text |
+
+### The Aeonik source is not in this repo
+
+`assets/fonts/aeonik/` is our **v1.001** build — `nameID5` reads
+`Version 1.001; ICHITA Greek/math coverage`. CoType's pristine **v1.000**, which
+is what `build_aeonik.py` and `build_th_aeonik.py` read, is kept locally and
+archived by Siwatch rather than committed. Two directories both called Aeonik,
+with identical filenames and the same family name, is a coin-flip over which
+one someone installs — and the wrong one has no Δ μ Ω.
+
+To rebuild, put the 14 original faces in either:
+
+```
+/mnt/d/Doccument/New Identity/Aeonik-font-download/Aeonik-font-download/
+assets/fonts/aeonik-v1000/          # git-ignored
+```
+
+The builders check for it up front and stop with that message if it is missing.
+**They will not fall back to `aeonik/`** — that would run this pipeline over
+its own output.
 
 Generated directories are rebuilt by `scripts/build_aeonik.py`, `build_th_aeonik.py`,
 `build_th_slussen.py` and `build_th_web.py`. All merged output is **`.otf`/CFF**
