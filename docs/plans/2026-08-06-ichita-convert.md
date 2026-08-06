@@ -98,11 +98,14 @@ Not conversion work, but it blocked QC and the paths.
 - [x] Fix the dead paths in `scripts/qc_th_fonts.py`, `build_greek_specimen.py`,
       `check_print_pdf.py`, `assets/fonts/README.md`, `assets/brand/ichita-defaults.md`,
       `docs/THAI-LATIN-FONT-ENGINEERING.md` — 26 files, 60 references
-- [x] Pristine Aeonik v1.000 restored from git into `assets/fonts/aeonik-v1000/`;
-      `build_th_aeonik.AEONIK_LOCAL` repointed there so `build_aeonik.py` no longer reads
-      its own output as its input
-- [x] `install-fonts.sh` prunes `aeonik-v1000/` — it flattens by basename, and the pristine
-      faces share both filenames and family name with the shipping build
+- [x] `build_th_aeonik.AEONIK_LOCAL` no longer points at `assets/fonts/aeonik/`, so
+      `build_aeonik.py` cannot read its own output as its input. The pristine v1.000
+      source is **kept out of the repo** (Siwatch, 2026-08-06) — one Aeonik directory,
+      no coin-flip over which to install. `require_aeonik_source()` stops both builders
+      up front if it is missing rather than falling back
+- [x] `install-fonts.sh` prunes the git-ignored `aeonik-v1000/` drop point — it flattens
+      by basename, and the pristine faces share both filenames and family name with the
+      shipping build
 - [x] **Gate:** `qc_th_fonts.py` → 19/20, check 6 red on purpose.
       `thai_line_pitch.py --check` → OK, both families spare +75
 - [x] Recorded in §13 of the font doc, not a new post-mortem (per CLAUDE.md)

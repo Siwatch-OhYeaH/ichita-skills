@@ -71,14 +71,16 @@ collect_fonts() {
         exit 1
     fi
 
-    # Collect .otf and .ttf from all subdirectories EXCEPT the build sources.
+    # Collect .otf and .ttf from all subdirectories EXCEPT the build source.
     #
     # aeonik-v1000/ is CoType's pristine v1.000 — the input to build_aeonik.py,
-    # never installed. Its faces share both the family name AND the filenames of
-    # the v1.001 build in aeonik/, and this loop flattens everything to a single
-    # destination by basename, so including it would come down to sort order
-    # deciding which Aeonik the machine ends up with. That is precisely the
-    # stale-file-wins failure documented in THAI-LATIN-FONT-ENGINEERING.md §9.
+    # never installed. It is git-ignored, so it is absent on a fresh clone, but
+    # anyone who rebuilds the fonts will have dropped it there. Its faces share
+    # both the family name AND the filenames of the v1.001 build in aeonik/,
+    # and this loop flattens everything to one destination by basename, so
+    # including it would leave sort order deciding which Aeonik the machine
+    # ends up with — and v1.000 has no Greek. That is the stale-file-wins
+    # failure in THAI-LATIN-FONT-ENGINEERING.md §9.
     while IFS= read -r -d '' f; do
         FONT_FILES+=("$f")
         count=$((count + 1))

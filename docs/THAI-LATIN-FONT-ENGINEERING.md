@@ -592,14 +592,22 @@ existed — `qc_th_fonts.py` could not run at all.
 | `aeonik-th-web/` | `th-aeonik-web/` | |
 | `aeonik-woff/` | `aeonik-web/` | Greek harvest source only |
 | `aeonik-fixed/` | `aeonik/` | the v1.001 build is now *the* Aeonik |
-| `aeonik/` (v1.000) | `aeonik-v1000/` | **pristine source, never installed** |
+| `aeonik/` (v1.000) | **not in the repo** | pristine source, kept locally |
 
 The last two rows are the one that can bite. `aeonik/` used to be CoType's pristine
 v1.000 and is now our v1.001 Greek/math build, so `build_aeonik.py` would have read
-its own output as its input. The pristine faces were restored from git into
-`aeonik-v1000/` and `build_th_aeonik.AEONIK_LOCAL` repointed there — input and output
-are separate directories again. Both carry the family name `Aeonik`; only `aeonik/`
-is ever installed.
+its own output as its input.
+
+**The pristine source is deliberately not committed** — Siwatch, 2026-08-06. Two
+directories both named Aeonik, with identical filenames and the same family name,
+is a coin-flip over which one somebody installs, and the wrong one has no Δ μ Ω.
+It lives in a local folder and the old cuts are archived outside git.
+
+`build_th_aeonik.AEONIK_LOCAL` therefore points at `assets/fonts/aeonik-v1000/`,
+which is **git-ignored** — a drop point, not a tracked directory. Both builders
+call `require_aeonik_source()` before doing any work and stop with the paths they
+looked in. They must never fall back to `aeonik/`: an unavailable source is
+recoverable, a quietly wrong one is not.
 
 ### Open items
 
