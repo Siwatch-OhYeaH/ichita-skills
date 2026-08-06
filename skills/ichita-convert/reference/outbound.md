@@ -93,19 +93,72 @@ bottom-right margin box.
 
 ---
 
-## md → pdf
+## md → pdf, and html → pdf
 
-Chains `md → html → weasyprint`, reusing `skills/ichita-exe-brief/scripts/html2pdf.py`.
+Chains `md → html → PDF`, reusing `skills/ichita-exe-brief/scripts/html2pdf.py`.
 
 Keeping the HTML step separate and inspectable is deliberate: when a PDF comes
 out wrong you open the intermediate in a browser and see whether the problem is
 the content or the renderer. `--keep-intermediate` keeps it.
 
-**This route is not automatically the right one for delivery.** weasyprint
-gives full brand control and embeds only brand fonts, but it produces a PDF
-whose Thai *text layer* is wrong — the glyphs render correctly and the
-extracted text does not. Read `pdf-delivery.md` before sending a Thai PDF to a
-client.
+### The engine is chosen from the document
+
+`html2pdf.py --engine auto` is the default:
+
+```
+the HTML builds its DOM with script  ->  chromium
+the document contains Thai           ->  chromium
+otherwise: static, English-only      ->  weasyprint
+```
+
+Both branches were measured — `pdf-delivery.md` has the numbers. Briefly:
+weasyprint does not execute JavaScript, so it renders a Claude-designed
+standalone HTML as its loading placeholder and **exits 0**; and its Thai text
+layer is wrong even when the glyphs are right, so search and copy-paste return
+nonsense from a page that looks perfect.
+
+weasyprint stays the default for what it is good at. On static English-only
+pages it embeds a real CID-CFF font program and produces roughly half the file
+size. Chromium's Skia backend emits **Type 3** fonts instead — pure vector
+CharProcs, fully scalable, no rasterisation, but not a reusable font program.
+That trade is deliberate: a slightly awkward font container that extracts
+correctly beats a clean one that corrupts the text. If a client demands
+CID-CFF for a Thai document, the answer is the DOCX → LibreOffice route.
+
+Force it with `--engine weasyprint|chromium` when you have a reason.
+
+### Two things the Chromium path checks that weasyprint cannot
+
+- **Which fonts were actually used.** Type 3 fonts carry no name, so a
+  PDF-side brand-font check is impossible on that path. `html2pdf.py` asks
+  Chromium directly (`CSS.getPlatformFontsForNode`), which is the better
+  question anyway: it reports the font that was *used*, so an `@font-face`
+  that silently failed to load shows up.
+- **Content wider than the page.** A 1700 px diagram on A4 portrait loses its
+  right-hand columns, silently, at exit 0. The overflow is measured and
+  reported with both ways out.
+
+  Two things about *how* it is measured, both of which were wrong first:
+
+  **It runs after the print, against the page that was produced** — not
+  against the page we asked for. `@page size`, `prefer_css_page_size`,
+  `--width` and `--landscape` all move the real page, so the width is read
+  back from the PDF.
+
+  **Declaring `@page` is not a promise that the content fits.** The check used
+  to skip any document with a `@page` rule, on the reasoning that the author
+  had handled page geometry. `ichita.css` declares one and `emit_html.py`
+  inlines it by default, so *every branded document exempted itself* — the
+  check was inert exactly where the pipeline puts it. The page is now measured
+  either way, and the document is re-laid-out at the printable width to ask
+  it: comparing `scrollWidth` in the 1700 px design viewport against a page
+  width would report every document as overflowing.
+
+  The `@page` margin is resolved in three states — declared, absent, or
+  unreadable — because a `<link>`ed `file://` stylesheet throws SecurityError
+  on `cssRules`. Unknown is treated as a zero margin, which can only
+  under-report clipping. Assuming our own 6 mm there invented 46 px of
+  clipping in `designed.html` that does not exist.
 
 ---
 

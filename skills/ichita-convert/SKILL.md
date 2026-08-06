@@ -20,16 +20,23 @@ The extension pair picks the route; anything else chains through Markdown.
 |---|---|---|---|---|
 | **md** | — | branded DOCX | branded HTML | via HTML |
 | **docx** | pandoc | rebrand | chain | chain |
-| **html** | markdownify | branded DOCX | — | weasyprint |
+| **html** | markdownify | branded DOCX | — | chromium / weasyprint |
 | **pdf** | pymupdf + figures | chain | chain | — |
 
-## The two rules colleagues get wrong
+## The three rules colleagues get wrong
+
+All three are the same species: **a silent substitution that produces a file
+which looks fine.**
 
 1. **Print to PDF, never Save as PDF.** Office refuses to embed OpenType-CFF,
    so Save-as-PDF silently swaps our `.otf` faces for Calibri — and still
-   lists them as embedded. The file looks fine. Use LibreOffice headless or
-   Microsoft Print to PDF; numbers in `reference/pdf-delivery.md`.
-2. **Hand your file back if you want the change kept.** `reconcile` shows the
+   lists them as embedded. Use LibreOffice headless or Microsoft Print to PDF;
+   numbers in `reference/pdf-delivery.md`.
+2. **Never render a Claude-designed HTML with weasyprint.** It does not execute
+   JavaScript, and those documents build themselves with it. You get a valid
+   A4 PDF of the loading placeholder, at exit code 0. `html2pdf.py --engine
+   auto` (the default) routes those to Chromium — don't force `weasyprint`.
+3. **Hand your file back if you want the change kept.** `reconcile` shows the
    difference and makes you choose. It never overwrites silently.
 
 ## What is worth knowing before you read further
@@ -63,7 +70,7 @@ Read only the one you need.
 
 ```bash
 python3 tests/test_md_clean.py     # 27 unit tests, one per cleaning rule
-python3 tests/test_roundtrip.py    # 16 end-to-end, needs pandoc + LibreOffice
+python3 tests/test_roundtrip.py    # 23 end-to-end, needs pandoc + LibreOffice + chromium
 ```
 
 The round-trip test converts twice on purpose. Every defect this pipeline has

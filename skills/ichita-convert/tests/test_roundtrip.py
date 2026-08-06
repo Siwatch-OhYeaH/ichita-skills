@@ -11,6 +11,8 @@ pass, so a single round trip looks fine and the bug only appears on the second.
 Pass one is not a test of anything.
 """
 
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 CONVERT = ROOT / "scripts" / "convert.py"
+BRIEF = REPO / "skills" / "ichita-exe-brief" / "scripts"
 
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -39,6 +42,11 @@ def convert(src, dst, *extra):
 def thai_only(s):
     s = unicodedata.normalize("NFC", s)
     return "".join(c for c in s if "฀" <= c <= "๿")
+
+
+def pdf_text(pdf):
+    import fitz
+    return "".join(p.get_text() for p in fitz.open(pdf))
 
 
 class DocxRoundTrip(unittest.TestCase):
@@ -193,17 +201,202 @@ class Figures(unittest.TestCase):
             self.assertLess(i2, f2)
 
 
+class PdfEngineSelection(unittest.TestCase):
+    """The html -> pdf leg picks its engine from the document.
+
+    Reported by Miipan, 2026-08-06. weasyprint was hard-wired, and it neither
+    executes JavaScript nor writes a correct Thai text layer — so the one route
+    meant for "Claude-designed layouts" silently produced empty PDFs, and the
+    one meant for Thai produced unsearchable ones.
+    """
+
+    def test_js_built_document_is_rendered_not_skipped(self):
+        # weasyprint renders the loading placeholder and exits 0. The whole
+        # point of this test is that a green exit code proved nothing.
+        import fitz
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "js.pdf"
+            subprocess.run(
+                [sys.executable, str(BRIEF / "html2pdf.py"),
+                 str(FIXTURES / "js-shell.html"), str(out)],
+                capture_output=True, text=True, timeout=300)
+            self.assertTrue(out.exists())
+            text = "".join(p.get_text() for p in fitz.open(out))
+            for figure in ("1,000.00", "805.71", "928.94", "6,318.37", "Beer Thai"):
+                self.assertIn(figure, text, "scripted content missing")
+            self.assertNotIn("requires JavaScript", text)
+
+    def test_weasyprint_alone_still_fails_the_js_shell(self):
+        # Guards the guard: if this ever starts passing, weasyprint gained a JS
+        # engine and the routing rule can be revisited. Until then it documents
+        # why the rule exists.
+        import fitz
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "js-weasy.pdf"
+            subprocess.run(
+                [sys.executable, str(BRIEF / "html2pdf.py"),
+                 str(FIXTURES / "js-shell.html"), str(out),
+                 "--engine", "weasyprint"],
+                capture_output=True, text=True, timeout=300)
+            text = "".join(p.get_text() for p in fitz.open(out))
+            # The behavioural backstop should have caught it and re-rendered.
+            self.assertIn("1,000.00", text,
+                          "the shell backstop did not re-render with chromium")
+
+    def test_thai_html_text_layer_is_nfc_identical(self):
+        import fitz
+        from bs4 import BeautifulSoup
+        src_html = (FIXTURES / "thai-static.html").read_text(encoding="utf-8")
+        want = thai_only(" ".join(
+            p.get_text() for p in
+            BeautifulSoup(src_html, "html.parser").find_all("p")))
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "thai.pdf"
+            subprocess.run(
+                [sys.executable, str(BRIEF / "html2pdf.py"),
+                 str(FIXTURES / "thai-static.html"), str(out)],
+                capture_output=True, text=True, timeout=300)
+            got = thai_only("".join(p.get_text() for p in fitz.open(out)))
+            self.assertEqual(want, got)
+
+    def test_english_only_still_uses_weasyprint(self):
+        # weasyprint stays the default for what it is good at: a real CID-CFF
+        # font program and a smaller file.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "en.pdf"
+            proc = subprocess.run(
+                [sys.executable, str(CONVERT),
+                 str(FIXTURES / "table-heavy.md"), str(out)],
+                capture_output=True, text=True, timeout=300)
+            self.assertIn("Engine: weasyprint", proc.stdout)
+
+    def test_content_wider_than_the_page_is_reported(self):
+        # A wide landscape diagram gets clipped at the right edge, and
+        # prefer_css_page_size cannot help. Must not pass silently.
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "wide.html"
+            src.write_text(
+                "<!DOCTYPE html><html><body><script>"
+                "document.addEventListener('DOMContentLoaded',()=>{"
+                "document.body.innerHTML="
+                "'<div style=\"width:1700px\">wide diagram content</div>'});"
+                "</script></body></html>", encoding="utf-8")
+            out = Path(tmp) / "wide.pdf"
+            proc = subprocess.run(
+                [sys.executable, str(BRIEF / "html2pdf.py"), str(src), str(out)],
+                capture_output=True, text=True, timeout=300)
+            self.assertIn("cut off the right edge", proc.stderr)
+            # ~1700 plus the body's default margin; assert the magnitude, not
+            # a literal, or the test breaks on a UA stylesheet change.
+            m = re.search(r"content lays out (\d+) px wide", proc.stderr)
+            self.assertIsNotNone(m, proc.stderr)
+            self.assertGreater(int(m.group(1)), 1600)
+
+    def test_declaring_page_does_not_exempt_wide_content(self):
+        """Declaring `@page` is not a promise that the content fits.
+
+        The check used to read a `@page` rule as "the author has handled page
+        geometry" and skip. `ichita.css` declares one and `emit_html.py`
+        inlines it by default, so every branded document exempted itself and
+        lost its right-hand columns at exit 0 — the same silent-substitution
+        class this engine exists to prevent.
+        """
+        css = (REPO / "assets" / "brand" / "ichita.css").read_text(
+            encoding="utf-8")
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "wide-branded.html"
+            src.write_text(
+                '<meta charset="utf-8"><style>' + css + "</style>"
+                '<div style="width:1700px;display:flex;'
+                'justify-content:space-between">'
+                "<span>LEFTEDGE</span><span>RIGHTEDGE</span></div>"
+                "<p>" + ("Body text past the shell threshold. " * 8) + "</p>",
+                encoding="utf-8")
+            out = Path(tmp) / "wide-branded.pdf"
+            proc = subprocess.run(
+                [sys.executable, str(BRIEF / "html2pdf.py"), str(src), str(out),
+                 "--engine", "chromium"],
+                capture_output=True, text=True, timeout=300)
+            self.assertIn("cut off the right edge", proc.stderr)
+            # And the warning is true: the right-hand span really is gone.
+            self.assertIn("LEFTEDGE", pdf_text(out))
+            self.assertNotIn("RIGHTEDGE", pdf_text(out))
+
+    def test_a_document_that_fits_is_not_flagged(self):
+        """The converse, and the reason the margin is resolved in three states.
+
+        `designed.html` links the brand stylesheet instead of inlining it, so
+        `cssRules` throws SecurityError on `file://` and the real `margin: 0`
+        is unreadable. Assuming our own 6 mm there reported 46 px of clipping
+        that does not exist.
+        """
+        for fixture in ("designed.html", "thai-static.html", "figures.html"):
+            with self.subTest(fixture=fixture):
+                with tempfile.TemporaryDirectory() as tmp:
+                    out = Path(tmp) / "fits.pdf"
+                    proc = subprocess.run(
+                        [sys.executable, str(BRIEF / "html2pdf.py"),
+                         str(FIXTURES / fixture), str(out),
+                         "--engine", "chromium"],
+                        capture_output=True, text=True, timeout=300)
+                    self.assertNotIn("cut off the right edge", proc.stderr)
+
+    def test_shell_backstop_is_fatal_without_pymupdf(self):
+        """The backstop must not disable itself.
+
+        `pdf_text()` returns None when pymupdf is missing and the shell test
+        read that as "not a shell", so the safety net for silent failure
+        failed silently and shipped the 41-character placeholder at exit 0.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            shim = Path(tmp) / "shim"
+            shim.mkdir()
+            (shim / "fitz.py").write_text(
+                'raise ImportError("pymupdf absent")\n', encoding="utf-8")
+            env = dict(os.environ, PYTHONPATH=str(shim))
+            out = Path(tmp) / "shell.pdf"
+            proc = subprocess.run(
+                [sys.executable, str(BRIEF / "html2pdf.py"),
+                 str(FIXTURES / "js-shell.html"), str(out),
+                 "--engine", "weasyprint"],
+                capture_output=True, text=True, timeout=300, env=env)
+            self.assertNotEqual(proc.returncode, 0, proc.stdout)
+            self.assertIn("pymupdf", proc.stderr)
+
+
 class HtmlAndPdfOutput(unittest.TestCase):
-    def test_md_to_pdf_embeds_only_brand_fonts(self):
+    def test_md_to_pdf_uses_only_brand_fonts(self):
+        """No substitution — asked of whichever engine actually rendered.
+
+        Chromium's Skia backend emits Type 3 fonts, which carry no name, so a
+        PDF-side name check is impossible on that path. Chromium is asked
+        directly instead, which is the better question anyway: it reports the
+        font that was USED, not the one that was requested, so a @font-face
+        that silently failed to load shows up.
+        """
+        import fitz
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "o.pdf"
+            stdout = convert(FIXTURES / "mixed.md", out)
+
+            if "Engine: chromium" in stdout:
+                self.assertIn("Fonts used: TH Aeonik", stdout)
+                self.assertNotIn("non-brand font", stdout)
+            else:
+                doc = fitz.open(out)
+                fonts = {f[3].split("+")[-1] for p in doc for f in p.get_fonts(True)}
+                off_brand = [f for f in fonts if not any(
+                    b in f for b in ("Aeonik", "Betatron", "Slussen"))]
+                self.assertEqual(off_brand, [], f"non-brand fonts: {fonts}")
+
+    def test_md_to_pdf_thai_text_layer_survives(self):
         import fitz
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "o.pdf"
             convert(FIXTURES / "mixed.md", out)
-            doc = fitz.open(out)
-            fonts = {f[3].split("+")[-1] for p in doc for f in p.get_fonts(True)}
-            off_brand = [f for f in fonts if not any(
-                b in f for b in ("Aeonik", "Betatron", "Slussen"))]
-            self.assertEqual(off_brand, [], f"non-brand fonts embedded: {fonts}")
+            got = thai_only("".join(p.get_text() for p in fitz.open(out)))
+            want = thai_only((FIXTURES / "mixed.md").read_text(encoding="utf-8"))
+            self.assertEqual(want, got)
 
     def test_html_output_declares_the_right_family(self):
         with tempfile.TemporaryDirectory() as tmp:

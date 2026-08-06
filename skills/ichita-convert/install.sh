@@ -12,6 +12,13 @@ cd "$(dirname "$0")"
 
 pip install -r requirements.txt
 
+# Playwright ships the package and the browser separately. Without this step
+# pip reports success and rendering raises at the first scripted or Thai
+# document — so do it here, loudly, rather than leaving it to surprise someone.
+echo
+echo "Chromium for the PDF engine (~150 MB on first install):"
+python3 -m playwright install chromium
+
 echo
 echo "System tools:"
 missing=0
@@ -37,4 +44,4 @@ fi
 echo
 echo "Verify:"
 echo "  python3 tests/test_md_clean.py      # 27 unit tests"
-echo "  python3 tests/test_roundtrip.py     # 16 end-to-end"
+echo "  python3 tests/test_roundtrip.py     # 23 end-to-end"

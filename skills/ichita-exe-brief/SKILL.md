@@ -26,12 +26,22 @@ description: "Use when creating Ichita-branded executive briefs — the workflow
 ```
 HTML template (content + CSS)
         |
-    weasyprint (300 DPI, A4)
+    html2pdf.py --engine auto
+        |
+        +-- scripted, or any Thai  ->  chromium
+        +-- static and English     ->  weasyprint (300 DPI, A4)
         |
     Branded PDF
 ```
 
 The HTML template IS the design — CSS handles all layout, colors, typography, and page breaks. No external template engine needed.
+
+**The engine is chosen from the document, not configured.** weasyprint cannot
+execute JavaScript, so it renders a script-built page as its loading
+placeholder and exits 0; and its Thai text layer is wrong even when the glyphs
+look right. Both are measured in
+`skills/ichita-convert/reference/pdf-delivery.md`. Override with
+`--engine weasyprint|chromium` only with a reason.
 
 ---
 
@@ -342,10 +352,19 @@ A typical 2-3 page executive brief:
 ## Dependencies
 
 ```bash
-pip install weasyprint
+pip install weasyprint playwright pymupdf
+python3 -m playwright install chromium   # ~150 MB, separate from the package
 # System deps (Ubuntu):
 sudo apt-get install libpango1.0-dev libgdk-pixbuf2.0-dev libffi-dev
 ```
+
+All three are required, not optional:
+
+| Package | Without it |
+|---|---|
+| `weasyprint` | no engine for static English pages |
+| `playwright` + chromium | scripted and Thai documents exit 1 |
+| `pymupdf` | the weasyprint path exits 1 — it is what reads the output back to check the render is not an empty shell, and a check that cannot run must not pass |
 
 ---
 

@@ -14,18 +14,35 @@ python3 scripts/pdf_bakeoff.py FIXTURE.docx OUTDIR --source FIXTURE.md --png
 
 ## Results
 
-| | LibreOffice headless | md→html→weasyprint | Word Save-as-PDF | Word Print-to-PDF |
-|---|---|---|---|---|
-| No non-brand font | **PASS** | **PASS** | **fails by design** | not measured |
-| Thai NFC-identical | **PASS** 311/311 | **FAIL** 309/311 | not measured | not measured |
-| Measured line pitch | 15.4 pt at 10 pt = **1.54 em** | 16.23 pt | — | — |
-| Pages | 2 | 1 | — | — |
-| File size | 123 KB | 48 KB | — | — |
-| Keeps Word's layout | re-lays out | discards | yes | yes |
-| Scriptable | yes | yes | yes | **no, see below** |
+| | LibreOffice headless | headless Chromium | md→html→weasyprint | Word Save-as-PDF | Word Print-to-PDF |
+|---|---|---|---|---|---|
+| Source route | DOCX | HTML | HTML | DOCX | DOCX |
+| No non-brand font | **PASS** | **PASS** | **PASS** | **fails by design** | not measured |
+| Thai NFC-identical | **PASS** 311/311 | **PASS** 132/132 | **FAIL** 135/132 | not measured | not measured |
+| Renders scripted HTML | n/a | **PASS** | **FAIL, exit 0** | n/a | n/a |
+| Measured line pitch | 15.4 pt at 10 pt = **1.54 em** | — | 16.23 pt | — | — |
+| Font embedding | Type1C (CFF) | **Type 3** | CID Type 0C (CFF) | — | — |
+| File size, same fixture | 123 KB | 93 KB | 48 KB | — | — |
+| Keeps Word's layout | re-lays out | n/a | discards | yes | yes |
+| Scriptable | yes | yes | yes | yes | **no, see below** |
 
-**Use LibreOffice headless for a Thai delivery PDF.** It is the only engine
-measured here that gets both the fonts and the text layer right.
+**From DOCX: LibreOffice headless.** **From HTML: Chromium**, except for static
+English-only pages where weasyprint is still better. Word's Save-as-PDF is
+never acceptable.
+
+The HTML route now picks its own engine — `html2pdf.py --engine auto`, the
+default:
+
+```
+the HTML builds its DOM with script  ->  chromium    (weasyprint renders nothing)
+the document contains Thai           ->  chromium    (weasyprint corrupts the text layer)
+otherwise: static, English-only      ->  weasyprint  (real CID-CFF font program, smaller file)
+```
+
+Plus a behavioural backstop: after a weasyprint render, if the extracted text
+is under 200 characters or contains a `noscript` string, the page is
+re-rendered with Chromium and the substitution is reported. That catches shells
+the marker list has not seen.
 
 ---
 
@@ -46,15 +63,57 @@ it.
 never touches Office's font-embedding subsystem, and it is the path the font
 work hardened.
 
+### weasyprint cannot render JavaScript, and says nothing
+
+Reported by Miipan, 2026-08-06, from three real client deliverables. This is
+the worst failure mode in the skill because it is completely silent.
+
+A Claude-designed standalone HTML is a thin shell: the static markup is a
+loading placeholder, and the real document — plus the brand CSS, the fonts and
+a React runtime — arrives gzip+base64 encoded and is mounted by script on
+`DOMContentLoaded`. There is no static markup to render.
+
+weasyprint does not execute JavaScript. Measured on `js-shell.html`:
+
+```
+weasyprint 68.1
+  exit code   : 0
+  output      : 1 page, A4, 4,233 bytes
+  text layer  : "This page requires JavaScript to display."
+  key figures : 1,000.00 -> 0   805.71 -> 0   928.94 -> 0
+                6,318.37 -> 0   Beer Thai -> 0
+chromium
+  key figures : all 5 present, placeholder gone
+```
+
+A valid, well-formed, brand-sized PDF containing none of the document, and
+nothing in the exit status, the page count or the file type reveals it. **Same
+species as Word's Save-as-PDF above** — nothing looks wrong until you compare
+it to the source.
+
 ### weasyprint's Thai text layer is wrong
 
-The serious one, and it is invisible in the render.
+Invisible in the render, same as the above.
 
 Every `า` (U+0E32) extracts from a weasyprint PDF as `ำ` (U+0E33). **The
 glyphs are correct** — the page reads perfectly and a crop at 160 dpi shows
 `ระบบนี้ออกแบบสำหรับน้ำตาลทรายดิบ` exactly right. Only the `ToUnicode` map is
 wrong, so search, copy-paste and any downstream extraction return corrupted
 Thai.
+
+**It is worse than a substitution.** Measured on `thai-static.html`, 132
+source characters:
+
+```
+             chars     า        ำ        U+0E49
+source        132      6        5        6
+weasyprint    135      0       11        4        FAIL
+chromium      132      6        5        6        PASS
+```
+
+The `U+0E49` tone mark is **dropped**, not remapped — and `U+02D7` appears in
+its place, which is the same artifact class as the corrupted May 2026 PDF
+(`น˗˓าตาล`). The character count goes *up* while information is lost.
 
 The mechanism: HarfBuzz decomposes ำ into ํ + า for shaping, so the า glyph is
 reached from two source codepoints. The `ToUnicode` CMap is keyed by glyph id,

@@ -3,7 +3,8 @@
 Moving documents between Word, Markdown, PDF and HTML without losing the brand
 or the edits.
 
-**If you read nothing else, read these two rules.**
+**If you read nothing else, read these three rules.** All three are the same
+trap: a silent swap that leaves you holding a file which looks completely fine.
 
 ---
 
@@ -29,7 +30,18 @@ LibreOffice — the numbers are in `reference/pdf-delivery.md`.
 
 ---
 
-## 2. Hand your file back if you want the change kept.
+## 2. Never send a Claude-designed HTML through weasyprint.
+
+Those documents build themselves with JavaScript when the page opens. weasyprint
+does not run JavaScript, so it renders the "loading…" placeholder, reports
+success, and hands you a perfectly valid PDF of nothing.
+
+The tool now picks the right renderer on its own — just don't override it. If
+you are calling `html2pdf.py` by hand, leave `--engine` alone.
+
+---
+
+## 3. Hand your file back if you want the change kept.
 
 The Markdown file is the record. The DOCX is a rendering of it — the way a
 printout is a rendering of a spreadsheet.
