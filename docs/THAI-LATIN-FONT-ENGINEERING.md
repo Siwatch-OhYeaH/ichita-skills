@@ -231,6 +231,27 @@ document whose runs name `TH Aeonik Light` or `TH Aeonik Air` — which is exact
 writes when you pick those out of the font dropdown. Our own QC documents do it too
 (`build_th_font_qc.py`, `qc_check_th_font_doc.py`).
 
+#### The middle option — three cards, no defect (variant D, measured clean)
+
+Only Air and Light break, so only Air's and Light's bold slots need the old treatment.
+Give the other four their true weights and put them in `nameID16 = "TH Aeonik"`; leave
+`AirBold`/`LightBold` (+italics) out of the typographic family and declaring 700, which is
+today's rule 2. Measured 2026-08-07 — `fc_family_probe.py` returns **zero faults**: all six
+bare queries, all six bolds, all twenty in-family weights.
+
+```
+                        Settings cards          new Latin weights   bare query
+today                   1 x 14 + 5 x 2 = 6      —                   clean
+twelve weights          1 x 24         = 1      3 (450, 550, 800)   Air + Light BROKEN
+variant D               1 x 20 + 2 x 2 = 3      2 (550, 800)        clean
+```
+
+D costs one fewer synthetic Latin than the full plan: `LightBold` no longer needs its own
+outline, because outside the family it may keep Medium's — which is what Siwatch approved
+on 08-06 anyway. `BookBold` (550) and `MediumBold` (800) still need real outlines, or
+`TH Aeonik` at 500/550 and at 800/900 would render identical ink, which is the duplicate
+problem this whole change exists to remove.
+
 **Status: reported to Siwatch, awaiting his call.** One card and a correct bare sub-family
 query are mutually exclusive for the two lightest families. Nothing is built yet.
 
