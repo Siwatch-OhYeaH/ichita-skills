@@ -103,7 +103,8 @@ The seven things most likely to cost a day if you skip the document:
    them.** Word takes CFF line pitch from `usWin`, `glyf`+USE_TYPO_METRICS from `sTypo`,
    `glyf` without the bit from `max(hhea, usWin)`; PowerPoint uses a fixed 1.2 em for
    every font. Never read a metric field to predict leading — use
-   `scripts/win_latin_parity.word_line_box()`.
+   `scripts/win_latin_parity.word_line_box()`. That script measures the fonts installed
+   on **Windows**, not the repo — a stale install reads as a font defect.
 3. **The face is chosen by the document's language** — English-only → Aeonik (box 1200),
    Thai or mixed → TH Aeonik (box 1537). Siwatch, 2026-08-05. The accepted cost is that
    English-only paragraphs inside a mixed document lead ~28% wider; **do not "fix" it**,
@@ -112,16 +113,18 @@ The seven things most likely to cost a day if you skip the document:
    `fc-cache -f`, *then* run QC. Committed fonts disagree with the committed builder.
    Expected state is **22/22** — check 6 stopped being red-on-purpose on 2026-08-06,
    and the tolerance was not widened (§4b).
-5. **TH Aeonik ships 20 faces from 16 outline sets in 5 families**, and every family
+5. **TH Aeonik ships 24 faces from 18 outline sets in 6 families**, and every family
    holds a real bold so Word never synthesises one. `scripts/th_style_link.py` is the
    sole authority on face naming. `TH Aeonik Black` and `TH Aeonik Thin` are retired
    into Medium's and Air's bold slots. Aeonik (the Latin) keeps its own structure.
    **A bold-slot face declares itself Bold in every field and drops nameID16/17** —
    doing otherwise made `fc-match "TH Aeonik Air"` return the bold (§4b).
-6. **Aeonik SemiBold is synthetic** — CoType never drew one, so
-   `build_aeonik_semibold.py` derives it from Medium. It is the only Latin here that
-   is not CoType's bytes. Run it **before** the merge; it is a Latin source. §4c
-   records the two costs (approximate fit, counters 4% tighter than Bold).
+6. **Aeonik SemiBold (600) and Book (350) are synthetic** — CoType drew neither, and
+   Aeonik is not interpolatable in ANY adjacent pair (184-197 of 657 glyphs, digits
+   included), so `build_aeonik_semibold.py` derives both with `changeWeight`. They are
+   the only Latin here that is not CoType's bytes. Run it **before** the merge; it is a
+   Latin source. §4c records the costs. Direction matters: growing spends counter,
+   thinning opens it but **shrinks the x-height**, which the merge scales Thai to.
 7. **Siwatch's visual defect reports are measurements to explain, not claims to verify.**
    Every one has been correct. **Never prescribe `fix-th-fonts.sh --apply-system
    --restart`** — he installs via Windows Settings; `--check` is a fine read-only report.

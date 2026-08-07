@@ -114,7 +114,12 @@ ASSETS = SCRIPT_DIR.parent / "assets"
 # build, and feeding a build's own output back in as its source applies the
 # version string twice and stops the build being reproducible. find_aeonik()
 # fails loudly rather than falling back to it.
-AEONIK_D_DRIVE = Path("/mnt/d/Doccument/New Identity/Aeonik-font-download/Aeonik-font-download")
+#
+# The D: drive path is Siwatch's own folder tree, so it moves when he tidies it —
+# on 2026-08-07 `Doccument` became `02 Doccument` and the single hardcoded path
+# silently turned every build into "source missing". Glob the drive for the
+# folder name instead of naming its parents, and keep the miss loud.
+AEONIK_D_GLOB = "*/New Identity/Aeonik-font-download/Aeonik-font-download"
 AEONIK_LOCAL = ASSETS / "fonts" / "aeonik-v1000"   # git-ignored local drop point
 BAI_SYSTEM = Path.home() / ".local" / "share" / "fonts"
 BAI_LOCAL = ASSETS / "fonts" / "bai-jamjuree"
@@ -142,6 +147,8 @@ WEIGHTS = {
     "BlackItalic":   "Aeonik-BlackItalic.otf",
     "SemiBold":      "Aeonik-SemiBold.otf",
     "SemiBoldItalic": "Aeonik-SemiBoldItalic.otf",
+    "Book":          "Aeonik-Book.otf",
+    "BookItalic":    "Aeonik-BookItalic.otf",
 }
 
 # The two faces CoType never drew.
@@ -154,7 +161,8 @@ WEIGHTS = {
 #
 # It is still NOT Aeonik's drawing. Both carry that in nameID5 and nameID10,
 # and §4c records what synthesis costs.
-SYNTHETIC_FACES = {"Aeonik-SemiBold.otf", "Aeonik-SemiBoldItalic.otf"}
+SYNTHETIC_FACES = {"Aeonik-SemiBold.otf", "Aeonik-SemiBoldItalic.otf",
+                   "Aeonik-Book.otf", "Aeonik-BookItalic.otf"}
 AEONIK_SYNTHETIC = ASSETS / "fonts" / "aeonik"
 
 # Face naming lives in th_style_link.FACES, imported above as WEIGHT_CONFIG.
@@ -192,11 +200,19 @@ def find_aeonik(filename):
     if filename in SYNTHETIC_FACES:
         p = AEONIK_SYNTHETIC / filename
         return p if p.exists() else None
-    for d in [AEONIK_D_DRIVE, AEONIK_LOCAL]:
+    for d in aeonik_source_dirs():
         p = d / filename
         if p.exists():
             return p
     return None
+
+
+def aeonik_source_dirs():
+    """Every place the pristine v1.000 might be, local drop point first."""
+    dirs = [AEONIK_LOCAL] if AEONIK_LOCAL.is_dir() else []
+    if Path("/mnt/d").is_dir():
+        dirs += sorted(d for d in Path("/mnt/d").glob(AEONIK_D_GLOB) if d.is_dir())
+    return dirs
 
 
 def require_aeonik_source(weights=None):
@@ -223,7 +239,8 @@ def require_aeonik_source(weights=None):
             f"{', '.join(pristine[:4])}"
             + (" ..." if len(pristine) > 4 else ""),
             "Looked in:",
-            f"  {AEONIK_D_DRIVE}",
+            *(f"  {d}" for d in aeonik_source_dirs()),
+            f"  (glob) /mnt/d/{AEONIK_D_GLOB}",
             f"  {AEONIK_LOCAL}",
             "",
             "It is not kept in the repo — see assets/fonts/README.md. Drop the",

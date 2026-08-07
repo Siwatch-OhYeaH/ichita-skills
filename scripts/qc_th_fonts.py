@@ -99,6 +99,8 @@ FAMILIES = {
             "Air": "Aeonik-Air.otf",
             "Thin": "Aeonik-Thin.otf",
             "Light": "Aeonik-Light.otf",
+            # Synthetic too, and thinned from Regular rather than grown. §4c.
+            "Book": "Aeonik-Book.otf",
             "Regular": "Aeonik-Regular.otf",
             "Medium": "Aeonik-Medium.otf",
             # Synthetic — CoType never drew it. §4c, build_aeonik_semibold.py.
@@ -178,56 +180,52 @@ TEST_WORDS = ("ที่ ครั้ง ทุก สิ่ง ซึ่ง ก
               "น้ำเชื่อม ผู้ ปั่น เกี๊ยว ญี่ปุ่น").split()
 
 # usWeightClass per weight name, for indexing th_thai_prep.WEIGHT_RATIO.
-WCLASS = {"Air": 100, "Thin": 200, "Light": 300, "Regular": 400,
+WCLASS = {"Air": 100, "Thin": 200, "Light": 300, "Book": 350, "Regular": 400,
           "Medium": 500, "SemiBold": 600, "Bold": 700, "Black": 900}
 
 SIZE_TOL = 0.02      # 2% on x-height match
-STEM_TOL = 0.08      # 8% on stem match; the probe quantises to ~2 units
 PX = 512
 
-# Faces where the stem ratio is dominated by probe quantisation rather than by
-# design. Each entry is the worst accepted |target - Thai/Latin|. The test still
-# fails if a face drifts BEYOND its documented limit — these widen the bar, they
-# do not remove it.
+# Check 2's tolerance, in stem UNITS per 1000em — not in ratio. The probe
+# resolves 1000/512 = 1.95 units, so 2.5 is one step plus a small margin and
+# nothing tighter is measurable.
 #
-#   Air, Thin   the stems are 6-23 units; one pixel at 512 px/em is ~2 units,
-#               so the ratio is dominated by probe quantisation, not by design.
+# It was a flat 0.08 of ratio until 2026-08-07, with four per-face widenings on
+# top. A ratio band scales with the Latin stem, so the same number meant 0.6
+# units at Air and 11.9 at Bold — loosest exactly where the ink is heaviest and
+# most visible. Regular shipped 2.6 units heavy (.920 against .890) and Bold 2.7
+# (.908 against .890) with check 2 green throughout. In units both fail, which
+# is the point.
 #
-# Black used to be listed here at 0.12. It is no longer a tolerance case: its
-# shortfall is a deliberate, measured cap and is pinned as an exact number in
-# CAPPED_STEM_RATIO below. Widening a tolerance hides a defect; pinning the
-# number makes the same fact falsifiable on sight.
-STEM_TOL_OVERRIDE = {
-    ("TH-Aeonik", "Air"): 0.20,
-    ("TH-Aeonik", "AirItalic"): 0.20,
-    ("TH-Aeonik", "Thin"): 0.15,
-    ("TH-Aeonik", "ThinItalic"): 0.15,
-}
+# The Air/Thin widenings are gone with it. They existed because a 2-unit probe
+# step is 0.26 of ratio on a 7.8-unit stem — an artefact of the denominator, not
+# slack the font needed. Judged in units, Air is 0.05 off target.
+STEM_UNIT_TOL = 2.5
 
 # Faces where APERTURE_FLOOR binds before the stem taper is reached, so Thai
 # ships measurably lighter than the Latin on purpose. These are NOT tolerances:
-# each is the exact ratio the shipped font must hold, +/- CAPPED_TOL. If a
-# future Bai or Latin source changes the trade, this fails and the number has to
-# be re-derived deliberately rather than absorbed by a wide bar.
+# each is the exact ratio the shipped font must hold, and it is then judged by
+# the same STEM_UNIT_TOL as every other face. If a future Bai or Latin source
+# changes the trade, this fails and the number has to be re-derived deliberately
+# rather than absorbed by a wide bar.
 #
-# EMPTY since 2026-08-03 (evening), and the reason is the point. This dict
-# existed because WEIGHT_RATIO asked the heavy end for a ratio the counter floor
-# forbids — .89 at Black — and the shortfall had to be recorded somewhere else.
-# The revised taper states the reachable number in WEIGHT_RATIO itself (900 ->
-# .745), so there is no shortfall left to pin. All three former entries now pass
-# check 2 on the normal path:
+# The dict was empty from 2026-08-03 to 2026-08-07 because the revised taper
+# states the reachable number in WEIGHT_RATIO itself (900 -> .745), so the two
+# Black faces have no shortfall left to pin. TH-Slussen Bold is different: its
+# shortfall is against a ratio the taper does NOT special-case.
 #
-#   TH-Aeonik Black        .745 against a .745 target   (was pinned .723)
-#   TH-Aeonik BlackItalic  .734 against a .745 target   (was pinned .723)
-#   TH-Slussen Bold        .793 against a .775 target   (was pinned .839)
+# Slussen's Latin Bold is 169.9, the heaviest Latin either family has, and .89 of
+# it (151.2) is past what Bai Bold survives — th_thai_prep.BUILD_TABLE records
+# the measurement, including that reaching 151.2 makes ข ฃ ฆ ษ ฮ revert to source
+# weight and ship visibly lighter than their neighbours. So the face runs at
+# .8276, 10.6 units short, and it is pinned here at the measured number.
 #
-# Two of those pins were also STALE and one of them was masking: Black passed
-# only because .745 happens to fall inside .723 +/- .03. A pin that keeps
-# passing as reality moves away from it is worse than no pin. If the floor ever
-# binds before the taper again, add the entry back with the measured number —
-# do not widen STEM_TOL.
-CAPPED_STEM_RATIO = {}
-CAPPED_TOL = 0.03
+# Until 2026-08-07 it passed only because a 0.073 ratio miss fell inside a 0.08
+# ratio tolerance — the note in BUILD_TABLE predicted this and asked for the pin
+# rather than a widened bar. That is what this entry is.
+CAPPED_STEM_RATIO = {
+    ("TH-Slussen", "Bold"): 0.8276,
+}
 
 # Aperture floor for check 10, and the faces exempt from it. Thinning at the
 # light end opens the loops of ข ค ง into plain strokes — correct behaviour for
@@ -248,7 +246,7 @@ CLEAR_FLOOR = 60.0
 
 # Faces that cannot reach the floor because emboldening past the end of Bai's
 # ladder grows the consonant and the mark toward each other faster than the
-# anchor can pull them apart. Same source limitation as STEM_TOL_OVERRIDE, and
+# anchor can pull them apart. Same source limitation as CAPPED_STEM_RATIO, and
 # the same rule: these lower the bar, they do not remove it.
 #
 # EMPTY since 2026-08-03 (evening). Black and BlackItalic were listed at 38.0
@@ -370,16 +368,28 @@ def check_size_and_weight(fam, cfg):
         base = w.replace("Italic", "") or "Regular"
         capped = CAPPED_STEM_RATIO.get((fam, w))
         if capped is not None:
-            want, tol, note = capped, CAPPED_TOL, "  (aperture-capped)"
+            want, note = capped, "  (aperture-capped)"
         else:
             want = WEIGHT_RATIO[WCLASS[base]]
-            tol = STEM_TOL_OVERRIDE.get((fam, w), STEM_TOL)
-            note = "  (probe-limited)" if (fam, w) in STEM_TOL_OVERRIDE else ""
+            note = ""
+        # Judged in STEM UNITS, not in ratio. The ratio's denominator is the
+        # Latin stem, so a fixed ratio band is a different physical tolerance at
+        # every rung: 0.08 was 0.6 units at Air and 11.9 at Bold — three probe
+        # steps of slack where it mattered least and six where it mattered most.
+        # That is how Regular shipped at .920 against a .890 target (2.6 units
+        # heavy) inside a green check. STEM_UNIT_TOL is one probe step plus a
+        # margin, so it holds every rung to what the probe can actually see, and
+        # the four STEM_TOL_OVERRIDE entries for Air/Thin stopped being needed —
+        # their "probe-limited" slack was the ratio's artefact, not the font's.
+        want_stem = want * ls
+        off = ts - want_stem
         weight_rows.append(f"{w:<14} Latin {ls:5.1f}  Thai {ts:5.1f}  "
-                           f"ratio {wr:.3f}  want {want:.3f}{note}")
-        if abs(wr - want) > tol:
-            weight_bad.append(f"{w}: Thai stem is {wr:.3f} of Latin, "
-                              f"want {want:.3f} +/- {tol:.2f}")
+                           f"ratio {wr:.3f}  want {want:.3f} ({want_stem:5.1f}u, "
+                           f"off {off:+4.1f}u){note}")
+        if abs(off) > STEM_UNIT_TOL:
+            weight_bad.append(f"{w}: Thai stem {ts:.1f}, want {want_stem:.1f} "
+                              f"+/- {STEM_UNIT_TOL} units (ratio {wr:.3f} vs "
+                              f"{want:.3f})")
 
     record(f"1. {fam} Thai size == Latin x-height "
            f"(scale {THAI_SCALE[fam]})", not size_bad,
@@ -669,12 +679,23 @@ def check_style_link(fam, cfg):
 def check_promoted_bold(fam, cfg):
     """12 — the promoted heavy face must beat Bold where it still can.
 
-    TH Aeonik Medium's bold carries the Black outlines. In the THAI it is
-    identical to Bold — both sit on Bai Jamjuree's counter floor, and no amount
-    of emboldening moves either without filling ฃ ธ ฮ (§4). That equality is
-    EXPECTED and recorded here rather than tolerated silently somewhere else.
-    What must hold is the Latin separation, because that is the whole reason the
-    face is worth shipping as a distinct bold.
+    TH Aeonik Medium's bold carries the Black outlines. The Latin separation is
+    the whole reason the face is worth shipping as a distinct bold, so that is
+    the primary assertion.
+
+    THE THAI EQUALITY WAS NEVER A LAW. From 2026-08-03 to 2026-08-07 this check
+    asserted the two Thai stems were identical (134.8 both) and called it Bai's
+    counter floor. Half of that was true: Black IS on the floor. Bold was not
+    obliged to be — it only got there because its embolden had been solved
+    against the ITALIC's Latin stem (150.4 instead of 148.4) and bought stem it
+    was never owed, landing at aperture 46.9. Corrected, Bold sits at 130.9 with
+    aperture 50.8 and the Thai gap opens to +4.5%.
+
+    So the check now asserts the thing that is actually load-bearing: Black must
+    be ON the floor. That is what makes "Thai cannot separate further" a measured
+    limit of the source rather than a number nobody re-derived. If Black ever
+    measures clear of the floor while the Thai gap stays narrow, stem was left on
+    the table and the embolden should be re-solved.
     """
     if fam != "TH-Aeonik":
         return
@@ -687,17 +708,28 @@ def check_promoted_bold(fam, cfg):
     bl, hl = probe_stem(bold, STEM_LATIN), probe_stem(heavy, STEM_LATIN)
     bt, ht = probe_stem(bold, STEM_THAI), probe_stem(heavy, STEM_THAI)
     gap = (hl - bl) / bl
+    thai_gap = (ht - bt) / bt
+    h_ap, h_ch = min_aperture(heavy)
+    b_ap, _ = min_aperture(bold)
     rows = [f"Latin  Bold {bl:6.1f} -> Medium Bold {hl:6.1f}   {gap * 100:+.1f}%",
             f"Thai   Bold {bt:6.1f} -> Medium Bold {ht:6.1f}   "
-            f"{(ht - bt) / bt * 100:+.1f}%  (expected ~0 — Bai's counter floor)"]
+            f"{thai_gap * 100:+.1f}%  (source-capped, not equal)",
+            f"aperture  Bold {b_ap:5.1f}   Medium Bold {h_ap:5.1f} {h_ch}   "
+            f"floor {APERTURE_FLOOR}"]
     bad = []
     if gap < 0.04:
         bad.append(f"the Latin separation is only {gap * 100:.1f}% — the two "
                    f"bolds will read as one weight in every script")
-    if ht > bt * 1.04:
-        bad.append(f"the Thai is {(ht / bt - 1) * 100:.1f}% heavier than Bold, "
-                   f"which contradicts the counter floor — re-measure the "
-                   f"aperture before believing it")
+    if ht < bt:
+        bad.append(f"the Thai is LIGHTER than Bold ({ht:.1f} vs {bt:.1f}) — the "
+                   f"heavier face must never be the lighter one")
+    # The cap has to stay falsifiable: it is only a real cap while Black is
+    # actually against the floor. Slack there plus a narrow Thai gap means the
+    # embolden is under-solved, not that Bai ran out.
+    if h_ap > APERTURE_FLOOR + 4 and thai_gap < 0.10:
+        bad.append(f"Medium Bold's Thai is only {thai_gap * 100:.1f}% over Bold "
+                   f"while its aperture is {h_ap:.1f}, clear of the {APERTURE_FLOOR} "
+                   f"floor — Bai has not run out, so re-solve the embolden")
     record(f"12. {fam} promoted bold clears Bold in the Latin", not bad,
            "\n".join(rows + bad))
 

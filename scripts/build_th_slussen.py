@@ -1041,9 +1041,17 @@ def verify_font(weight_name, slussen_file):
 # Build pipeline
 # ---------------------------------------------------------------------------
 
-def build_font(weight_name, slussen_file, bai_file=None):
-    """Build a single TH-Slussen weight."""
+def build_font(weight_name, slussen_file, bai_file=None, out_dir=None):
+    """Build a single TH-Slussen weight.
+
+    `out_dir` exists so solve_weight_table.py can build trials somewhere other
+    than the shipped directory. Without it the solver overwrites every face it
+    touches with a non-converged trial and leaves the last iteration behind —
+    measured 2026-08-07 on the Aeonik side, where a `--all` solve silently
+    replaced all 16 shipped outline faces.
+    """
     print(f"\n  === {weight_name} ===")
+    out_dir = out_dir or OUTPUT_DIR
 
     slussen_path = find_slussen(slussen_file)
     if not slussen_path:
@@ -1071,7 +1079,8 @@ def build_font(weight_name, slussen_file, bai_file=None):
     # is what carries Slussen's 2712 hint operators through to the shipped font.
     latin_cff = TTFont(str(slussen_path))["CFF "]
 
-    output_path = OUTPUT_DIR / f"TH-Slussen-{weight_name}.otf"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    output_path = out_dir / f"TH-Slussen-{weight_name}.otf"
 
     # Step 0: CFF -> glyf, while the glyph set is still purely Latin. Intermediate
     # working format for the merge only; step 7 swaps the CFF back in.

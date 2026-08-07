@@ -23,7 +23,7 @@ renderer reads which field, and roughly thirty defects not to repeat.
 | Directory | Contents | Status |
 |---|---|---|
 | `aeonik/` | Aeonik v1.001 = v1.000 + Greek/math, 14 faces + a **synthetic** SemiBold pair | **BUILT — install this. It is the only Aeonik here.** |
-| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, **20 faces** from 16 outline sets | **BUILT — install**; uninstall `TH Aeonik Black` and `TH Aeonik Thin` first |
+| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, **24 faces** from 18 outline sets | **BUILT — install**; uninstall `TH Aeonik Black` and `TH Aeonik Thin` first |
 | `slussen/` | Slussen desktop, 4 faces | pristine source; incomplete (a 10-face set exists in an old `D:` build) |
 | `th-slussen/` | TH Slussen = Slussen + Bai Thai, 4 faces | **BUILT — install**; no documented brand role yet |
 | `aeonik-web/` | Aeonik v2.000 web cut, 6 faces | source for the Greek harvest **only** — box 1140, respaced digits, do not migrate to |
@@ -61,7 +61,7 @@ renders the Latin 16–20% lighter through a different rasteriser.
 Aeonik, 14 faces: Air, Thin, Light, Regular, Medium, Bold, Black, plus an italic of
 each. TH Slussen, 4 faces: Regular, Medium, SemiBold, Bold. Betatron is Regular only.
 
-**TH Aeonik ships 20 faces from those same 14 outline sets**, and its family structure
+**TH Aeonik ships 24 faces from 18 outline sets**, and its family structure
 diverged from Aeonik's on 2026-08-06. Every family now holds a real bold, because the
 alternative is Word synthesising one — a double-strike, which spends the counter
 aperture that keeps ฃ ธ ฮ open at text sizes.

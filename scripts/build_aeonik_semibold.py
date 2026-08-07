@@ -79,11 +79,9 @@ AEONIK = ROOT / "assets" / "fonts" / "aeonik"
 # reproducible by hand.
 WIDTH_PROBE = "Handgloves 0123456789"
 
-# Interpolated from Medium and Bold — see the header. Tolerances are what the
-# probe can actually resolve: the stem probe reads in ~2 unit steps at 512
-# px/em, and the advance is a 21-glyph sum so 0.25% is under a unit per glyph.
-TARGET_STEM = 131.8
-TARGET_ADVANCE = 11516.0
+# Tolerances are what the probe can actually resolve: the stem probe reads in
+# ~2 unit steps at 512 px/em, and the advance is a 21-glyph sum so 0.25% is
+# under a unit per glyph.
 STEM_TOL = 2.0
 ADVANCE_TOL = 0.0025
 
@@ -106,11 +104,52 @@ ADVANCE_TOL = 0.0025
 # exactly the pattern being avoided.
 COUNTER_INVERSION_MAX = 0.10
 
-# The two faces to synthesise, and what each is grown from.
-FACES = {
-    "SemiBold": "Medium",
-    "SemiBoldItalic": "MediumItalic",
+# The faces to synthesise, what each is derived from, and where it must land.
+#
+# The filename still says "semibold" because SemiBold was the first and the name
+# is referenced from CLAUDE.md, the engineering record, th_style_link,
+# build_th_aeonik and the README. Renaming a module that a dozen files key on is
+# exactly what broke twelve scripts on 2026-08-06; the docstring carries the
+# correction instead.
+#
+# SemiBold GROWS from Medium; Book THINS from Regular, and the direction is not
+# incidental. §4c: changeWeight spends counter roughly 1:1 with the stem it adds
+# and never reopens a bowl, which is why the synthetic SemiBold lands tighter
+# than Bold and needs COUNTER_INVERSION_MAX. Thinning runs the other way — it
+# opens counters — so Book's counter ladder is monotonic by construction and
+# needs no bound. Book is the safer synthesis of the two.
+#
+# Book targets, derived 2026-08-07 rather than chosen:
+#   stem     Bai Jamjuree Regular is the whole point of the weight (Siwatch, the
+#            2026-08-07 list), and it normalises to Thai stem 66.4. At
+#            WEIGHT_RATIO 350 = .8975 that pins the Latin at 66.4/.8975 = 74.0.
+#            NOT the arithmetic midpoint of Light and Regular, which is 69.3 —
+#            distorting Bai to hit a round number would defeat the weight.
+#   advance  74.0 sits 64% of the way from Light to Regular (58% for the
+#            italic), so the advance is interpolated at that fraction.
+#   wclass   350 is a declared sorting key for CSS and fontconfig, not a
+#            measurement; nothing reads it against the stem.
+SYNTH = {
+    "SemiBold":       dict(base="Medium",        stem=131.8, advance=11516.0,
+                           family="Aeonik SemiBold", wclass=600, panose=7),
+    "SemiBoldItalic": dict(base="MediumItalic",  stem=131.8, advance=11516.0,
+                           family="Aeonik SemiBold", wclass=600, panose=7),
+    # Re-targeted from 74.0 after the first build measured out. THINNING SHRINKS
+    # THE GLYPH: Aeonik-Book's x ink-top came out 504 against Regular's 510,
+    # because changeWeight moves every edge inward, not just the vertical stems.
+    # build_th_aeonik then scales the Thai to the LATIN'S X-HEIGHT (QC check 1),
+    # so a 6-unit shorter x-height scaled Bai Regular down with it and the merged
+    # Thai landed 64.5 instead of the 66.4 the weight is defined by.
+    #
+    # Book's rule is that the Thai is fixed and the Latin moves (see
+    # th_thai_prep.BUILD_TABLE), so the Latin comes down to 64.5/.8975 = 71.9.
+    # Advances re-interpolated at the new fraction of Light -> Regular.
+    "Book":           dict(base="Regular",       stem=71.9,  advance=11129.0,
+                           family="Aeonik Book", wclass=350, panose=4),
+    "BookItalic":     dict(base="RegularItalic", stem=71.8,  advance=11079.0,
+                           family="Aeonik Book", wclass=350, panose=4),
 }
+FACES = {k: v["base"] for k, v in SYNTH.items()}
 
 # A glyph whose bounding box moves much further than the weight change can
 # account for came back deformed, not emboldened. th_thai_prep._graft_outlines
@@ -249,7 +288,9 @@ def scale_advances(font, k):
     return moved
 
 
-def build_face(name, base_name, verbose=True):
+def build_face(name, base_name=None, verbose=True):
+    spec = SYNTH[name]
+    base_name = base_name or spec["base"]
     src = AEONIK / f"Aeonik-{base_name}.otf"
     out = AEONIK / f"Aeonik-{name}.otf"
     if not src.exists():
@@ -280,11 +321,11 @@ def build_face(name, base_name, verbose=True):
 
         # Solve the embolden rather than table it: the response is not linear
         # and changeWeight under-delivers, so a constant would be a guess.
-        amount, got, tried = _solve_embolden(glyf_src, work, verbose)
-        if abs(got - TARGET_STEM) > STEM_TOL:
+        amount, got, tried = _solve_embolden(glyf_src, work, verbose, spec)
+        if abs(got - spec["stem"]) > STEM_TOL:
             raise SystemExit(
                 f"ERROR: {name} stem solve did not converge — best {got:.1f} "
-                f"against {TARGET_STEM} (+/-{STEM_TOL}) after {tried} probes")
+                f"against {spec['stem']} (+/-{STEM_TOL}) after {tried} probes")
 
         bolder = TTFont(str(_embolden(glyf_src, amount, work,
                                       counter_type="squish")))
@@ -304,12 +345,12 @@ def build_face(name, base_name, verbose=True):
                 f"rather than letting them through.")
 
         before = advance_sum(font)
-        k = TARGET_ADVANCE / before
+        k = spec["advance"] / before
         moved = scale_advances(font, k)
         if verbose:
             print(f"     advances x{k:.5f} on {moved} glyphs "
                   f"({before:.0f} -> {advance_sum(font):.0f}, "
-                  f"target {TARGET_ADVANCE:.0f})")
+                  f"target {spec['advance']:.0f})")
 
         convert_to_cff(font, pristine_cff, set(font.getGlyphOrder()),
                        label="cff", kind="all")
@@ -322,30 +363,37 @@ def build_face(name, base_name, verbose=True):
     return out
 
 
-def _solve_embolden(glyf_src, work, verbose):
-    """Secant search on the MEASURED stem, the same shape as solve_weight_table."""
+def _solve_embolden(glyf_src, work, verbose, spec):
+    """Secant search on the MEASURED stem, the same shape as solve_weight_table.
+
+    The bracket has to straddle zero now that Book THINS its base. changeWeight
+    delivers roughly 0.9 of a unit going up and only ~0.5 going down, so the
+    negative side needs about twice the range to cover the same stem distance —
+    hence -40..40 rather than the old 1..40.
+    """
+    target = spec["stem"]
+    grow = spec["stem"] > 100          # SemiBold grows, Book thins
     probes = []
-    lo, hi = 10.0, 24.0
-    for amount in (lo, hi):
+    for amount in ((10.0, 24.0) if grow else (-6.0, -20.0)):
         p = _embolden(glyf_src, amount, work, counter_type="squish")
         probes.append((amount, tm.stem(p, chars=tm.STEM_LATIN)))
     for _ in range(6):
         (a0, s0), (a1, s1) = probes[-2], probes[-1]
-        best = min(probes, key=lambda t: abs(t[1] - TARGET_STEM))
-        if abs(best[1] - TARGET_STEM) <= STEM_TOL:
+        best = min(probes, key=lambda t: abs(t[1] - target))
+        if abs(best[1] - target) <= STEM_TOL:
             break
         if s1 == s0:
             break
-        nxt = a1 + (TARGET_STEM - s1) * (a1 - a0) / (s1 - s0)
-        nxt = max(1.0, min(40.0, round(nxt, 1)))
+        nxt = a1 + (target - s1) * (a1 - a0) / (s1 - s0)
+        nxt = max(-40.0, min(40.0, round(nxt, 1)))
         if any(abs(nxt - a) < 0.05 for a, _ in probes):
             break
         p = _embolden(glyf_src, nxt, work, counter_type="squish")
         probes.append((nxt, tm.stem(p, chars=tm.STEM_LATIN)))
-    best = min(probes, key=lambda t: abs(t[1] - TARGET_STEM))
+    best = min(probes, key=lambda t: abs(t[1] - target))
     if verbose:
-        trail = "  ".join(f"+{a:.1f}->{s:.1f}" for a, s in probes)
-        print(f"     stem solve: {trail}")
+        trail = "  ".join(f"{a:+.1f}->{s:.1f}" for a, s in probes)
+        print(f"     stem solve (target {target}): {trail}")
     return best[0], best[1], len(probes)
 
 
@@ -357,53 +405,64 @@ def _name_face(font, name):
     weight sitting in a family of authentic ones is the same hazard: anybody
     inspecting this file must be able to tell without asking.
     """
+    spec = SYNTH[name]
     italic = name.endswith("Italic")
-    label = "SemiBold Italic" if italic else "SemiBold"
+    style = name[:-6] if italic else name          # "SemiBold" / "Book"
+    label = f"{style} Italic" if italic else style
     nt = font["name"]
 
     fields = {
-        1: "Aeonik SemiBold",
+        1: spec["family"],
         2: "Italic" if italic else "Regular",
         3: f"Aeonik-{name}-ICHITA-synthesised",
-        4: f"Aeonik SemiBold{' Italic' if italic else ''}",
+        4: f"{spec['family']}{' Italic' if italic else ''}",
         5: "Version 1.001; ICHITA synthesised weight — NOT a CoType drawing",
         6: f"Aeonik-{name}",
         16: "Aeonik",
         17: label,
         # nameID 10 is the description field a font inspector shows first.
-        10: ("Synthesised by ICHITA from Aeonik Medium: FontForge changeWeight "
-             "to stem 131.8 with counters squished, then advances scaled to "
-             "11516/1000em. CoType did not draw this weight. See "
-             "scripts/build_aeonik_semibold.py."),
+        10: (f"Synthesised by ICHITA from Aeonik {spec['base']}: FontForge "
+             f"changeWeight to stem {spec['stem']} with counters squished, then "
+             f"advances scaled to {spec['advance']:.0f}/1000em. CoType did not "
+             f"draw this weight. See scripts/build_aeonik_semibold.py."),
     }
     for nid, val in fields.items():
         set_name(nt, nid, val)
         set_name(nt, nid, val, pid=1, peid=0, lid=0)
 
+    # sxHeight and sCapHeight are INHERITED FROM THE BASE and changeWeight moves
+    # the ink they describe, so they must be re-measured or they lie. Measured
+    # 2026-08-07: Aeonik-Book shipped sxHeight 510 over ink that tops out at 504.
+    # It did not show on SemiBold because emboldening happened to leave Medium's
+    # 512 intact, which is exactly the kind of accident that keeps a stale field
+    # looking correct.
     os2 = font["OS/2"]
-    os2.usWeightClass = 600
-    os2.panose.bWeight = 7
+    for field, glyph in (("sxHeight", "x"), ("sCapHeight", "H")):
+        b = _bounds(font, glyph)
+        if b:
+            setattr(os2, field, round(b[3]))
+    os2.usWeightClass = spec["wclass"]
+    os2.panose.bWeight = spec["panose"]
     os2.fsSelection = (1 << 0 | 1 << 7) if italic else (1 << 6 | 1 << 7)
     font["head"].macStyle = (1 << 1) if italic else 0
     if "CFF " in font:
         font["CFF "].cff.fontNames[0] = f"Aeonik-{name}"
 
 
-def check(verbose=True):
-    faults = []
-    rows = []
-    ladder = ["Medium", "SemiBold", "Bold", "Black"]
+def _check_ladder(ladder, rows, faults):
+    """Stem and width must rise, counters must close, along one weight run."""
     prev = None
     for w in ladder:
         p = AEONIK / f"Aeonik-{w}.otf"
         if not p.exists():
             faults.append(f"Aeonik-{w}.otf is missing — cannot judge the "
                           f"ladder, and a missing file is not a pass")
+            prev = None
             continue
         stem = tm.stem(p, chars=tm.STEM_LATIN)
         adv = advance_sum(p)
         ap, ch = tm.min_aperture(p, chars="aeog")
-        rows.append(f"{w:14s} stem {stem:6.1f}   advance {adv:7.0f}   "
+        rows.append(f"  {w:14s} stem {stem:6.1f}   advance {adv:7.0f}   "
                     f"counter {ap:5.1f} ({ch})")
         if prev:
             pw, ps, pa, pc = prev
@@ -416,12 +475,13 @@ def check(verbose=True):
                               f"which is the defect synthesis causes")
             # Counters must CLOSE as the weight rises. The synthetic SemiBold
             # is the one known exception, so that single step is BOUNDED rather
-            # than exempted; every other step is a hard fault.
+            # than exempted; every other step is a hard fault. Book needs no
+            # such bound: it THINS its base, and thinning opens counters.
             if ap > pc:
                 inv = (ap - pc) / pc
                 if (pw, w) == ("SemiBold", "Bold"):
                     rows.append(
-                        f"{'':14s} ^ counter inverts {inv:+.1%} here — the "
+                        f"  {'':14s} ^ counter inverts {inv:+.1%} here — the "
                         f"synthetic SemiBold cannot reopen a bowl. Bounded at "
                         f"{COUNTER_INVERSION_MAX:.0%}, §4c.")
                     if inv > COUNTER_INVERSION_MAX:
@@ -436,7 +496,21 @@ def check(verbose=True):
                                   f"the weight rises")
         prev = (w, stem, adv, ap)
 
-    for name in FACES:
+
+def check(verbose=True):
+    faults = []
+    rows = []
+    # Two ladders, one per synthesised weight, each running from the face below
+    # it to the face above. Book is checked on Light->Book->Regular->Medium
+    # because a fault there is a fault in the THINNING direction and the
+    # SemiBold ladder cannot see it.
+    ladders = [["Light", "Book", "Regular", "Medium"],
+               ["Medium", "SemiBold", "Bold", "Black"]]
+    for ladder in ladders:
+        rows.append(" -> ".join(ladder))
+        _check_ladder(ladder, rows, faults)
+
+    for name, spec in SYNTH.items():
         p = AEONIK / f"Aeonik-{name}.otf"
         if not p.exists():
             faults.append(f"Aeonik-{name}.otf is missing")
@@ -444,15 +518,15 @@ def check(verbose=True):
         f = TTFont(str(p))
         stem = tm.stem(p, chars=tm.STEM_LATIN)
         adv = advance_sum(p)
-        if abs(stem - TARGET_STEM) > STEM_TOL:
-            faults.append(f"{name} stem {stem:.1f}, want {TARGET_STEM} "
+        if abs(stem - spec["stem"]) > STEM_TOL:
+            faults.append(f"{name} stem {stem:.1f}, want {spec['stem']} "
                           f"+/-{STEM_TOL}")
-        if abs(adv - TARGET_ADVANCE) / TARGET_ADVANCE > ADVANCE_TOL:
-            faults.append(f"{name} advance {adv:.0f}, want {TARGET_ADVANCE:.0f} "
-                          f"+/-{ADVANCE_TOL:.2%}")
-        if f["OS/2"].usWeightClass != 600:
+        if abs(adv - spec["advance"]) / spec["advance"] > ADVANCE_TOL:
+            faults.append(f"{name} advance {adv:.0f}, want "
+                          f"{spec['advance']:.0f} +/-{ADVANCE_TOL:.2%}")
+        if f["OS/2"].usWeightClass != spec["wclass"]:
             faults.append(f"{name} usWeightClass {f['OS/2'].usWeightClass}, "
-                          f"want 600")
+                          f"want {spec['wclass']}")
         v = f["name"].getDebugName(5) or ""
         if "synthesised" not in v:
             faults.append(f"{name} nameID5 does not declare its provenance: "
@@ -474,27 +548,36 @@ def check(verbose=True):
             for x in faults:
                 print(f"  - {x}")
         else:
-            print("OK — the Medium/SemiBold/Bold/Black ladder is monotonic in "
-                  "stem AND width, and both synthesised faces declare "
-                  "themselves in nameID5")
+            print(f"OK — both ladders are monotonic in stem AND width, and all "
+                  f"{len(SYNTH)} synthesised faces declare themselves in "
+                  f"nameID5")
     return faults
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     ap.add_argument("--check", action="store_true", help="verify only")
+    ap.add_argument("--weights", default=None,
+                    help=f"comma-separated subset of {','.join(SYNTH)}")
     args = ap.parse_args()
+
+    names = list(SYNTH)
+    if args.weights:
+        names = [w.strip() for w in args.weights.split(",")]
+        unknown = [w for w in names if w not in SYNTH]
+        if unknown:
+            ap.error(f"unknown face(s): {', '.join(unknown)}")
 
     if not args.check:
         if shutil.which("fontforge") is None:
             print("ERROR: fontforge is not installed — it does the "
                   "emboldening, and there is no fallback.", file=sys.stderr)
             return 2
-        print("Synthesising Aeonik SemiBold. THIS IS NOT A COTYPE DRAWING —\n"
-              "see the module docstring and §4c before shipping anything "
-              "that uses it.")
-        for name, base in FACES.items():
-            build_face(name, base)
+        print(f"Synthesising {', '.join(names)}. THESE ARE NOT COTYPE "
+              f"DRAWINGS —\nsee the module docstring and §4c before shipping "
+              f"anything that uses them.")
+        for name in names:
+            build_face(name)
         print("\nNow verifying what was written:\n")
 
     return 1 if check() else 0

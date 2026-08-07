@@ -31,6 +31,9 @@
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-ThinItalic.otf')   format('opentype'); font-weight: 200; font-style: italic; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Light.otf')        format('opentype'); font-weight: 300; font-style: normal; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-LightItalic.otf')  format('opentype'); font-weight: 300; font-style: italic; }
+/* Book, 350 — synthetic, thinned from Regular. See the TH Aeonik block. */
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Book.otf')         format('opentype'); font-weight: 350; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-BookItalic.otf')   format('opentype'); font-weight: 350; font-style: italic; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Regular.otf')      format('opentype'); font-weight: 400; font-style: normal; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-RegularItalic.otf')format('opentype'); font-weight: 400; font-style: italic; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Medium.otf')       format('opentype'); font-weight: 500; font-style: normal; }
@@ -53,6 +56,11 @@
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-AirBoldItalic.otf') format('opentype'); font-weight: 200; font-style: italic; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Light.otf')        format('opentype'); font-weight: 300; font-style: normal; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-LightItalic.otf')  format('opentype'); font-weight: 300; font-style: italic; }
+/* Book, weight 350. Synthetic Latin, and the one weight defined from the Thai:
+   Bai Jamjuree Regular undistorted, with the Latin drawn to fit it. Use it where
+   Regular reads too heavy in a Thai-dominant block. */
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Book.otf')         format('opentype'); font-weight: 350; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-BookItalic.otf')   format('opentype'); font-weight: 350; font-style: italic; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Regular.otf')      format('opentype'); font-weight: 400; font-style: normal; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-RegularItalic.otf')format('opentype'); font-weight: 400; font-style: italic; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Medium.otf')       format('opentype'); font-weight: 500; font-style: normal; }

@@ -157,7 +157,12 @@ MARK_SCALE = {
 #     cost is that Bold (.89 -> ~134) and Black (~137) sit close again; Siwatch
 #     accepted that trade and asked for an external heavier Thai for Black
 #     (Kanit/Noto Sans Thai, neither present locally) as the separate fix.
-WEIGHT_RATIO = {100: 0.93, 200: 0.92, 300: 0.905, 400: 0.89,
+#     350 (Book) is the taper's own value between 300 and 400, not a new
+#     decision. Book is the one weight defined from the THAI side — its Latin
+#     was synthesised to fit Bai Regular undistorted rather than the reverse —
+#     so the ratio here is what pinned the Latin at stem 74.0, and changing it
+#     would invalidate Aeonik-Book.otf rather than just re-solve a Thai.
+WEIGHT_RATIO = {100: 0.93, 200: 0.92, 300: 0.905, 350: 0.8975, 400: 0.89,
                 500: 0.89, 600: 0.89, 700: 0.89, 900: 0.745}
 
 # Minimum counter aperture, units/1000em: the widest circle that fits inside
@@ -239,17 +244,40 @@ BUILD_TABLE = {
     # (target, counter aperture and the glyph that binds)`.
     #
     # CAP marks a face whose aperture is within 4 units of APERTURE_FLOOR, i.e.
-    # one probe step from blobs. Bold is now CAP as well as Black: at ratio .89
-    # Bold consumes essentially ALL of Bai Bold's emboldening headroom, so 134.8
-    # and 136.7 are the same ceiling reached from two directions. That is the
-    # measured reason Thai Bold and Black cannot both be balanced and distinct
-    # from this source — see WEIGHT_RATIO note 3.
+    # one probe step from blobs. Only Black is CAP; it is Bai Bold's emboldening
+    # ceiling, and that is the measured reason Thai Bold and Black cannot both be
+    # balanced and distinct from this source — see WEIGHT_RATIO note 3.
+    #
+    # RE-SOLVED 2026-08-07, and the reason is a defect rather than a drift.
+    # solve_weight_table.py could not open a single font from 2026-08-04 to
+    # 2026-08-07 — it looked for `{family}-{weight}.ttf`, an extension left stale
+    # by the CFF flip — so the values below were last set by hand while the
+    # script that documents them as measured was raising `cannot open resource`
+    # on every call. Three faces were solved against the ITALIC's Latin stem:
+    # Light 54.7, Regular 87.9 and Bold 150.4 are Aeonik's italic figures; the
+    # romans measure 52.7, 85.9 and 148.4. A target computed from a Latin ~2
+    # units too heavy asks the Thai for ~2 units it should not have.
+    #
+    #   Regular  -8.4 -> -11.2   thai 79.1 -> 76.2   ratio .920 -> .887
+    #   Bold     13.4 ->   8.1   thai 134.8 -> 130.9  ratio .908 -> .882
+    #   Black    13.0 ->  15.2   thai 136.7 (same, the cap is unmoved)
+    #
+    # Bold is the one that mattered: at 13.4 it sat on APERTURE_FLOOR (46.9) to
+    # buy stem it was never owed. The correct target frees 3.9 units of counter.
     "TH-Aeonik": {
-        "Air":           ("BaiJamjuree-ExtraLight.ttf",      -27.2),  # 7.8 -> 7.8 (want 7.3, aper 111.9 ฆ)
-        "Thin":          ("BaiJamjuree-ExtraLight.ttf",      -13.5),  # 21.5 -> 19.5 (want 19.8, aper 96.6 ษ)
-        "Light":         ("BaiJamjuree-Light.ttf",            -0.4),  # 54.7 -> 48.8 (want 49.5, aper 74.2 ฆ)
-        "Regular":       ("BaiJamjuree-Medium.ttf",           -8.4),  # 87.9 -> 78.1 (want 78.2, aper 74.2 ฆ)
-        "Medium":        ("BaiJamjuree-SemiBold.ttf",         -4.8),  # 115.2 -> 101.6 (want 102.6, aper 70.3 ฆ)
+        "Air":           ("BaiJamjuree-ExtraLight.ttf",      -27.2),  # 7.8 -> 7.3 (want 7.3, aper 113.3 ฆ)
+        "Thin":          ("BaiJamjuree-ExtraLight.ttf",      -13.5),  # 23.4 -> 20.5 (want 21.6, aper 97.7 ฆ)
+        "Light":         ("BaiJamjuree-Light.ttf",            -0.4),  # 52.7 -> 48.8 (want 47.7, aper 74.2 ฆ)
+        # Added 2026-08-07. THE ONLY ENTRY THAT MUST STAY AT 0.0. Every other
+        # face bends Bai to fit a Latin; Book is the reverse — Siwatch asked for
+        # "Regular Bai Jamjuree thickness after normalize", so Bai Regular ships
+        # UNDISTORTED and Aeonik-Book.otf was synthesised to stem 74.0 to sit
+        # beside it. Emboldening this face would defeat the weight; if its ratio
+        # ever misses, move the Latin.
+        "Book":          ("BaiJamjuree-Regular.ttf",           0.0),
+        "BookItalic":    ("BaiJamjuree-Italic.ttf",            0.0),
+        "Regular":       ("BaiJamjuree-Medium.ttf",          -11.2),  # 85.9 -> 76.2 (want 76.5, aper 78.1 ฆ)
+        "Medium":        ("BaiJamjuree-SemiBold.ttf",         -4.8),  # 115.2 -> 102.5 (want 102.6, aper 67.4 ฆ)
         # Added 2026-08-07. Bai BOLD thinned, not Bai SemiBold emboldened, and
         # that choice is measured rather than conventional. Both routes hit the
         # .89 target; they differ entirely in counter:
@@ -263,12 +291,12 @@ BUILD_TABLE = {
         # them, so pairing one Bai step heavier and thinning is what the rest of
         # this table already does (Regular<-Medium, Medium<-SemiBold).
         "SemiBold":      ("BaiJamjuree-Bold.ttf",            -10.0),  # 130.9 -> 118.2 (want 116.5, aper 70.3 ฮ)
-        "Bold":          ("BaiJamjuree-Bold.ttf",             13.4),  # 150.4 -> 134.8 (want 133.8, aper 46.9 ฆ) CAP
-        "Black":         ("BaiJamjuree-Bold.ttf",             13.0),  # 183.6 -> 136.7 (want 136.8, aper 46.9 ฮ) CAP
+        "Bold":          ("BaiJamjuree-Bold.ttf",              8.1),  # 148.4 -> 130.9 (want 132.1, aper 50.8 ฮ)
+        "Black":         ("BaiJamjuree-Bold.ttf",             15.2),  # 183.6 -> 136.7 (want 136.8, aper 46.9 ฆ) CAP
         "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-29.2),  # 7.8 -> 5.9 (want 7.3, no enclosed counter)
         "ThinItalic":    ("BaiJamjuree-ExtraLightItalic.ttf",-13.4),  # 23.4 -> 21.5 (want 21.6, aper 93.2 ฬ)
         "LightItalic":   ("BaiJamjuree-LightItalic.ttf",      -0.4),  # 54.7 -> 48.8 (want 49.5, aper 73.0 ฆ)
-        "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",     -9.5),  # 87.9 -> 77.6 (want 78.2, aper 74.6 ฆ)
+        "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",     -9.5),  # 87.9 -> 77.1 (want 78.2, aper 74.6 ฆ)
         "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",   -4.8),  # 115.2 -> 101.6 (want 102.6, aper 66.9 ฆ)
         "SemiBoldItalic": ("BaiJamjuree-BoldItalic.ttf",   -10.0),  # 132.8 -> 117.2 (want 118.2, aper 70.3 ฮ)
         "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",       10.6),  # 150.4 -> 132.8 (want 133.8, aper 50.8 ฮ)
@@ -294,12 +322,15 @@ BUILD_TABLE = {
         # emboldened, so 29.7 buys the stem target by making ข ฃ ฆ ษ ฮ visibly
         # lighter than the rest of the alphabet — a defect the eye catches long
         # before a stem ratio does. 12.0 is the heaviest value that reverts
-        # NOTHING and keeps aperture clear of the floor, so this face runs at
-        # .817 against a .89 target. That is a 0.073 miss and qc_th_fonts
-        # STEM_TOL is 0.08, so check 2 passes on tolerance alone — marginally,
-        # and only by luck. If STEM_TOL is ever tightened, pin this face in
-        # CAPPED_STEM_RATIO at the measured .817 rather than widening the
-        # tolerance.
+        # NOTHING and keeps aperture clear of the floor, so this face runs
+        # measurably short of its .89 target.
+        #
+        # DONE 2026-08-07: check 2 moved from a 0.08 ratio band to 2.5 stem
+        # units, and this face was the one the old band was hiding — a 0.073
+        # ratio miss inside a 0.08 tolerance is a pass by luck, not by design.
+        # It is now pinned in qc_th_fonts.CAPPED_STEM_RATIO at the measured
+        # .8276 (140.6 units against a 151.2 target), so the shortfall is stated
+        # as a number instead of absorbed by a wide bar.
         "Bold":     ("BaiJamjuree-Bold.ttf",      12.0),  # 169.9 -> 138.7 (want 151.2, aper 50.8 ฮ) SHORT
     },
 }
@@ -607,7 +638,75 @@ def prepare_bai(family, weight, latin_font=None, verbose=True, mark_scale=None):
         # Last, so it sees final-size marks — and before the merge, which puts it
         # ahead of th_mark_clearance.raise_upper_marks() as that pass requires.
         scale_thai_marks(font, mark_scale, verbose)
+        normalise_thai_tracking(font, latin_font, verbose)
         return font
+
+
+# Thai and Latin probes for the tracking pass. Spacing glyphs only — the Thai
+# set is deliberately the bases and spacing vowels, because marks carry no
+# advance and would only dilute the sum.
+THAI_ADV_PROBE = "กขคงจดตนบปผพภมยรลวสหอาเแโใไะำ"
+LATIN_ADV_PROBE = "Handgloves 0123456789"
+
+# Thai advance sum / Latin advance sum, measured on TH-Aeonik Regular 2026-08-07.
+# Siwatch framed the rule: "if we take Regular as standard, the lighter font face
+# like Book, light, air, should have total width of sentence in order."
+THAI_ADV_RATIO = 1.3857
+TRACKING_MAX = 0.08     # a correction past this is a defect upstream, not tracking
+
+
+def normalise_thai_tracking(font, latin_font, verbose=True):
+    """Put the Thai advance ladder in weight order, by tracking alone.
+
+    WHY THIS EXISTS. The scale above is solved so ก's HEIGHT matches the Latin
+    x-height, and nothing controls the WIDTH — it just inherits that factor. Each
+    face pairs with a different Bai weight, emboldened or thinned by a different
+    amount, so each needs a different compensating scale (Air .9509, Light .9086,
+    Book .8889, Regular .9341) and the Thai widths come out in whatever order
+    those accidents produce. Measured 2026-08-07 on one mixed line: Air's Thai ran
+    WIDER than Light's and Book's, and SemiBold's wider than Bold's, while the
+    Latin column was perfectly monotonic. Siwatch saw it on the page first.
+
+    WHY ADVANCE AND NOT OUTLINE. Scaling the Thai horizontally would fix the
+    widths and thicken every vertical stem by the same percentage — Book's Thai
+    would go 64.0 to 67.8 and fail check 2. Weight is the constraint that costs
+    the most to get right here, so the width correction must not touch it. That
+    leaves tracking: the ink is untouched and only the advances move.
+
+    Marks are skipped because they are zero-advance; scaling zero is a no-op, but
+    saying so is cheaper than wondering. Outlines are NOT shifted, so glyph-space
+    GPOS anchors stay valid and the whole correction reads as even tracking.
+    """
+    if latin_font is None:
+        return
+    hm, cmap = font["hmtx"], font.getBestCmap()
+    lat_hm, lat_cmap = latin_font["hmtx"], latin_font.getBestCmap()
+    lat_upem = latin_font["head"].unitsPerEm
+
+    thai = sum(hm[cmap[ord(c)]][0] for c in THAI_ADV_PROBE if ord(c) in cmap)
+    lat = sum(lat_hm[lat_cmap[ord(c)]][0] for c in LATIN_ADV_PROBE
+              if ord(c) in lat_cmap) * 1000 / lat_upem
+    if not thai or not lat:
+        return
+    k = (THAI_ADV_RATIO * lat) / thai
+    if abs(k - 1.0) > TRACKING_MAX:
+        raise SystemExit(
+            f"ERROR: Thai tracking correction is {k:.4f}, past the "
+            f"{TRACKING_MAX:.0%} bound. That is not a spacing problem — the "
+            f"scale or the Bai pairing is wrong upstream. Do not widen this.")
+
+    moved = 0
+    for gn in font.getGlyphOrder():
+        adv, lsb = hm[gn]
+        if adv <= 0:                       # marks, and .notdef-likes
+            continue
+        hm[gn] = (round(adv * k), lsb)
+        moved += 1
+    if verbose:
+        after = sum(hm[cmap[ord(c)]][0] for c in THAI_ADV_PROBE if ord(c) in cmap)
+        print(f"     [0e] Thai tracking x{k:.4f} on {moved} advances "
+              f"(Thai/Latin {thai / lat:.4f} -> {after / lat:.4f}, "
+              f"want {THAI_ADV_RATIO})")
 
 
 def fix_thai_gdef(font):

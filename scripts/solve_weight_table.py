@@ -33,7 +33,9 @@ WEIGHT_RATIO is shared by both families, so changing it invalidates BOTH tables
 — re-solve TH-Slussen too or its qc_th_fonts check 2 fails.
 """
 import argparse
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -54,8 +56,15 @@ FAMILIES = {
 }
 
 
-def measure(family, subdir, weight):
-    """(latin_stem, thai_stem, aperture, binding_glyph) of the shipped face.
+def measure(family, out_dir, weight):
+    """(latin_stem, thai_stem, aperture, binding_glyph) of the TRIAL face.
+
+    `out_dir` is a scratch directory, never `assets/fonts/`. This function used
+    to read the shipped face because `solve()` used to build into the shipped
+    directory — so a `--all` run replaced all 16 shipped outline faces with
+    non-converged trials and left the last iteration on disk. Found 2026-08-07,
+    after a solve made every font in `assets/fonts/th-aeonik/` show as modified
+    in `git status` before a real build had been run.
 
     Two things were stale here and both made the solver unable to run at all:
 
@@ -72,7 +81,7 @@ def measure(family, subdir, weight):
     import th_style_link
     stem_name = (th_style_link.FACES[weight]["file"] if family == "TH-Aeonik"
                  else f"{family}-{weight}")
-    p = SCRIPTS.parent / "assets" / "fonts" / subdir / f"{stem_name}.otf"
+    p = out_dir / f"{stem_name}.otf"
     if not p.exists():
         raise SystemExit(f"ERROR: {p} was not written — cannot measure, and a "
                          f"missing file must not read as a converged solve")
@@ -80,7 +89,7 @@ def measure(family, subdir, weight):
     return stem(p, STEM_LATIN), stem(p, STEM_THAI), ap, ch
 
 
-def solve(family, subdir, weight, wclass, build_font, weights_map,
+def solve(family, out_dir, weight, wclass, build_font, weights_map,
           verbose=True):
     src, e = th_thai_prep.BUILD_TABLE[family][weight]
     ratio = WEIGHT_RATIO[wclass]
@@ -89,10 +98,10 @@ def solve(family, subdir, weight, wclass, build_font, weights_map,
 
     for it in range(MAX_ITER):
         th_thai_prep.BUILD_TABLE[family][weight] = (src, e)
-        if not build_font(weight, weights_map[weight]):
+        if not build_font(weight, weights_map[weight], out_dir=out_dir):
             print(f"  {weight}: BUILD FAILED at embolden {e:+.1f}")
             return None
-        latin, thai, ap, ch = measure(family, subdir, weight)
+        latin, thai, ap, ch = measure(family, out_dir, weight)
         target = ratio * latin
         err = thai - target
         # ap is None when NO glyph still has an enclosed counter — the light end,
@@ -158,15 +167,23 @@ def main():
     print(f"family={family}  APERTURE_FLOOR={APERTURE_FLOOR}  TOL={TOL}")
     print(f"WEIGHT_RATIO={WEIGHT_RATIO}\n")
 
+    # Trials go to scratch. `subdir` is now only used to name it, so a solve can
+    # never touch assets/fonts/ — see measure().
+    out_dir = Path(tempfile.mkdtemp(prefix=f"solve-{subdir}-"))
+    print(f"trials -> {out_dir}\n")
+
     results = {}
-    for w in names:
-        # WCLASS is keyed on the roman name; an italic shares its weight class.
-        base = w[:-6] if w.endswith("Italic") else w
-        r = solve(family, subdir, w, WCLASS[base], builder.build_font,
-                  builder.WEIGHTS)
-        if r:
-            results[w] = r
-        print()
+    try:
+        for w in names:
+            # WCLASS is keyed on the roman name; an italic shares its class.
+            base = w[:-6] if w.endswith("Italic") else w
+            r = solve(family, out_dir, w, WCLASS[base], builder.build_font,
+                      builder.WEIGHTS)
+            if r:
+                results[w] = r
+            print()
+    finally:
+        shutil.rmtree(out_dir, ignore_errors=True)
 
     print("=" * 72)
     print("SOLVED BUILD_TABLE entries (paste into th_thai_prep.BUILD_TABLE):\n")

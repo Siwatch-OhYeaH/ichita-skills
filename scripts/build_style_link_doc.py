@@ -7,7 +7,8 @@ On 2026-08-06 every TH Aeonik family got a real bold member so Word would stop
 synthesising one (§4b). Four of the six families had none, and Ctrl+B in plain
 Word double-struck the outline — which spends exactly the counter aperture that
 keeps ฃ ธ ฮ open at text sizes. Extended 2026-08-07: a SemiBold was added and
-the Thin family retired, leaving five families and 20 shipped faces.
+the Thin family retired. Extended again 2026-08-07 with Book (350),
+leaving six families and 24 shipped faces.
 
 Eight of those 20 fill a bold slot, and every one declares `usWeightClass` 700
 over outlines that are really 200, 500 or 900. Word links on nameID1 + nameID2 +
@@ -37,7 +38,7 @@ weight instead of 700 — see §4b.
 
 BEFORE RUNNING IT IN WORD
 
-Install all 20 faces from assets/fonts/th-aeonik, and UNINSTALL `TH Aeonik
+Install all 24 faces from assets/fonts/th-aeonik, and UNINSTALL `TH Aeonik
 Black` AND `TH Aeonik Thin` first — both are retired and nothing overwrites
 them, so they would otherwise sit in the dropdown beside their replacements.
 Close Word, PowerPoint AND Excel before either step; a locked file leaves a
@@ -75,6 +76,7 @@ SPEC = "ประสิทธิภาพการกรอง 98.5% — Handglo
 FAMILIES = [
     ("TH Aeonik Air", None, "promoted — the retired Thin outlines"),
     ("TH Aeonik Light", "TH Aeonik Medium", "alias — Medium outlines"),
+    ("TH Aeonik Book", "TH Aeonik Medium", "SYNTHETIC Latin, thinned from Regular"),
     ("TH Aeonik", None, "real Bold, unchanged since before 2026-08-06"),
     ("TH Aeonik Medium", None, "promoted — the retired Black outlines"),
     ("TH Aeonik SemiBold", "TH Aeonik Medium", "SYNTHETIC Latin; bolds to Black"),
@@ -85,6 +87,7 @@ FAMILIES = [
 STEMS = {
     "TH Aeonik Air": (7.8, 23.4),
     "TH Aeonik Light": (52.7, 115.2),
+    "TH Aeonik Book": (72.3, 115.2),
     "TH Aeonik": (85.9, 148.4),
     "TH Aeonik Medium": (115.2, 183.6),
     "TH Aeonik SemiBold": (130.9, 183.6),
@@ -191,7 +194,7 @@ def main():
     print(f"  {OUT.relative_to(ROOT)}")
     print(f"  {len(FAMILIES)} families, "
           f"{sum(1 for _, e, _ in FAMILIES if e)} style-link pairs to compare")
-    print("\n  Uninstall TH Aeonik Black AND TH Aeonik Thin, install the 20 "
+    print("\n  Uninstall TH Aeonik Black AND TH Aeonik Thin, install the 24 "
           "faces, then open this in Word.")
 
 

@@ -225,6 +225,19 @@ FACES = {
 
     "Light":       _plain("Light", "Light", 300, 4),
     "LightItalic": _plain("Light", "LightItalic", 300, 4, italic=True),
+
+    # Added 2026-08-07, and it is the reason the family exists at 350: Siwatch's
+    # QC found our Regular runs +19.1% over Bai Jamjuree's own Regular at equal
+    # ก height. Book gives Bai's colour a weight of its own instead of
+    # lightening Regular and re-opening which benchmark governs (§4).
+    #
+    # Its LATIN IS SYNTHETIC, like SemiBold's, and for the same reason — CoType
+    # drew no 350 and Aeonik is not interpolatable in any adjacent pair
+    # (Light->Regular: 184 of 657 glyphs structurally incompatible, 6 of the 10
+    # digits among them). build_aeonik_semibold.py THINS Regular down to it.
+    "Book":        _plain("Book", "Book", 350, 4),
+    "BookItalic":  _plain("Book", "BookItalic", 350, 4, italic=True),
+
     "Medium":      _plain("Medium", "Medium", 500, 6),
     "MediumItalic": _plain("Medium", "MediumItalic", 500, 6, italic=True),
 
@@ -291,6 +304,13 @@ ALIASES = {
     # went with the Thin family.
     "LightBold":      _alias("Light", "LightBold", "Medium"),
     "LightBoldItalic": _alias("Light", "LightBoldItalic", "MediumItalic", italic=True),
+
+    # Siwatch, 2026-08-07: Book's bold is the built Medium — the same outlines
+    # Light bolds to. Two families bolding to one face is intentional here; the
+    # alternative is a drawn weight between Medium and Bold that nothing asked
+    # for. Ctrl+B on Book and on Light therefore land on the same ink.
+    "BookBold":       _alias("Book", "BookBold", "Medium"),
+    "BookBoldItalic": _alias("Book", "BookBoldItalic", "MediumItalic", italic=True),
 
     # Siwatch, 2026-08-07: SemiBold's bold is Black, and Medium KEEPS Black too.
     # So the Black outlines now fill two families' bold slots — once promoted
