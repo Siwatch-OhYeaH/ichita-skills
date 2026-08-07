@@ -5,22 +5,28 @@ Build TH-Aeonik font family — unified pipeline.
 Merges Aeonik (Latin) + Bai Jamjuree (Thai) into TH-Aeonik with complete
 OpenType support for Thai text shaping on Windows.
 
+The family spans a ten-step weight scale:
+
+    Air 100  Thin 200  Light 300  Book 350  Regular 400
+    Medium 500  SemiBold 600  Bold 700  ExtraBold 800  Black 900
+
+Neither source family ships all ten, so the missing masters are produced
+first by generate_masters.py and picked up here from the *-ext directories.
+Run that script before this one.
+
 Pipeline steps:
   1. Copy Thai glyphs + variants from Bai Jamjuree (CFF charstrings)
   2. Merge GPOS/GDEF/GSUB tables from Bai Jamjuree (mark positioning)
   3. Apply metadata — RIBBI naming, OS/2 v4, fsType, panose, CFF fontName
   4. Set OS/2 ulUnicodeRange/ulCodePageRange Thai bits (Windows shaping)
-  5. Set vertical metrics — usWinAscent/Descent for Thai clipping prevention
+  5. Set vertical metrics — measured per weight to prevent Thai clipping
   6. TTX roundtrip — sort coverage tables (Uniscribe compliance)
   7. Verify — Thai cmap, Latin match, GPOS, OS/2 bits, metrics
 
-Sources:
-  Latin: Aeonik OTF (D:\\ drive preferred, fallback assets/fonts/aeonik/)
-  Thai:  Bai Jamjuree (system fonts preferred, fallback assets/fonts/bai-jamjuree/)
-
 Usage:
-  python3 build_th_aeonik.py                    # Build all 6 weights
-  python3 build_th_aeonik.py --weights Bold,Light  # Build specific weights
+  python3 build_th_aeonik.py                       # all 20 faces
+  python3 build_th_aeonik.py --upright-only        # 10 uprights
+  python3 build_th_aeonik.py --weights Bold,Light
 
 Requires: fontTools >= 4.0
 """
@@ -31,6 +37,7 @@ import sys
 import warnings
 from pathlib import Path
 
+from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.recordingPen import RecordingPen
 from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.ttLib import TTFont
@@ -40,12 +47,13 @@ warnings.filterwarnings("ignore")
 SCRIPT_DIR = Path(__file__).parent
 ASSETS = SCRIPT_DIR.parent / "assets"
 
-# Source directories
-AEONIK_D_DRIVE = Path("/mnt/d/Doccument/New Identity/Aeonik-font-download/Aeonik-font-download")
-AEONIK_LOCAL = ASSETS / "fonts" / "aeonik"
-BAI_SYSTEM = Path.home() / ".local" / "share" / "fonts"
-BAI_LOCAL = ASSETS / "fonts" / "bai-jamjuree"
+AEONIK = ASSETS / "fonts" / "aeonik"
+AEONIK_EXT = ASSETS / "fonts" / "aeonik-ext"
+BAI = ASSETS / "fonts" / "bai-jamjuree"
+BAI_EXT = ASSETS / "fonts" / "bai-jamjuree-ext"
 OUTPUT_DIR = ASSETS / "fonts" / "aeonik-th"
+
+FAMILY = "TH Aeonik"
 
 # fsSelection bits
 ITALIC = 1 << 0
@@ -57,81 +65,107 @@ USE_TYPO = 1 << 7
 MAC_BOLD = 1 << 0
 MAC_ITALIC = 1 << 1
 
-# Weight mapping: output_name -> (aeonik_file, bai_file)
-WEIGHTS = {
-    "Regular":       ("Aeonik-Regular.otf",        "BaiJamjuree-Regular.ttf"),
-    "Bold":          ("Aeonik-Bold.otf",            "BaiJamjuree-Bold.ttf"),
-    "Light":         ("Aeonik-Light.otf",           "BaiJamjuree-Light.ttf"),
-    "RegularItalic": ("Aeonik-RegularItalic.otf",   "BaiJamjuree-Italic.ttf"),
-    "BoldItalic":    ("Aeonik-BoldItalic.otf",      "BaiJamjuree-BoldItalic.ttf"),
-    "LightItalic":   ("Aeonik-LightItalic.otf",     "BaiJamjuree-LightItalic.ttf"),
-}
+# The ten-step scale. For each step: the weight class, the PANOSE weight
+# code, and which master supplies each script. `gen` marks a master that
+# generate_masters.py produces rather than one the source family ships.
+#
+# The Latin runs the full 100-900 on real or interpolated Aeonik masters. The
+# Thai cannot: Bai Jamjuree ships 200-700 and self-intersects when pushed
+# outside that range, so Air borrows ExtraLight and the two heaviest steps use
+# damped masters (drawn ~710/720). The Thai therefore flattens at both ends
+# while the Latin keeps going -- a limit of the source family. See THAI_PLAN
+# in generate_masters.py for the measurements behind those cutoffs.
+#
+#   style        wght  panose  latin master     gen    thai master      gen
+SCALE = [
+    ("Air",       100,  2,     "Air",           False, "ExtraLight",    False),
+    ("Thin",      200,  3,     "Thin",          False, "ExtraLight",    False),
+    ("Light",     300,  4,     "Light",         False, "Light",         False),
+    ("Book",      350,  5,     "Book",          True,  "Book",          True),
+    ("Regular",   400,  5,     "Regular",       False, "Regular",       False),
+    ("Medium",    500,  6,     "Medium",        False, "Medium",        False),
+    ("SemiBold",  600,  7,     "SemiBold",      True,  "SemiBold",      False),
+    ("Bold",      700,  8,     "Bold",          False, "Bold",          False),
+    ("ExtraBold", 800,  9,     "ExtraBold",     True,  "ExtraBold",     True),
+    ("Black",     900,  10,    "Black",         False, "Black",         True),
+]
 
-# Per-weight metadata config (Windows RIBBI model)
-WEIGHT_CONFIG = {
-    "Regular": {
-        "nameID1": "TH Aeonik", "nameID2": "Regular",
-        "nameID4": "TH Aeonik", "nameID6": "TH-Aeonik-Regular",
-        "nameID16": "TH Aeonik", "nameID17": "Regular",
-        "fsSelection": REGULAR | USE_TYPO, "macStyle": 0,
-        "weightClass": 400, "panose_bWeight": 5,
-    },
-    "Bold": {
-        "nameID1": "TH Aeonik", "nameID2": "Bold",
-        "nameID4": "TH Aeonik Bold", "nameID6": "TH-Aeonik-Bold",
-        "nameID16": "TH Aeonik", "nameID17": "Bold",
-        "fsSelection": BOLD | USE_TYPO, "macStyle": MAC_BOLD,
-        "weightClass": 700, "panose_bWeight": 8,
-    },
-    "Light": {
-        "nameID1": "TH Aeonik Light", "nameID2": "Regular",
-        "nameID4": "TH Aeonik Light", "nameID6": "TH-Aeonik-Light",
-        "nameID16": "TH Aeonik", "nameID17": "Light",
-        "fsSelection": REGULAR | USE_TYPO, "macStyle": 0,
-        "weightClass": 300, "panose_bWeight": 4,
-    },
-    "RegularItalic": {
-        "nameID1": "TH Aeonik", "nameID2": "Italic",
-        "nameID4": "TH Aeonik Italic", "nameID6": "TH-Aeonik-RegularItalic",
-        "nameID16": "TH Aeonik", "nameID17": "Regular Italic",
-        "fsSelection": ITALIC | USE_TYPO, "macStyle": MAC_ITALIC,
-        "weightClass": 400, "panose_bWeight": 5,
-    },
-    "BoldItalic": {
-        "nameID1": "TH Aeonik", "nameID2": "Bold Italic",
-        "nameID4": "TH Aeonik Bold Italic", "nameID6": "TH-Aeonik-BoldItalic",
-        "nameID16": "TH Aeonik", "nameID17": "Bold Italic",
-        "fsSelection": BOLD | ITALIC | USE_TYPO, "macStyle": MAC_BOLD | MAC_ITALIC,
-        "weightClass": 700, "panose_bWeight": 8,
-    },
-    "LightItalic": {
-        "nameID1": "TH Aeonik Light", "nameID2": "Italic",
-        "nameID4": "TH Aeonik Light Italic", "nameID6": "TH-Aeonik-LightItalic",
-        "nameID16": "TH Aeonik", "nameID17": "Light Italic",
-        "fsSelection": ITALIC | USE_TYPO, "macStyle": MAC_ITALIC,
-        "weightClass": 300, "panose_bWeight": 4,
-    },
-}
+# Only these two styles can occupy a RIBBI slot; every other weight needs its
+# own nameID1 so legacy Windows pickers (Word's font menu) can reach it.
+RIBBI = {"Regular", "Bold"}
+
+# Minimum Windows clipping box. These are the family's production floors --
+# verify-fonts.py enforces the ascent one -- and they exist because a stacked
+# Thai cluster rises above the tallest single glyph, so no per-glyph
+# measurement can discover the space it needs.
+THAI_ASCENT_FLOOR = 1550
+THAI_DESCENT_FLOOR = 561
 
 
-# ---------------------------------------------------------------------------
-# Source finding
-# ---------------------------------------------------------------------------
-
-def find_aeonik(filename):
-    for d in [AEONIK_D_DRIVE, AEONIK_LOCAL]:
-        p = d / filename
-        if p.exists():
-            return p
-    return None
+def thai_filename(style, italic):
+    """Bai Jamjuree names its upright roman 'Regular' but its italic 'Italic'."""
+    if not italic:
+        return f"BaiJamjuree-{style}.ttf"
+    return "BaiJamjuree-Italic.ttf" if style == "Regular" else f"BaiJamjuree-{style}Italic.ttf"
 
 
-def find_bai(filename):
-    for d in [BAI_SYSTEM, BAI_LOCAL]:
-        p = d / filename
-        if p.exists():
-            return p
-    return None
+def build_weight_table(upright_only=False):
+    """Expand SCALE into one entry per face, with sources and metadata."""
+    table = {}
+    for style, wght, panose, latin, latin_gen, thai, thai_gen in SCALE:
+        for italic in ([False] if upright_only else [False, True]):
+            key = style + ("Italic" if italic else "")
+            display = style + (" Italic" if italic else "")
+
+            latin_dir = AEONIK_EXT if latin_gen else AEONIK
+            thai_dir = BAI_EXT if thai_gen else BAI
+            latin_path = latin_dir / (f"Aeonik-{latin}Italic.otf" if italic
+                                      else f"Aeonik-{latin}.otf")
+            thai_path = thai_dir / thai_filename(thai, italic)
+
+            # RIBBI grouping: Regular and Bold share the base family name and
+            # carry the real subfamily; all other weights become their own
+            # family with a Regular/Italic subfamily.
+            if style in RIBBI:
+                name1 = FAMILY
+                if style == "Bold":
+                    name2 = "Bold Italic" if italic else "Bold"
+                else:
+                    name2 = "Italic" if italic else "Regular"
+            else:
+                name1 = f"{FAMILY} {style}"
+                name2 = "Italic" if italic else "Regular"
+
+            if style == "Regular" and not italic:
+                name4 = FAMILY
+            else:
+                name4 = f"{FAMILY} {display}"
+
+            fs = USE_TYPO
+            fs |= ITALIC if italic else 0
+            if style == "Bold":
+                fs |= BOLD
+            elif not italic:
+                fs |= REGULAR
+            mac = (MAC_BOLD if style == "Bold" else 0) | (MAC_ITALIC if italic else 0)
+
+            table[key] = {
+                "latin_path": latin_path,
+                "thai_path": thai_path,
+                "latin_generated": latin_gen,
+                "thai_generated": thai_gen,
+                "nameID1": name1,
+                "nameID2": name2,
+                "nameID4": name4,
+                "nameID6": f"TH-Aeonik-{key}",
+                "nameID16": FAMILY,
+                "nameID17": display,
+                "fsSelection": fs,
+                "macStyle": mac,
+                "weightClass": wght,
+                "panose_bWeight": panose,
+            }
+    return table
 
 
 # ---------------------------------------------------------------------------
@@ -257,18 +291,16 @@ def _set_name(nt, nid, val, pid=3, peid=1, lid=0x0409):
     nt.setName(val, nid, pid, peid, lid)
 
 
-def apply_metadata(font, weight_name):
-    cfg = WEIGHT_CONFIG[weight_name]
+def apply_metadata(font, key, cfg):
     nt = font["name"]
 
     # Name table (Windows + Mac)
     for nid in [1, 2, 4, 6, 16, 17]:
-        key = f"nameID{nid}"
-        _set_name(nt, nid, cfg[key])
-        mac_val = cfg[key]
-        _set_name(nt, nid, mac_val, pid=1, peid=0, lid=0)
+        value = cfg[f"nameID{nid}"]
+        _set_name(nt, nid, value)
+        _set_name(nt, nid, value, pid=1, peid=0, lid=0)
 
-    uid = f"THAeonik-{weight_name}"
+    uid = f"THAeonik-{key}"
     _set_name(nt, 3, uid)
     _set_name(nt, 3, uid, pid=1, peid=0, lid=0)
 
@@ -294,7 +326,8 @@ def apply_metadata(font, weight_name):
         font["CFF "].cff.fontNames[0] = cfg["nameID6"]
 
     print(f"     [3] Metadata: ID1='{cfg['nameID1']}' ID2='{cfg['nameID2']}' "
-          f"fsSel=0x{cfg['fsSelection']:04X} wt={cfg['weightClass']}")
+          f"ID17='{cfg['nameID17']}' fsSel=0x{cfg['fsSelection']:04X} "
+          f"wt={cfg['weightClass']}")
 
 
 # ---------------------------------------------------------------------------
@@ -312,16 +345,53 @@ def set_thai_bits(font):
 # Step 5: Vertical metrics
 # ---------------------------------------------------------------------------
 
+def measure_ink(font):
+    """Extreme yMin/yMax across every glyph in the merged font."""
+    glyph_set = font.getGlyphSet()
+    y_min = y_max = 0
+    for name in font.getGlyphOrder():
+        if name not in glyph_set:
+            continue
+        pen = BoundsPen(glyph_set)
+        try:
+            glyph_set[name].draw(pen)
+        except Exception:
+            continue
+        if pen.bounds is None:
+            continue
+        y_min = min(y_min, pen.bounds[1])
+        y_max = max(y_max, pen.bounds[3])
+    return y_min, y_max
+
+
 def set_vertical_metrics(font):
+    """Size the Windows clipping box to hold stacked Thai, per weight.
+
+    Aeonik's own sTypo* and hhea values are left untouched so line spacing
+    stays identical to the Latin original (USE_TYPO_METRICS is set, so those
+    are what layout actually uses). Only usWinAscent/usWinDescent move, since
+    those are what Windows clips against.
+
+    Both a floor and a measurement are needed. Measured ink alone is not
+    enough: GPOS stacks a tone mark on top of a vowel, so a cluster reaches
+    higher than any single glyph's bbox, and the floors carry the headroom
+    for that. The floors alone are not enough either -- the heaviest weights
+    push descenders past the historic 561, and Black measures -629 -- so the
+    measurement covers what the constants cannot anticipate.
+    """
     os2 = font["OS/2"]
-    hhea = font["hhea"]
-    os2.usWinAscent = 1550
-    os2.usWinDescent = 561
-    hhea.ascent = 1550
-    hhea.descent = -561
-    # sTypoAscender/sTypoDescender/sTypoLineGap untouched
-    print(f"     [5] Metrics: winAsc=1550 winDes=561 hhea=1550/-561 "
-          f"(sTypo={os2.sTypoAscender}/{os2.sTypoDescender}/{os2.sTypoLineGap} kept)")
+    y_min, y_max = measure_ink(font)
+
+    win_asc = max(THAI_ASCENT_FLOOR, int(round(y_max)))
+    win_desc = max(THAI_DESCENT_FLOOR, int(round(-y_min)))
+    by_ink = win_asc > THAI_ASCENT_FLOOR or win_desc > THAI_DESCENT_FLOOR
+    os2.usWinAscent = win_asc
+    os2.usWinDescent = win_desc
+
+    print(f"     [5] Metrics: ink y=[{y_min:.0f},{y_max:.0f}] -> "
+          f"winAsc={win_asc} winDes={win_desc} "
+          f"{'(raised above floor by ink)' if by_ink else '(at floor)'}; "
+          f"sTypo={os2.sTypoAscender}/{os2.sTypoDescender}/{os2.sTypoLineGap} kept")
 
 
 # ---------------------------------------------------------------------------
@@ -344,29 +414,33 @@ def ttx_roundtrip(font_path):
 # Step 7: Verify
 # ---------------------------------------------------------------------------
 
-def verify_font(weight_name):
-    cfg = WEIGHT_CONFIG[weight_name]
-    path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.otf"
+def verify_font(key, cfg):
+    path = OUTPUT_DIR / f"TH-Aeonik-{key}.otf"
     if not path.exists():
-        return
+        return False
 
     font = TTFont(str(path))
     cmap = font.getBestCmap()
     os2 = font["OS/2"]
     checks = []
+    ok = True
 
     # Thai cmap
     thai = {cp: g for cp, g in cmap.items() if 0x0E00 <= cp <= 0x0E7F}
     checks.append(f"Thai={len(thai)}")
+    if len(thai) < 80:
+        ok = False
     if 0x0E00 in thai:
         checks.append("U+0E00=YES!!")
+        ok = False
     if any(0x0E5C <= cp <= 0x0E7F for cp in thai):
         checks.append("spurious!!")
+        ok = False
 
-    # Latin match
-    aeonik_path = find_aeonik(WEIGHTS[weight_name][0])
-    if aeonik_path:
-        aeonik_src = TTFont(str(aeonik_path))
+    # Latin fidelity against the Latin master this face was built from
+    latin_path = cfg["latin_path"]
+    if latin_path.exists():
+        aeonik_src = TTFont(str(latin_path))
         gs_m, gs_a = font.getGlyphSet(), aeonik_src.getGlyphSet()
         ac = aeonik_src.getBestCmap()
         match = total = 0
@@ -381,6 +455,8 @@ def verify_font(weight_name):
                     match += 1
         pct = 100 * match / total if total else 0
         checks.append(f"Latin={pct:.0f}%")
+        if pct < 99:
+            ok = False
 
     # GPOS/GDEF
     gpos_n = len(font["GPOS"].table.LookupList.Lookup) if "GPOS" in font else 0
@@ -389,113 +465,116 @@ def verify_font(weight_name):
         marks = len([g for g, c in font["GDEF"].table.GlyphClassDef.classDefs.items() if c == 3])
     checks.append(f"GPOS={gpos_n}")
     checks.append(f"marks={marks}")
+    if gpos_n == 0 or marks == 0:
+        ok = False
 
     # OS/2 bits
     thai_ur = bool(os2.ulUnicodeRange1 & (1 << 24))
     thai_cp = bool(os2.ulCodePageRange1 & (1 << 16))
     checks.append(f"ThaiBits={'OK' if thai_ur and thai_cp else 'FAIL'}")
+    if not (thai_ur and thai_cp):
+        ok = False
 
-    # Vertical metrics
-    checks.append(f"winAsc={os2.usWinAscent}")
-    checks.append(f"winDes={os2.usWinDescent}")
-
-    # RIBBI
+    # Weight + naming
+    checks.append(f"wt={os2.usWeightClass}")
+    if os2.usWeightClass != cfg["weightClass"]:
+        ok = False
     n1 = font["name"].getName(1, 3, 1, 0x0409)
     n2 = font["name"].getName(2, 3, 1, 0x0409)
     n1t = n1.toUnicode() if n1 else "?"
     n2t = n2.toUnicode() if n2 else "?"
     checks.append(f"'{n1t}/{n2t}'")
 
-    print(f"     [7] Verify: {' | '.join(checks)}")
+    # Clipping box must contain the ink
+    y_min, y_max = measure_ink(font)
+    if os2.usWinAscent < y_max - 1 or os2.usWinDescent < -y_min - 1:
+        checks.append("CLIPS!!")
+        ok = False
+
+    print(f"     [7] Verify: {' | '.join(checks)} -> {'PASS' if ok else 'FAIL'}")
+    return ok
 
 
 # ---------------------------------------------------------------------------
 # Build pipeline
 # ---------------------------------------------------------------------------
 
-def build_font(weight_name, aeonik_file, bai_file):
-    print(f"\n  === {weight_name} ===")
+def build_font(key, cfg):
+    print(f"\n  === {key} ({cfg['weightClass']}) ===")
 
-    aeonik_path = find_aeonik(aeonik_file)
-    bai_path = find_bai(bai_file)
-
-    if not aeonik_path:
-        print(f"     !! Aeonik not found: {aeonik_file}")
+    latin_path, thai_path = cfg["latin_path"], cfg["thai_path"]
+    if not latin_path.exists():
+        print(f"     !! Latin master not found: {latin_path}")
         return False
-    if not bai_path:
-        print(f"     !! Bai Jamjuree not found: {bai_file}")
+    if not thai_path.exists():
+        print(f"     !! Thai master not found: {thai_path}")
         return False
 
-    print(f"     Latin: {aeonik_path}")
-    print(f"     Thai:  {bai_path}")
+    tag_l = " (generated)" if cfg["latin_generated"] else ""
+    tag_t = " (generated)" if cfg["thai_generated"] else ""
+    print(f"     Latin: {latin_path.name}{tag_l}")
+    print(f"     Thai:  {thai_path.name}{tag_t}")
 
-    aeonik = TTFont(str(aeonik_path))
-    bai = TTFont(str(bai_path))
+    aeonik = TTFont(str(latin_path))
+    bai = TTFont(str(thai_path))
 
     if "CFF " not in aeonik:
-        print(f"     !! Aeonik is not CFF format")
+        print(f"     !! Latin master is not CFF format")
         return False
 
-    output_path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.otf"
+    output_path = OUTPUT_DIR / f"TH-Aeonik-{key}.otf"
 
-    # Step 1: Copy Thai glyphs
     copy_thai_glyphs(aeonik, bai)
-
-    # Step 2: Merge GPOS/GDEF/GSUB
     merge_ot_tables(aeonik, bai)
-
-    # Step 3: Metadata
-    apply_metadata(aeonik, weight_name)
-
-    # Step 4: Thai range bits
+    apply_metadata(aeonik, key, cfg)
     set_thai_bits(aeonik)
-
-    # Step 5: Vertical metrics
     set_vertical_metrics(aeonik)
 
-    # Save (before TTX roundtrip)
     aeonik.save(str(output_path))
-
-    # Step 6: TTX roundtrip
     ttx_roundtrip(output_path)
 
     size_kb = output_path.stat().st_size / 1024
     print(f"     Saved: {output_path.name} ({size_kb:.0f} KB)")
 
-    # Step 7: Verify
-    verify_font(weight_name)
-
-    return True
+    return verify_font(key, cfg)
 
 
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Build TH-Aeonik font family")
     parser.add_argument("--weights", default=None,
-                        help="Comma-separated weights (default: all)")
+                        help="Comma-separated face keys (default: all)")
+    parser.add_argument("--upright-only", action="store_true",
+                        help="skip italics")
     args = parser.parse_args()
 
-    weights = WEIGHTS
+    table = build_weight_table(upright_only=args.upright_only)
     if args.weights:
         selected = [w.strip() for w in args.weights.split(",")]
-        weights = {k: v for k, v in WEIGHTS.items() if k in selected}
+        table = {k: v for k, v in table.items() if k in selected}
 
     print("\n" + "=" * 70)
     print("  TH-AEONIK BUILD PIPELINE")
     print("  Aeonik (Latin) + Bai Jamjuree (Thai) = TH Aeonik")
+    print(f"  {len(table)} faces across a ten-step weight scale")
     print("=" * 70)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     success = 0
-    for wn, (af, bf) in weights.items():
-        if build_font(wn, af, bf):
+    failed = []
+    for key, cfg in table.items():
+        if build_font(key, cfg):
             success += 1
+        else:
+            failed.append(key)
 
-    total = len(weights)
+    total = len(table)
     print(f"\n{'=' * 70}")
     status = "PASS" if success == total else "FAIL"
-    print(f"  {status}: {success}/{total} fonts built")
+    print(f"  {status}: {success}/{total} faces built and verified")
+    if failed:
+        print(f"  Failed: {', '.join(failed)}")
     print(f"  Output: {OUTPUT_DIR}")
     print(f"{'=' * 70}\n")
 
