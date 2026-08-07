@@ -168,15 +168,71 @@ Light's bold lands at 450 rather than exactly Medium, and Medium's at 800 rather
 exactly Black. That deviation from the 08-06 spec is the price of uniqueness and Siwatch
 accepted it explicitly.
 
-**THE ONE RISK, AND IT IS NOT YET DISPROVED.** Row 3 above failed the *bare sub-family*
-query: with true weights, `fc-match "TH Aeonik Air"` returned AirBold, because fontconfig
-scores OS/2 200 (fc 40) closer to its regular default (fc 80) than OS/2 100 (fc 0). **The
-new plan puts AirBold at 200, so this may reproduce.** Weight 700 is what suppresses it
-today. Test it FIRST, before building any outline — if it reproduces, one card and a
-correct bare sub-family query may be mutually exclusive, and that is Siwatch's call, not a
-thing to work around silently. It is narrower than the two defects above (it needs an app
-that names the sub-family with no weight, which nothing should do once there is one card),
-but it must be measured and reported, not assumed.
+#### THE RISK, MEASURED — it reproduces, and it is structural
+
+Tested 2026-08-07 before drawing a single outline: the 24 shipped faces were copied to a
+scratch tree with nothing changed but `usWeightClass` and `nameID16`/`nameID17`, then
+matched against an isolated fontconfig tree. Weights alone decide this, so no new Latin was
+needed.
+
+`scripts/fc_family_probe.py` is that test, kept. It asks three questions of any directory
+of faces — bare `nameID1`, `nameID1:bold`, and `nameID16:weight=N` for every weight present
+— and **derives the expected answer from the fonts themselves**, so it works against a
+structure it has never seen. `th_style_link.py --check` verifies the fields; this verifies
+what a matcher does with them, and both of the one-card defects were invisible to the first.
+It passes on the shipped tree and fails on the twelve-weight tree with exactly the two
+faults below, which is the evidence that it can actually see the thing.
+
+    python3 scripts/fc_family_probe.py --render test-output/one-card-today.png
+
+**Everything the change exists for works.** All 24 faces take a distinct (fc weight, slant).
+All twelve per-weight queries on family `TH Aeonik` hit their own file — fc 0/40/50/55/80/
+90/100/140/180/200/205/210 → Air/Thin/Light/Book/Regular/LightBold/Medium/BookBold/SemiBold/
+Bold/MediumBold/Black. All six `sub-family:bold` queries hit their own bold. The
+bold-renders-hairline defect of row 2 is gone.
+
+**Two of the six bare sub-family queries break, exactly as predicted:**
+
+```
+bare query            today          twelve weights        ink change (measured)
+TH Aeonik             Regular   OK   Regular         OK     +0.0%
+TH Aeonik Air         Air       OK   AirBold     BROKEN   +199.3%
+TH Aeonik Light       Light     OK   LightBold   BROKEN    +92.5%
+TH Aeonik Book        Book      OK   Book            OK     +0.0%
+TH Aeonik Medium      Medium    OK   Medium          OK     +0.0%
+TH Aeonik SemiBold    SemiBold  OK   SemiBold        OK     +0.0%
+```
+
+Rendered side by side in `test-output/one-card-bare-query.png` (also
+`one-card-today.png` and `one-card-twelve-weights.png` separately). Light is the loud one:
+it sets as heavy as Medium, sitting directly above a *lighter* Book line.
+
+**It cannot be tuned away, and the proof needs no measurement.** An unqualified query
+defaults to fc 80, and within one `nameID1` family the nearest member wins. So a family's
+plain face resolves only while it is closer to fc 80 than its own bold slot:
+
+* **Air.** Its bold is by construction the second-lightest ink in the whole typeface, so an
+  ink-ordered ladder must give it the second-lowest weight. To beat Air (fc 0, distance 80)
+  it would instead need fc > 160 — above ten of the twelve. Contradiction.
+* **Light.** Its bold is thinned from Medium and lands between Regular and Medium in ink, so
+  the ladder must declare it 400–500, i.e. fc 80–100, distance ≤ 20. Light (fc 50) is 30
+  away. Contradiction.
+
+Both survive any reshuffle that keeps the declared ladder ordered by ink. Breaking that
+order is the only escape and it is a worse defect: `TH Aeonik` at weight 580 would render
+the second-lightest face in the family. **Do not do it.**
+
+**Blast radius.** fontconfig only — Pango, WeasyPrint, LibreOffice. Not Windows: GDI and
+DirectWrite match `nameID1` + the `macStyle` bold bit, so Word's dropdown and Ctrl+B never
+see this. Not ICHITA's HTML/PDF path either: `ichita.css` declares `@font-face` by file path
+with an explicit `font-weight`, which is the per-weight query, and that is green. What *is*
+exposed is `soffice`, the DOCX→PDF delivery engine (`skills/ichita-convert`), rendering a
+document whose runs name `TH Aeonik Light` or `TH Aeonik Air` — which is exactly what Word
+writes when you pick those out of the font dropdown. Our own QC documents do it too
+(`build_th_font_qc.py`, `qc_check_th_font_doc.py`).
+
+**Status: reported to Siwatch, awaiting his call.** One card and a correct bare sub-family
+query are mutually exclusive for the two lightest families. Nothing is built yet.
 
 ### The two blockers, resolved
 
@@ -1133,6 +1189,12 @@ the **italic's** Latin stem. §1b has the numbers. Bold came off `APERTURE_FLOOR
 scripts/thai_line_pitch.py --check   OK — both families spare +75
 scripts/th_style_link.py --check     OK — 24 faces, 18 outline sets, 6 families,
                                      every family has a real bold, no 3/4/6 collisions
+scripts/fc_family_probe.py           OK — every family and every declared weight
+                                     resolves to its own file. NEW 2026-08-07: the
+                                     fields being right is not the same as the matcher
+                                     answering right, and twice it was not (§1b).
+                                     fontconfig only — Pango, WeasyPrint, soffice. It
+                                     says nothing about Word
 scripts/verify-fonts.py              OK — 20 fonts. Its usWinAscent >= 1550 check was
                                      STALE (it encoded the falsified clip-box belief,
                                      §3) and had been red on every face; it now asserts
@@ -1314,6 +1376,7 @@ Word visible, and check for orphans before and after.
 | `build_aeonik_semibold.py` | synthesise the Aeonik SemiBold; `--check` verifies the ladder |
 | `build_style_link_doc.py` | the Word acceptance sheet for the bold slots |
 | `th_style_link.py --check` | TH Aeonik's shipped family structure; the authority on face naming |
+| `fc_family_probe.py` | which file a *matcher* returns, not which fields a face carries |
 | `build_th_font_qc.py` → `qc_check_th_font_doc.py` | document-level QC, in that order |
 | `win_latin_parity.py` | Windows rasterisation + the box Word leads off |
 | `win_office_pitch.py` | line pitch in Word, PowerPoint, Excel via COM |
@@ -1328,7 +1391,8 @@ Word visible, and check for orphans before and after.
 python3 scripts/build_aeonik_semibold.py     # BEFORE the merge — it is a Latin source
 python3 scripts/build_th_aeonik.py && python3 scripts/build_th_slussen.py
 python3 scripts/build_aeonik.py
-python3 scripts/th_style_link.py --check     # 20 shipped faces, every family bolds
+python3 scripts/th_style_link.py --check     # 24 shipped faces, every family bolds
+python3 scripts/fc_family_probe.py           # and every one of them RESOLVES
 rm -f ~/.local/share/fonts/th-current/TH-Aeonik-{Black,Thin}*.otf   # retired, §4b
 cp assets/fonts/{th-aeonik/TH-Aeonik,th-slussen/TH-Slussen}-*.otf \
    ~/.local/share/fonts/th-current/ && fc-cache -f
