@@ -94,6 +94,8 @@ from th_thai_prep import (BUILD_TABLE, THAI_SCALE, add_dotted_circle,  # noqa: E
 from th_mark_clearance import raise_upper_marks
 from th_baseline import seat_thai_on_baseline
 from th_cff import assert_advance_single_source, convert_to_cff
+from th_style_link import (FACES as WEIGHT_CONFIG, USE_TYPO,  # noqa: E402
+                           apply_face_metadata, write_aliases)
 import th_greek
 
 warnings.filterwarnings("ignore")
@@ -118,16 +120,6 @@ BAI_SYSTEM = Path.home() / ".local" / "share" / "fonts"
 BAI_LOCAL = ASSETS / "fonts" / "bai-jamjuree"
 OUTPUT_DIR = ASSETS / "fonts" / "th-aeonik"
 
-# fsSelection bits
-ITALIC = 1 << 0
-BOLD = 1 << 5
-REGULAR = 1 << 6
-USE_TYPO = 1 << 7
-
-# head.macStyle bits
-MAC_BOLD = 1 << 0
-MAC_ITALIC = 1 << 1
-
 # Weight mapping: output_name -> (aeonik_file, bai_file)
 # Latin source per weight. The Thai source is NOT chosen here — Bai's weight
 # ladder does not align with Aeonik's, so the pairing (and the emboldening that
@@ -148,86 +140,40 @@ WEIGHTS = {
     "MediumItalic":  "Aeonik-MediumItalic.otf",
     "BoldItalic":    "Aeonik-BoldItalic.otf",
     "BlackItalic":   "Aeonik-BlackItalic.otf",
+    "SemiBold":      "Aeonik-SemiBold.otf",
+    "SemiBoldItalic": "Aeonik-SemiBoldItalic.otf",
 }
 
-# Per-weight metadata config (Windows RIBBI model)
+# The two faces CoType never drew.
 #
-# nameID2 may only be Regular / Bold / Italic / Bold Italic, so one nameID1 can
-# carry at most those four faces. Aeonik has seven weights, so Air, Thin, Light,
-# Medium and Black each take their own nameID1 and pair their italic through
-# nameID2='Italic'. nameID16/17 put all fourteen back together as one 'TH
-# Aeonik' family wherever they are read. Same scheme as TH Slussen Medium and
-# SemiBold, which is what made those two selectable in Word.
-def _nonribbi(label, slug, weight_class, panose, italic=False):
-    """Config for a weight that has no RIBBI slot of its own."""
-    return {
-        "nameID1": f"TH Aeonik {label}",
-        "nameID2": "Italic" if italic else "Regular",
-        "nameID4": f"TH Aeonik {label}" + (" Italic" if italic else ""),
-        "nameID6": f"TH-Aeonik-{slug}" + ("Italic" if italic else ""),
-        "nameID16": "TH Aeonik",
-        "nameID17": f"{label} Italic" if italic else label,
-        "fsSelection": (ITALIC if italic else REGULAR) | USE_TYPO,
-        "macStyle": MAC_ITALIC if italic else 0,
-        "weightClass": weight_class, "panose_bWeight": panose,
-    }
+# Siwatch asked for a SemiBold on 2026-08-07 and there is no source for one —
+# not in the v1.000 desktop cut, not in the v2.000 web cut. Ours is synthesised
+# by build_aeonik_semibold.py into assets/fonts/aeonik/, so for these two the
+# rule the rest of this file enforces does not apply: that directory IS the
+# source, and there is no pristine original it could be confused with.
+#
+# It is still NOT Aeonik's drawing. Both carry that in nameID5 and nameID10,
+# and §4c records what synthesis costs.
+SYNTHETIC_FACES = {"Aeonik-SemiBold.otf", "Aeonik-SemiBoldItalic.otf"}
+AEONIK_SYNTHETIC = ASSETS / "fonts" / "aeonik"
 
-
-WEIGHT_CONFIG = {
-    "Air":          _nonribbi("Air", "Air", 100, 2),
-    "AirItalic":    _nonribbi("Air", "Air", 100, 2, italic=True),
-    "Thin":         _nonribbi("Thin", "Thin", 200, 3),
-    "ThinItalic":   _nonribbi("Thin", "Thin", 200, 3, italic=True),
-    "Medium":       _nonribbi("Medium", "Medium", 500, 6),
-    "MediumItalic": _nonribbi("Medium", "Medium", 500, 6, italic=True),
-    "Black":        _nonribbi("Black", "Black", 900, 9),
-    "BlackItalic":  _nonribbi("Black", "Black", 900, 9, italic=True),
-}
-
-WEIGHT_CONFIG.update({
-    "Regular": {
-        "nameID1": "TH Aeonik", "nameID2": "Regular",
-        "nameID4": "TH Aeonik", "nameID6": "TH-Aeonik-Regular",
-        "nameID16": "TH Aeonik", "nameID17": "Regular",
-        "fsSelection": REGULAR | USE_TYPO, "macStyle": 0,
-        "weightClass": 400, "panose_bWeight": 5,
-    },
-    "Bold": {
-        "nameID1": "TH Aeonik", "nameID2": "Bold",
-        "nameID4": "TH Aeonik Bold", "nameID6": "TH-Aeonik-Bold",
-        "nameID16": "TH Aeonik", "nameID17": "Bold",
-        "fsSelection": BOLD | USE_TYPO, "macStyle": MAC_BOLD,
-        "weightClass": 700, "panose_bWeight": 8,
-    },
-    "Light": {
-        "nameID1": "TH Aeonik Light", "nameID2": "Regular",
-        "nameID4": "TH Aeonik Light", "nameID6": "TH-Aeonik-Light",
-        "nameID16": "TH Aeonik", "nameID17": "Light",
-        "fsSelection": REGULAR | USE_TYPO, "macStyle": 0,
-        "weightClass": 300, "panose_bWeight": 4,
-    },
-    "RegularItalic": {
-        "nameID1": "TH Aeonik", "nameID2": "Italic",
-        "nameID4": "TH Aeonik Italic", "nameID6": "TH-Aeonik-RegularItalic",
-        "nameID16": "TH Aeonik", "nameID17": "Regular Italic",
-        "fsSelection": ITALIC | USE_TYPO, "macStyle": MAC_ITALIC,
-        "weightClass": 400, "panose_bWeight": 5,
-    },
-    "BoldItalic": {
-        "nameID1": "TH Aeonik", "nameID2": "Bold Italic",
-        "nameID4": "TH Aeonik Bold Italic", "nameID6": "TH-Aeonik-BoldItalic",
-        "nameID16": "TH Aeonik", "nameID17": "Bold Italic",
-        "fsSelection": BOLD | ITALIC | USE_TYPO, "macStyle": MAC_BOLD | MAC_ITALIC,
-        "weightClass": 700, "panose_bWeight": 8,
-    },
-    "LightItalic": {
-        "nameID1": "TH Aeonik Light", "nameID2": "Italic",
-        "nameID4": "TH Aeonik Light Italic", "nameID6": "TH-Aeonik-LightItalic",
-        "nameID16": "TH Aeonik", "nameID17": "Light Italic",
-        "fsSelection": ITALIC | USE_TYPO, "macStyle": MAC_ITALIC,
-        "weightClass": 300, "panose_bWeight": 4,
-    },
-})
+# Face naming lives in th_style_link.FACES, imported above as WEIGHT_CONFIG.
+#
+# It moved out of this file on 2026-08-06, when Siwatch ruled that every family
+# gets a real bold member and Black is retired into TH Aeonik Medium's bold slot.
+# That decision adds six duplicate faces which this pipeline never merges, so the
+# shipped family structure is no longer something a build step can own — one
+# table now describes all 20 shipped faces and both the builder and the
+# standalone pass read it. See th_style_link.py for the full reasoning.
+#
+# Two consequences for anyone editing this file:
+#
+#   * The keys of WEIGHT_CONFIG are BUILD keys. They name the outline recipe —
+#     the Latin source in WEIGHTS above and the Thai pairing and embolden in
+#     th_thai_prep.BUILD_TABLE. "Black" is still a build key even though no
+#     shipped face is called Black any more. Do not rename them.
+#   * The output FILENAME is cfg["file"], not the build key. Those differ for
+#     Black -> TH-Aeonik-MediumBold and BlackItalic -> TH-Aeonik-MediumBoldItalic.
 
 
 # ---------------------------------------------------------------------------
@@ -243,6 +189,9 @@ def find_aeonik(filename):
     already been through this pipeline once. The failure has to be visible —
     an unavailable source is recoverable, a quietly wrong one is not.
     """
+    if filename in SYNTHETIC_FACES:
+        p = AEONIK_SYNTHETIC / filename
+        return p if p.exists() else None
     for d in [AEONIK_D_DRIVE, AEONIK_LOCAL]:
         p = d / filename
         if p.exists():
@@ -250,22 +199,49 @@ def find_aeonik(filename):
     return None
 
 
-def require_aeonik_source():
-    """Fail before doing any work if the pristine Latin source is missing."""
-    if find_aeonik("Aeonik-Regular.otf") is None:
-        sys.exit(
-            "ERROR: pristine Aeonik v1.000 not found. Looked in:\n"
-            f"  {AEONIK_D_DRIVE}\n"
-            f"  {AEONIK_LOCAL}\n"
-            "\n"
-            "It is not kept in the repo — see assets/fonts/README.md. Drop the\n"
-            "14 original CoType faces into the second path (git-ignored) or\n"
-            "mount the D: drive, then re-run.\n"
-            "\n"
-            "assets/fonts/aeonik/ is NOT a substitute: it holds our v1.001\n"
-            "Greek/math build, and building from it would apply this pipeline\n"
-            "to its own output."
-        )
+def require_aeonik_source(weights=None):
+    """Fail before doing any work if a needed Latin source is missing.
+
+    Checks only the weights actually being built. That is not a loosening — it
+    is what lets `--weights SemiBold` run while the pristine v1.000 is off the
+    machine, because the SemiBold Latin is synthesised into the repo and needs
+    nothing from CoType's folder. Asking for a face that IS from CoType still
+    fails exactly as loudly.
+    """
+    weights = weights or WEIGHTS
+    missing = sorted({WEIGHTS[w] for w in weights
+                      if find_aeonik(WEIGHTS[w]) is None})
+    if not missing:
+        return
+
+    synthetic = [m for m in missing if m in SYNTHETIC_FACES]
+    pristine = [m for m in missing if m not in SYNTHETIC_FACES]
+    lines = ["ERROR: Latin source missing for this build.\n"]
+    if pristine:
+        lines += [
+            f"Pristine Aeonik v1.000 faces not found ({len(pristine)}): "
+            f"{', '.join(pristine[:4])}"
+            + (" ..." if len(pristine) > 4 else ""),
+            "Looked in:",
+            f"  {AEONIK_D_DRIVE}",
+            f"  {AEONIK_LOCAL}",
+            "",
+            "It is not kept in the repo — see assets/fonts/README.md. Drop the",
+            "14 original CoType faces into the second path (git-ignored) or",
+            "mount the D: drive, then re-run.",
+            "",
+            "assets/fonts/aeonik/ is NOT a substitute: it holds our v1.001",
+            "Greek/math build, and building from it would apply this pipeline",
+            "to its own output.",
+        ]
+    if synthetic:
+        lines += [
+            "",
+            f"Synthesised faces not built yet: {', '.join(synthetic)}",
+            f"  Looked in: {AEONIK_SYNTHETIC}",
+            "  Run: python3 scripts/build_aeonik_semibold.py",
+        ]
+    sys.exit("\n".join(lines))
 
 
 def find_bai(filename):
@@ -629,48 +605,15 @@ def merge_ot_tables(aeonik_font, bai_font):
 # Step 3: Metadata (RIBBI naming + OS/2 + CFF)
 # ---------------------------------------------------------------------------
 
-def _set_name(nt, nid, val, pid=3, peid=1, lid=0x0409):
-    if val is None:
-        nt.removeNames(nameID=nid, platformID=pid, platEncID=peid, langID=lid)
-        return
-    nt.setName(val, nid, pid, peid, lid)
-
-
 def apply_metadata(font, weight_name):
+    """Delegate to th_style_link, which is the one authority on face naming.
+
+    Note the CFF name is a no-op here — at step 3 the font is still `glyf`, and
+    th_cff.convert_to_cff sets fontNames from nameID6 when it swaps the CFF back
+    in at step 7. Calling it anyway keeps this correct if the step order moves.
+    """
     cfg = WEIGHT_CONFIG[weight_name]
-    nt = font["name"]
-
-    # Name table (Windows + Mac)
-    for nid in [1, 2, 4, 6, 16, 17]:
-        key = f"nameID{nid}"
-        _set_name(nt, nid, cfg[key])
-        mac_val = cfg[key]
-        _set_name(nt, nid, mac_val, pid=1, peid=0, lid=0)
-
-    uid = f"THAeonik-{weight_name}"
-    _set_name(nt, 3, uid)
-    _set_name(nt, 3, uid, pid=1, peid=0, lid=0)
-
-    # OS/2
-    os2 = font["OS/2"]
-    os2.fsType = 0
-    if os2.version < 4:
-        os2.version = 4
-        for attr, default in [("sxHeight", 0), ("sCapHeight", 0),
-                              ("usDefaultChar", 0), ("usBreakChar", 32),
-                              ("usMaxContext", 0)]:
-            if not hasattr(os2, attr):
-                setattr(os2, attr, default)
-    os2.fsSelection = cfg["fsSelection"]
-    os2.usWeightClass = cfg["weightClass"]
-    os2.panose.bWeight = cfg["panose_bWeight"]
-
-    # head.macStyle
-    font["head"].macStyle = cfg["macStyle"]
-
-    # CFF fontName
-    if "CFF " in font:
-        font["CFF "].cff.fontNames[0] = cfg["nameID6"]
+    apply_face_metadata(font, weight_name, cfg)
 
     print(f"     [3] Metadata: ID1='{cfg['nameID1']}' ID2='{cfg['nameID2']}' "
           f"fsSel=0x{cfg['fsSelection']:04X} wt={cfg['weightClass']}")
@@ -1141,7 +1084,7 @@ def fix_mac_cmap(font):
 
 def verify_font(weight_name):
     cfg = WEIGHT_CONFIG[weight_name]
-    path = OUTPUT_DIR / f"TH-Aeonik-{weight_name}.otf"
+    path = OUTPUT_DIR / f"{cfg['file']}.otf"
     if not path.exists():
         return
 
@@ -1252,7 +1195,9 @@ def build_font(weight_name, aeonik_file, bai_file=None, mark_scale=None,
     # deepcopied, so no mutation below can possibly reach it.
     latin_cff = TTFont(str(aeonik_path))["CFF "]
 
-    output_path = out_dir / f"TH-Aeonik-{weight_name}.otf"
+    # The shipped filename, which is NOT the build key for the two promoted
+    # faces — build key "Black" writes TH-Aeonik-MediumBold.otf.
+    output_path = out_dir / f"{WEIGHT_CONFIG[weight_name]['file']}.otf"
 
     # Step 0: CFF -> glyf, while the glyph set is still purely Latin. This is the
     # intermediate working format for the merge only — every step below is written
@@ -1386,13 +1331,19 @@ def main():
                         help="write elsewhere than assets/fonts/th-aeonik, so a "
                              "sweep does not overwrite the shipped faces")
     args = parser.parse_args()
-    require_aeonik_source()
     out_dir = Path(args.out_dir) if args.out_dir else OUTPUT_DIR
 
     weights = WEIGHTS
     if args.weights:
         selected = [w.strip() for w in args.weights.split(",")]
+        unknown = [w for w in selected if w not in WEIGHTS]
+        if unknown:
+            sys.exit(f"ERROR: unknown weight(s) {', '.join(unknown)}. "
+                     f"Known: {', '.join(WEIGHTS)}")
         weights = {k: v for k, v in WEIGHTS.items() if k in selected}
+
+    # After the selection, so a partial build only needs its own sources.
+    require_aeonik_source(weights)
 
     print("\n" + "=" * 70)
     print("  TH-AEONIK BUILD PIPELINE")
@@ -1413,7 +1364,32 @@ def main():
     print(f"  Output: {out_dir}")
     print(f"{'=' * 70}\n")
 
-    return 0 if success == total else 1
+    if success != total:
+        return 1
+
+    # Six of the twenty shipped faces are duplicates that fill a bold slot, so a
+    # build is not a shippable set until they exist. A partial build cannot make
+    # one — it would leave a family half style-linked, which is worse than not
+    # linked at all because Word would take the real bold for upright text and
+    # synthesise the italic.
+    if len(weights) != len(WEIGHTS):
+        print("Partial build — style-link aliases NOT written. Run\n"
+              f"  python3 th_style_link.py --dir {out_dir}\n"
+              "after a full build.\n")
+        return 0
+
+    print(f"{'=' * 70}")
+    print("  STYLE-LINK ALIASES")
+    print(f"{'=' * 70}")
+    faults = write_aliases(out_dir)
+    if faults:
+        print("\nFAIL — the shipped set is incomplete:")
+        for f in faults:
+            print(f"  - {f}")
+        return 1
+    print(f"\n  PASS: {len(WEIGHTS)} outline sets -> 20 shipped faces")
+    print("  Verify with: python3 th_style_link.py --check\n")
+    return 0
 
 
 if __name__ == "__main__":

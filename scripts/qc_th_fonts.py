@@ -51,7 +51,13 @@ The reference here is the LATIN the Thai actually shares a line with:
   5  shaping real words with stacked vowels+tones stay inside the box,
              including the GSUB-only .small mark variants that no cmap walk
              ever reaches
-  6  ladder  weights are monotonic and none collapse together
+  6  ladder  weights are monotonic and none collapse together. The reader-facing
+             ladder only — TH Aeonik's Black recipe left it on 2026-08-06 when it
+             became TH Aeonik Medium's bold, and check 12 judges it instead
+ 11  linking  every family holds a real Bold, so Word never synthesises one, and
+             no two shipped faces collide on nameID 3/4/6 (TH Aeonik only)
+ 12  promoted TH Aeonik Medium's bold clears Bold in the Latin; its Thai is
+             expected to EQUAL Bold's, both being pinned to Bai's counter floor
   7  uniscribe  GDEF classes + U+25CC, the prerequisites Word needs
   8  clearance  Thai upper marks keep enough air to survive screen rendering
   9  baseline   Thai sits on the Latin baseline, not below it
@@ -80,6 +86,7 @@ from th_baseline import measure as baseline_offset
 from th_metrics import (STEM_LATIN, STEM_THAI, min_aperture,
                         stem as probe_stem)
 from th_thai_prep import APERTURE_FLOOR, WEIGHT_RATIO  # noqa: E402
+import th_style_link  # noqa: E402
 
 FAMILIES = {
     "TH-Aeonik": {
@@ -94,6 +101,8 @@ FAMILIES = {
             "Light": "Aeonik-Light.otf",
             "Regular": "Aeonik-Regular.otf",
             "Medium": "Aeonik-Medium.otf",
+            # Synthetic — CoType never drew it. §4c, build_aeonik_semibold.py.
+            "SemiBold": "Aeonik-SemiBold.otf",
             "Bold": "Aeonik-Bold.otf",
             "Black": "Aeonik-Black.otf",
             "AirItalic": "Aeonik-AirItalic.otf",
@@ -101,6 +110,7 @@ FAMILIES = {
             "LightItalic": "Aeonik-LightItalic.otf",
             "RegularItalic": "Aeonik-RegularItalic.otf",
             "MediumItalic": "Aeonik-MediumItalic.otf",
+            "SemiBoldItalic": "Aeonik-SemiBoldItalic.otf",
             "BoldItalic": "Aeonik-BoldItalic.otf",
             "BlackItalic": "Aeonik-BlackItalic.otf",
         },
@@ -252,6 +262,19 @@ CLEAR_FLOOR_OVERRIDE = {}
 results = []
 
 
+def face_path(fam, cfg, w):
+    """Where build key `w`'s outlines live.
+
+    The build key stopped being the filename on 2026-08-06: TH Aeonik's "Black"
+    recipe ships as TH-Aeonik-MediumBold.otf, because Black was retired into
+    TH Aeonik Medium's bold slot. th_style_link.FACES is the authority; TH
+    Slussen was not restructured and keeps the old identity.
+    """
+    if fam == "TH-Aeonik":
+        return cfg["dir"] / f"{th_style_link.FACES[w]['file']}.otf"
+    return cfg["dir"] / f"{fam}-{w}.otf"
+
+
 def record(name, ok, detail=""):
     results.append((name, ok))
     print(f"  [{'PASS' if ok else 'FAIL'}] {name}")
@@ -325,7 +348,7 @@ def check_size_and_weight(fam, cfg):
     size_rows, weight_rows = [], []
     size_bad, weight_bad = [], []
     for w, latin_file in cfg["pairs"].items():
-        merged = cfg["dir"] / f"{fam}-{w}.otf"
+        merged = face_path(fam, cfg, w)
         latin = cfg["latin_dir"] / latin_file
         if not merged.exists() or not latin.exists():
             continue
@@ -376,7 +399,7 @@ def check_aperture(fam, cfg):
     """
     rows, bad = [], []
     for w in cfg["pairs"]:
-        merged = cfg["dir"] / f"{fam}-{w}.otf"
+        merged = face_path(fam, cfg, w)
         if not merged.exists():
             continue
         a, ch = min_aperture(merged)
@@ -448,7 +471,7 @@ def check_box(fam, cfg):
     rows, bad = [], []
     seen = set()
     for w, latin_file in cfg["pairs"].items():
-        p = cfg["dir"] / f"{fam}-{w}.otf"
+        p = face_path(fam, cfg, w)
         if not p.exists():
             continue
         f = TTFont(p, lazy=True)
@@ -540,7 +563,7 @@ def check_shaping(fam, cfg):
     win_asc, win_desc = cfg["clip"]
     bad, worst = [], []
     for w in cfg["pairs"]:
-        p = cfg["dir"] / f"{fam}-{w}.otf"
+        p = face_path(fam, cfg, w)
         if not p.exists():
             continue
         blob = hb.Blob.from_file_path(str(p))
@@ -584,15 +607,31 @@ def check_shaping(fam, cfg):
            f"({len(TEST_WORDS)} words)", not bad, "\n".join(worst + bad))
 
 
+# Build keys that are NOT rungs on the reader-facing weight ladder, and why.
+#
+# TH Aeonik's "Black" recipe stopped being a selectable weight on 2026-08-06. It
+# ships as TH Aeonik Medium's BOLD, so a reader never meets it as the step above
+# Bold — they meet it as the bold of Medium. Judging it as a ladder rung is what
+# made check 6 fail on purpose for three days: Thai Bold and Thai Black are both
+# pinned to Bai's counter floor at 134.8, so no ladder containing both can ever
+# be "distinct". check_promoted_bold() judges it against the thing it actually
+# has to beat, which is Bold's LATIN.
+LADDER_EXCLUDE = {"TH-Aeonik": {"Black"}}
+
+
 def check_ladder(fam, cfg):
     """6 — weights must increase and stay distinguishable."""
-    order = [w for w in cfg["pairs"] if "Italic" not in w]
+    skip = LADDER_EXCLUDE.get(fam, set())
+    order = [w for w in cfg["pairs"] if "Italic" not in w and w not in skip]
     vals = []
+    missing = []
     for w in order:
-        p = cfg["dir"] / f"{fam}-{w}.otf"
+        p = face_path(fam, cfg, w)
         if p.exists():
             vals.append((w, stem(p, "กทบนผฝพฟ")))
-    bad = []
+        else:
+            missing.append(f"{w}: {p.name} is missing — cannot judge the ladder")
+    bad = list(missing)
     rows = [f"{w:<14} Thai stem {s:6.1f}" for w, s in vals]
     for (wa, a), (wb, b) in zip(vals, vals[1:]):
         if b <= a:
@@ -600,7 +639,66 @@ def check_ladder(fam, cfg):
         elif (b - a) / a < 0.04:
             bad.append(f"{wa} and {wb} differ by only "
                        f"{(b-a)/a*100:.1f}% — they will look identical")
+    if skip:
+        rows.append(f"({', '.join(sorted(skip))} judged by check 12, not here)")
     record(f"6. {fam} weight ladder is monotonic and distinct", not bad,
+           "\n".join(rows + bad))
+
+
+def check_style_link(fam, cfg):
+    """11 — Word must never have to synthesise a bold.
+
+    Synthetic bold double-strikes the outline, which spends counter aperture —
+    the exact budget check 10 defends. Until 2026-08-06 four of TH Aeonik's six
+    families had no bold member, so Ctrl+B in plain Word produced it. The
+    generators were never exposed (they emit `TH Aeonik` + w:b and get the real
+    Bold), which is why this went unseen: it only reached the layer Siwatch
+    actually types in.
+    """
+    if fam != "TH-Aeonik":
+        return
+    faults = th_style_link.check(cfg["dir"], verbose=False)
+    families = sorted({c["nameID1"] for c in th_style_link.SHIPPED.values()})
+    rows = [f"{len(th_style_link.SHIPPED)} shipped faces, "
+            f"{len(th_style_link.FACES)} outline sets, "
+            f"{len(families)} families: {', '.join(families)}"]
+    record(f"11. {fam} every family has a real bold, no duplicate face IDs",
+           not faults, "\n".join(rows + faults))
+
+
+def check_promoted_bold(fam, cfg):
+    """12 — the promoted heavy face must beat Bold where it still can.
+
+    TH Aeonik Medium's bold carries the Black outlines. In the THAI it is
+    identical to Bold — both sit on Bai Jamjuree's counter floor, and no amount
+    of emboldening moves either without filling ฃ ธ ฮ (§4). That equality is
+    EXPECTED and recorded here rather than tolerated silently somewhere else.
+    What must hold is the Latin separation, because that is the whole reason the
+    face is worth shipping as a distinct bold.
+    """
+    if fam != "TH-Aeonik":
+        return
+    bold, heavy = face_path(fam, cfg, "Bold"), face_path(fam, cfg, "Black")
+    if not (bold.exists() and heavy.exists()):
+        record(f"12. {fam} promoted bold clears Bold in the Latin", False,
+               f"cannot compare: {bold.name} or {heavy.name} is missing — "
+               f"a missing file is not a pass")
+        return
+    bl, hl = probe_stem(bold, STEM_LATIN), probe_stem(heavy, STEM_LATIN)
+    bt, ht = probe_stem(bold, STEM_THAI), probe_stem(heavy, STEM_THAI)
+    gap = (hl - bl) / bl
+    rows = [f"Latin  Bold {bl:6.1f} -> Medium Bold {hl:6.1f}   {gap * 100:+.1f}%",
+            f"Thai   Bold {bt:6.1f} -> Medium Bold {ht:6.1f}   "
+            f"{(ht - bt) / bt * 100:+.1f}%  (expected ~0 — Bai's counter floor)"]
+    bad = []
+    if gap < 0.04:
+        bad.append(f"the Latin separation is only {gap * 100:.1f}% — the two "
+                   f"bolds will read as one weight in every script")
+    if ht > bt * 1.04:
+        bad.append(f"the Thai is {(ht / bt - 1) * 100:.1f}% heavier than Bold, "
+                   f"which contradicts the counter floor — re-measure the "
+                   f"aperture before believing it")
+    record(f"12. {fam} promoted bold clears Bold in the Latin", not bad,
            "\n".join(rows + bad))
 
 
@@ -616,7 +714,7 @@ def check_uniscribe(fam, cfg):
     import unicodedata
     bad, rows = [], []
     for w in cfg["pairs"]:
-        p = cfg["dir"] / f"{fam}-{w}.otf"
+        p = face_path(fam, cfg, w)
         if not p.exists():
             continue
         f = TTFont(p, lazy=True)
@@ -655,7 +753,7 @@ def check_clearance(fam, cfg):
     """
     rows, bad = [], []
     for w in cfg["pairs"]:
-        p = cfg["dir"] / f"{fam}-{w}.otf"
+        p = face_path(fam, cfg, w)
         if not p.exists():
             continue
         f = TTFont(p, lazy=True)
@@ -689,7 +787,7 @@ def check_baseline(fam, cfg):
     """
     rows, bad = [], []
     for w in cfg["pairs"]:
-        p = cfg["dir"] / f"{fam}-{w}.otf"
+        p = face_path(fam, cfg, w)
         if not p.exists():
             continue
         f = TTFont(p, lazy=True)
@@ -719,6 +817,8 @@ def main():
         check_clearance(fam, cfg)
         check_baseline(fam, cfg)
         check_aperture(fam, cfg)
+        check_style_link(fam, cfg)
+        check_promoted_bold(fam, cfg)
     n = sum(1 for _, ok in results if ok)
     print(f"\n{n}/{len(results)} checks pass")
     return 0 if n == len(results) else 1

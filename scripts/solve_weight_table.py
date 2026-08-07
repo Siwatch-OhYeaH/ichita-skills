@@ -55,8 +55,27 @@ FAMILIES = {
 
 
 def measure(family, subdir, weight):
-    """(latin_stem, thai_stem, aperture, binding_glyph) of the shipped face."""
-    p = SCRIPTS.parent / "assets" / "fonts" / subdir / f"{family}-{weight}.ttf"
+    """(latin_stem, thai_stem, aperture, binding_glyph) of the shipped face.
+
+    Two things were stale here and both made the solver unable to run at all:
+
+      * `.ttf`. The merged families have shipped `.otf`/CFF since 2026-08-04
+        (§6 — a merged font must carry its Latin source's outline format or
+        Windows renders the Latin 16-20% lighter). The extension was never
+        updated, so every call raised `cannot open resource`.
+      * `{family}-{weight}`. The build key stopped being the filename on
+        2026-08-06; th_style_link.FACES is the authority.
+
+    A solver that cannot measure cannot solve, and this one is cited in
+    th_thai_prep.BUILD_TABLE as the authority for every value in it.
+    """
+    import th_style_link
+    stem_name = (th_style_link.FACES[weight]["file"] if family == "TH-Aeonik"
+                 else f"{family}-{weight}")
+    p = SCRIPTS.parent / "assets" / "fonts" / subdir / f"{stem_name}.otf"
+    if not p.exists():
+        raise SystemExit(f"ERROR: {p} was not written — cannot measure, and a "
+                         f"missing file must not read as a converged solve")
     ap, ch = min_aperture(p)
     return stem(p, STEM_LATIN), stem(p, STEM_THAI), ap, ch
 

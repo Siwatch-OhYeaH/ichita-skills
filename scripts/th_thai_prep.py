@@ -250,6 +250,19 @@ BUILD_TABLE = {
         "Light":         ("BaiJamjuree-Light.ttf",            -0.4),  # 54.7 -> 48.8 (want 49.5, aper 74.2 ฆ)
         "Regular":       ("BaiJamjuree-Medium.ttf",           -8.4),  # 87.9 -> 78.1 (want 78.2, aper 74.2 ฆ)
         "Medium":        ("BaiJamjuree-SemiBold.ttf",         -4.8),  # 115.2 -> 101.6 (want 102.6, aper 70.3 ฆ)
+        # Added 2026-08-07. Bai BOLD thinned, not Bai SemiBold emboldened, and
+        # that choice is measured rather than conventional. Both routes hit the
+        # .89 target; they differ entirely in counter:
+        #
+        #   Bai SemiBold +15.2  -> thai 117.2  aperture 48.3  CAP
+        #   Bai Bold     -10.0  -> thai 118.2  aperture 70.3
+        #
+        # 48.3 is 1.8 units off APERTURE_FLOOR on a weight LIGHTER than Bold,
+        # which is absurd on its face — and the italic came out at 47.0, one
+        # probe step from failing. Thinning opens counters, emboldening spends
+        # them, so pairing one Bai step heavier and thinning is what the rest of
+        # this table already does (Regular<-Medium, Medium<-SemiBold).
+        "SemiBold":      ("BaiJamjuree-Bold.ttf",            -10.0),  # 130.9 -> 118.2 (want 116.5, aper 70.3 ฮ)
         "Bold":          ("BaiJamjuree-Bold.ttf",             13.4),  # 150.4 -> 134.8 (want 133.8, aper 46.9 ฆ) CAP
         "Black":         ("BaiJamjuree-Bold.ttf",             13.0),  # 183.6 -> 136.7 (want 136.8, aper 46.9 ฮ) CAP
         "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-29.2),  # 7.8 -> 5.9 (want 7.3, no enclosed counter)
@@ -257,6 +270,7 @@ BUILD_TABLE = {
         "LightItalic":   ("BaiJamjuree-LightItalic.ttf",      -0.4),  # 54.7 -> 48.8 (want 49.5, aper 73.0 ฆ)
         "RegularItalic": ("BaiJamjuree-MediumItalic.ttf",     -9.5),  # 87.9 -> 77.6 (want 78.2, aper 74.6 ฆ)
         "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",   -4.8),  # 115.2 -> 101.6 (want 102.6, aper 66.9 ฆ)
+        "SemiBoldItalic": ("BaiJamjuree-BoldItalic.ttf",   -10.0),  # 132.8 -> 117.2 (want 118.2, aper 70.3 ฮ)
         "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",       10.6),  # 150.4 -> 132.8 (want 133.8, aper 50.8 ฮ)
         "BlackItalic":   ("BaiJamjuree-BoldItalic.ttf",       16.4),  # 183.6 -> 138.7 (want 136.8, aper 49.7 ษ) CAP
     },
@@ -340,24 +354,32 @@ _FF_SCRIPT = """
 import fontforge, sys
 f = fontforge.open(sys.argv[1])
 f.selection.all()
-f.changeWeight(float(sys.argv[3]))
+f.changeWeight(float(sys.argv[3]), "auto", 0, 0, sys.argv[4])
 f.generate(sys.argv[2])
 """
 
 
-def _embolden(src, amount, workdir):
+def _embolden(src, amount, workdir, counter_type="auto"):
     """Thicken every stem by `amount` em units using FontForge.
 
     Returns the path to the emboldened file. FontForge rewrites the OpenType
     layout tables on generate, so the caller must take GPOS/GSUB from the
     pristine source and only the outlines from here.
+
+    `counter_type` is FontForge's counter/sidebearing policy and "auto" is its
+    own default, so the Thai builds behave exactly as before. It is exposed for
+    build_aeonik_semibold.py, which needs "squish" — measured 2026-08-07 on
+    Aeonik Medium +14, the two modes give the SAME stem (128.9) and the SAME
+    tightest counter (97.7) and differ only in advance: auto 11930, squish
+    11398. So the choice here is purely about letterfit, and squish is the one
+    that leaves the advance somewhere a correction can start from.
     """
     out = workdir / (src.stem + f"-bold{amount:.0f}.ttf")
     script = workdir / "embolden.py"
     script.write_text(_FF_SCRIPT)
     r = subprocess.run(
         ["fontforge", "-lang=py", "-script", str(script),
-         str(src), str(out), str(amount)],
+         str(src), str(out), str(amount), counter_type],
         capture_output=True, text=True)
     if not out.exists():
         raise RuntimeError(f"FontForge embolden failed for {src.name}:\n"

@@ -22,8 +22,8 @@ renderer reads which field, and roughly thirty defects not to repeat.
 
 | Directory | Contents | Status |
 |---|---|---|
-| `aeonik/` | Aeonik v1.001 = v1.000 + Greek/math coverage, 14 faces | **BUILT — install this. It is the only Aeonik here.** |
-| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, 14 faces | **BUILT — install** |
+| `aeonik/` | Aeonik v1.001 = v1.000 + Greek/math, 14 faces + a **synthetic** SemiBold pair | **BUILT — install this. It is the only Aeonik here.** |
+| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, **20 faces** from 16 outline sets | **BUILT — install**; uninstall `TH Aeonik Black` and `TH Aeonik Thin` first |
 | `slussen/` | Slussen desktop, 4 faces | pristine source; incomplete (a 10-face set exists in an old `D:` build) |
 | `th-slussen/` | TH Slussen = Slussen + Bai Thai, 4 faces | **BUILT — install**; no documented brand role yet |
 | `aeonik-web/` | Aeonik v2.000 web cut, 6 faces | source for the Greek harvest **only** — box 1140, respaced digits, do not migrate to |
@@ -58,9 +58,38 @@ renders the Latin 16–20% lighter through a different rasteriser.
 
 ### Weights
 
-Aeonik and TH Aeonik, 14 faces each: Air, Thin, Light, Regular, Medium, Bold, Black,
-plus an italic of each. TH Slussen, 4 faces: Regular, Medium, SemiBold, Bold. Betatron
-is Regular only.
+Aeonik, 14 faces: Air, Thin, Light, Regular, Medium, Bold, Black, plus an italic of
+each. TH Slussen, 4 faces: Regular, Medium, SemiBold, Bold. Betatron is Regular only.
+
+**TH Aeonik ships 20 faces from those same 14 outline sets**, and its family structure
+diverged from Aeonik's on 2026-08-06. Every family now holds a real bold, because the
+alternative is Word synthesising one — a double-strike, which spends the counter
+aperture that keeps ฃ ธ ฮ open at text sizes.
+
+| Family in Word | Regular | Italic | Bold | Bold Italic |
+|---|---|---|---|---|
+| `TH Aeonik Air` | Air | Air Italic | Thin | Thin Italic |
+| `TH Aeonik Light` | Light | Light Italic | *Medium* | *Medium Italic* |
+| `TH Aeonik` | Regular | Italic | Bold | Bold Italic |
+| `TH Aeonik Medium` | Medium | Medium Italic | Black | Black Italic |
+| `TH Aeonik SemiBold` | SemiBold | SemiBold Italic | *Black* | *Black Italic* |
+
+*Italics in that table are the same outlines shipped a second time under a bold name.*
+
+`TH Aeonik Black` and `TH Aeonik Thin` no longer exist. Their outlines ship as
+Medium's and Air's bold — `TH-Aeonik-MediumBold.otf` and `TH-Aeonik-AirBold.otf`.
+Black's Thai is identical to Bold's (both pinned to Bai's counter floor at 134.8);
+in the Latin it is 24% heavier, which is why it still ships.
+
+**SemiBold's Latin is synthetic.** CoType never drew an Aeonik SemiBold, so
+`scripts/build_aeonik_semibold.py` derives one from Medium. Every other Latin in
+this repo is CoType's own bytes. Both faces say so in `nameID5`. See §4c of
+`docs/THAI-LATIN-FONT-ENGINEERING.md` for what that costs.
+
+**Aeonik itself was deliberately left alone**, so bolding `Aeonik Light` in an
+English-only document still synthesises while `TH Aeonik Light` gets a real Medium.
+Siwatch's call, 2026-08-06 — the Latin is CoType's and this repo alters it only for
+Greek coverage.
 
 Bai Jamjuree ships 12 faces but only the ones named in
 `scripts/th_thai_prep.BUILD_TABLE` are used — **pairing is by measured stem, not by
@@ -90,9 +119,11 @@ document.
 
 What to install:
 
-- 14 from `aeonik/` — **over** the existing Aeonik. Same family name, so it *is*
+- **16** from `aeonik/` — **over** the existing Aeonik. Same family name, so it *is*
   Aeonik to Word; `nameID5` reads `Version 1.001; ICHITA Greek/math coverage`.
-- 14 from `th-aeonik/`
+- **20** from `th-aeonik/` — remove any installed `TH Aeonik Black` and
+  `TH Aeonik Thin` first, or the retired families stay in the dropdown alongside
+  their replacements
 - 4 from `th-slussen/`
 - `bai-jamjuree/` and `betatron/` if not already present
 

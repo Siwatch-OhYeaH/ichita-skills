@@ -94,7 +94,7 @@ never re-declare `@font-face`, colours or page geometry in a document.
 > rebuild/QC sequence. Six post-mortems and two plans were consolidated into it and moved
 > to `docs/archive/`; do not act on a conclusion from there without checking it first.
 
-The five things most likely to cost a day if you skip the document:
+The seven things most likely to cost a day if you skip the document:
 
 1. **Word on Windows is the acceptance renderer, not HarfBuzz.** Linux is structurally
    blind to the Uniscribe defects this project keeps hitting. `powershell.exe` from WSL
@@ -110,8 +110,19 @@ The five things most likely to cost a day if you skip the document:
    fixing it is what produced the 08-04 defect.
 4. **Rebuild every face from one code state**, copy to `~/.local/share/fonts/th-current/`,
    `fc-cache -f`, *then* run QC. Committed fonts disagree with the committed builder.
-   `qc_th_fonts.py` check 6 **fails on purpose** — expected state **19/20**.
-5. **Siwatch's visual defect reports are measurements to explain, not claims to verify.**
+   Expected state is **22/22** — check 6 stopped being red-on-purpose on 2026-08-06,
+   and the tolerance was not widened (§4b).
+5. **TH Aeonik ships 20 faces from 16 outline sets in 5 families**, and every family
+   holds a real bold so Word never synthesises one. `scripts/th_style_link.py` is the
+   sole authority on face naming. `TH Aeonik Black` and `TH Aeonik Thin` are retired
+   into Medium's and Air's bold slots. Aeonik (the Latin) keeps its own structure.
+   **A bold-slot face declares itself Bold in every field and drops nameID16/17** —
+   doing otherwise made `fc-match "TH Aeonik Air"` return the bold (§4b).
+6. **Aeonik SemiBold is synthetic** — CoType never drew one, so
+   `build_aeonik_semibold.py` derives it from Medium. It is the only Latin here that
+   is not CoType's bytes. Run it **before** the merge; it is a Latin source. §4c
+   records the two costs (approximate fit, counters 4% tighter than Bold).
+7. **Siwatch's visual defect reports are measurements to explain, not claims to verify.**
    Every one has been correct. **Never prescribe `fix-th-fonts.sh --apply-system
    --restart`** — he installs via Windows Settings; `--check` is a fine read-only report.
 
