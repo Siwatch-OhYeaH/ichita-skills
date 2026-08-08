@@ -19,6 +19,28 @@ in both upright and italic — 20 faces.
 † The Thai does not go below 200 — see limitations.
 ‡ Drawn at ~710 / ~720 rather than 800 / 900 — see limitations.
 
+Specimen sheets: [specimens/](specimens/) (`python3 scripts/make_specimens.py`).
+Measurements, defects found, and the reasoning behind the limits:
+[th-aeonik-findings.md](th-aeonik-findings.md).
+
+## Using the fonts in Word and PowerPoint
+
+**Pick the weight by name from the font dropdown and leave the B button off.**
+
+Only **TH Aeonik** has a real Bold — Regular and Bold 700 are style-linked as a
+RIBBI pair, so Ctrl+B there is correct. The other eight weights each form their
+own two-style family (Regular + Italic), so Ctrl+B finds no Bold slot and Word
+fakes one by smearing the outline. Italic is real everywhere.
+
+Want bold-looking text? Choose *TH Aeonik ExtraBold*; do not press Ctrl+B on
+*TH Aeonik Medium*. See
+[the Word specimen](specimens/word-bold-italic.png) and
+[findings §7](th-aeonik-findings.md#7-bold-and-italic-in-word--powerpoint) for
+the cause.
+
+InDesign, Illustrator and Figma read the typographic family names and show all
+ten weights under a single "TH Aeonik", so this does not apply there.
+
 ## Building
 
 ```sh
