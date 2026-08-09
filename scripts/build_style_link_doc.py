@@ -153,10 +153,10 @@ def main():
     _para(doc, "Read this page first. Every line must be visibly heavier than "
                "the one above it. Ten lines, ten weights.", CHROME_FONT, pt=9,
           space_after=2, colour=GREY)
-    _para(doc, "Before you start: Windows Settings > Fonts should show a card "
-               "called TH Aeonik listing all ten styles, plus one small card "
-               "called TH Aeonik Book holding its bold. Two cards, nothing "
-               "else. If you see a style called Air Bold, Light Bold, Medium "
+    _para(doc, "Before you start: Windows Settings > Fonts should show ONE card "
+               "called TH Aeonik listing ELEVEN styles — your ten weights plus "
+               "\"Book Bold\", which is what Ctrl+B on Book reaches. One card, "
+               "nothing else. If you see a style called Air Bold, Light Bold, Medium "
                "Bold or SemiBold Bold, the old faces were not removed before "
                "these went in — close Word, PowerPoint and Excel, delete every "
                "TH-Aeonik file, and install the twenty-two again.",

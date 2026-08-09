@@ -23,7 +23,7 @@ renderer reads which field, and roughly thirty defects not to repeat.
 | Directory | Contents | Status |
 |---|---|---|
 | `aeonik/` | Aeonik v1.001 = v1.000 + Greek/math, 14 faces + a **synthetic** SemiBold pair | **BUILT — install this. It is the only Aeonik here.** |
-| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, **22 faces**, ten weights, two Settings cards | **BUILT — install**; delete EVERY installed TH-Aeonik file first |
+| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, **22 faces**, ten weights, one Settings card | **BUILT — install**; delete EVERY installed TH-Aeonik file first |
 | `slussen/` | Slussen desktop, 4 faces | pristine source; incomplete (a 10-face set exists in an old `D:` build) |
 | `th-slussen/` | TH Slussen = Slussen + Bai Thai, 4 faces | **BUILT — install**; no documented brand role yet |
 | `aeonik-web/` | Aeonik v2.000 web cut, 6 faces | source for the Greek harvest **only** — box 1140, respaced digits, do not migrate to |
@@ -148,7 +148,7 @@ What to install:
   `-BookBold`, `-MediumBold`, `-SemiBoldBold` and their italics), so nothing
   overwrites them and they would sit in the font menu declaring weights that now
   belong to different outlines. Windows Settings should end up showing a card
-  called TH Aeonik with ten styles in it, plus a small TH Aeonik Book card
+  called TH Aeonik with ELEVEN styles in it — the ten weights plus "Book Bold"
 - 4 from `th-slussen/`
 - `bai-jamjuree/` and `betatron/` if not already present
 

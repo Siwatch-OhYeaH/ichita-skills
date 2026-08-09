@@ -115,8 +115,8 @@ Siwatch: *"I want one font deck for TH Aeonik that contains 10 font style with
 according weight for Latin"*, and after three structures were measured, *"my target is
 one card."*
 
-**22 files, 20 distinct outline sets, NINE `nameID1` families, TWO Settings cards** —
-one holding all ten styles, plus a small `TH Aeonik Book` card holding its bold.
+**22 files, 20 distinct outline sets, NINE `nameID1` families, ONE Settings card**
+listing eleven styles — the ten weights plus `Book Bold`, which is Book's bold slot.
 
 | `nameID1` (Word's dropdown) | weight | what Ctrl+B does |
 |---|---|---|
@@ -233,11 +233,24 @@ Regular -> Bold     85.9 -> 148.4 1.73x    76.2 -> 130.9  1.72x   the reference
 second name, so the ink IS Medium's — asserted by comparing charstrings after every
 write, not claimed.
 
-**It costs the second Settings card.** A duplicate cannot carry `nameID16` — two faces
-at one weight in the typographic family is what makes a weight query resolve to the
-wrong outlines — so it files under its own `nameID1` instead. Everything else stays
-Word's own behaviour: Medium's and SemiBold's Ctrl+B were measured with real bold slots
-on the same day at **26 files and 4 cards**, and left alone.
+**The second FILE is unavoidable; the second CARD is not.** OpenType style linking is
+per-file metadata — the bold of a family must be a file whose own `nameID1` names that
+family, and `TH-Aeonik-Medium.otf` already names `TH Aeonik Medium`. There is no
+pointer or alias mechanism in the format. Siwatch asked directly, 2026-08-09; the
+answer is the format's.
+
+A duplicate normally drops `nameID16` so it cannot collide with the real face at its
+weight, which files it under its own `nameID1` and opens a card. This one stays in the
+card and declares a weight **nothing else uses — 550, listed as `Book Bold`** — so the
+typographic family still holds exactly one face per weight. `fc_family_probe` returns
+zero faults: bare `TH Aeonik Book` still resolves to Book (fc 55, distance 25, against
+550's fc ~140, distance 60 — the same scoring that made rule 2 pin aliases at 700),
+`TH Aeonik Book:bold` reaches the copy, and all eleven weight queries hit their own
+file. Word is indifferent to the number; it links on `nameID1`/`nameID2` + `macStyle`.
+
+The card therefore lists **eleven styles, not ten**. That is the whole cost. Everything
+else stays Word's own behaviour: Medium's and SemiBold's Ctrl+B were built with real
+bold slots on the same day, measured at **26 files and 4 cards**, and reverted.
 
 The rule that fell out: **a real bold belongs where text is set and bolded, and
 nowhere else.** Two families qualify.
@@ -294,7 +307,8 @@ variant D                  24  1x20 + 2x2 = 3  2          clean        every fam
 bold slots (08-09 am)      20  1x20       = 1  1          clean        Light->ExtraBold, rejected
 Siwatch's Ctrl+B map       26  1x20 + 3x2 = 4  1          clean        Book/Medium/SemiBold real
 one card                   20  1x20       = 1  1          clean        Arial's structure
-SHIPPED                    22  1x20 + 1x2 = 2  1          clean        Arial + a real bold on Book
+Book bold, own card        22  1x20 + 1x2 = 2  1          clean        Arial + a real bold on Book
+SHIPPED                    22  1x22       = 1  1          clean        + Book Bold at 550, in the card
 ```
 
 #### Metadata — ICHITA internal, with the attribution intact
@@ -1290,8 +1304,8 @@ Other test-design failures, each of which shipped a defect:
 ## 13. Current state — 2026-08-09
 
 **Shipping:** **22** TH-Aeonik faces from **20** outline sets in **9** `nameID1`
-families, ten unique weights in TWO Windows Settings cards — one of ten styles plus a
-small `TH Aeonik Book` holding its bold (§1b) + 4 TH-Slussen + **20** Aeonik faces,
+families, ONE Windows Settings card listing eleven styles — the ten weights plus
+`Book Bold` 550, which is Book's bold slot (§1b) + 4 TH-Slussen + **20** Aeonik faces,
 all `.otf`/CFF. Aeonik carries **three** synthetic pairs, §4c — Book (350, thinned from
 Regular), SemiBold (600, grown from Medium) and ExtraBold (800, thinned from Black) —
 the only Latin here that is not CoType's drawing.
@@ -1315,7 +1329,7 @@ Two things this rebuild fixed that were not in the request:
 ```
 scripts/thai_line_pitch.py --check   OK — both families spare +75
 scripts/th_style_link.py --check     OK — 22 faces, 20 outline sets, 9 families,
-                                     two Settings cards, two real bold slots,
+                                     ONE Settings card, 11 styles, 2 real bolds,
                                      weights 100 200 300 350 400 500 600 700 800 900,
                                      no two faces sharing a (weight, slant). That last
                                      invariant is the whole point of the structure and

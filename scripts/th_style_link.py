@@ -312,7 +312,7 @@ FACES = {
 }
 
 
-def _alias(key, id1, source, italic=False):
+def _alias(key, id1, source, italic=False, weight=700, id16=None, id17=None):
     """A duplicate face whose only job is to fill another family's Bold slot.
 
     THREE OF THESE EXIST AND EACH ONE COSTS A SETTINGS CARD. That is the price
@@ -339,29 +339,47 @@ def _alias(key, id1, source, italic=False):
     bold bit, never on usWeightClass.
     """
     style = "Bold Italic" if italic else "Bold"
-    return _face(key=key, id1=id1, id2=style, id17=None, weight=700, panose=8,
-                 id16=None, source=source)
+    return _face(key=key, id1=id1, id2=style,
+                 id17=(id17 + " Italic") if (id17 and italic) else id17,
+                 weight=weight, panose=8, id16=id16, source=source)
 
 
-# ONE PAIR, and it is the body weight — Siwatch, 2026-08-09: "I want it's ctrl+b
-# become more weight, equal to TH aeonik medium for both latin and thai."
+# ONE PAIR, and it is the body weight — Siwatch, 2026-08-09: "only one font
+# face I want you to fix, TH Aeonik Book. I want it's ctrl+b become more weight,
+# equal to TH aeonik medium for both latin and thai."
 #
 # Book 350 is the body weight for Thai and mixed documents, so it is the one
 # family where Ctrl+B is exercised constantly. Left to Word it synthesises at
 # 1.29x Latin / 1.38x Thai, against a drawn bold's 1.73x. Pointed at Medium it
-# lands on 1.55x / 1.54x, and the ink is Medium's exactly because the file is a
-# byte-identical copy — asserted, not claimed.
+# lands on 1.55x / 1.54x, and the ink IS Medium's because the file is a
+# byte-identical copy — asserted by comparing charstrings, not claimed.
 #
-# THIS COSTS ONE SETTINGS CARD. A duplicate cannot carry nameID16 (two faces at
-# one weight in the typographic family is what makes a weight query resolve to
-# the wrong outlines), so it files under its own nameID1 instead: one card of
-# ten styles plus a small "TH Aeonik Book" card. Siwatch took that trade for
-# this face and no other — Medium's and SemiBold's Ctrl+B were measured at
-# 26 files / 4 cards on the same day and left as Word's own behaviour.
+# THERE IS NO WAY TO AVOID THE SECOND FILE. OpenType style linking is per-file
+# metadata: the bold of a family must be a file whose own nameID1 names that
+# family. TH-Aeonik-Medium.otf already names `TH Aeonik Medium`, and one file
+# carries one nameID1. Siwatch asked; the answer is the format's, not a choice.
+#
+# THE SECOND CARD IS AVOIDABLE, and this is how. A duplicate normally drops
+# nameID16 so it cannot collide with the real face at the same weight — which
+# files it under its own nameID1 and opens a card. Instead it stays in the card
+# and declares a weight NOTHING ELSE USES:
+#
+#   550, between Medium 500 and SemiBold 600, listed as "Book Bold"
+#
+# so the typographic family still holds exactly one face per weight, and the
+# card lists eleven styles instead of ten. Measured 2026-08-09,
+# fc_family_probe 0 faults: bare `TH Aeonik Book` still resolves to Book
+# (fc 55, distance 25, against 550's fc ~140, distance 60 — the reason rule 2
+# used to pin aliases at 700), `TH Aeonik Book:bold` reaches this file, and all
+# eleven weight queries hit their own file.
+#
+# Word is indifferent to the number: it links on nameID1/nameID2 + macStyle.
 ALIASES = {
-    "BookBold": _alias("BookBold", "TH Aeonik Book", "Medium"),
+    "BookBold": _alias("BookBold", "TH Aeonik Book", "Medium",
+                       weight=550, id16="TH Aeonik", id17="Book Bold"),
     "BookBoldItalic": _alias("BookBoldItalic", "TH Aeonik Book",
-                             "MediumItalic", italic=True),
+                             "MediumItalic", italic=True,
+                             weight=550, id16="TH Aeonik", id17="Book Bold"),
 }
 
 SHIPPED = {**FACES, **ALIASES}
@@ -806,14 +824,15 @@ def check(out_dir=OUTPUT_DIR, verbose=True):
                 print(f"  - {f}")
         else:
             ladder = " ".join(str(w) for w, i in sorted(slots) if not i)
-            cards = 1 + len({c["nameID1"] for c in ALIASES.values()})
+            # A face with nameID16 files under it; one without files under its
+            # own nameID1 and therefore opens a card of its own.
+            cards = len({c["nameID16"] or c["nameID1"] for c in SHIPPED.values()})
             bolds = sorted(f for f in families if f not in NO_BOLD_SLOT)
             print(f"OK — {len(SHIPPED)} shipped faces, {len(FACES)} outline "
                   f"sets, {len(families)} Word families")
-            print(f"     one Settings card, weights {ladder}"
-                  if cards == 1 else
-                  f"     {cards} Settings cards ({len(ALIASES)} aliases), "
-                  f"weights {ladder}")
+            styles = len([w for w, i in slots if not i])
+            print(f"     {'one Settings card' if cards == 1 else str(cards) + ' Settings cards'}"
+                  f", {styles} styles listed, weights {ladder}")
             print(f"     real bold: {', '.join(bolds)}  —  every other family "
                   f"is Word's own behaviour")
     return faults
