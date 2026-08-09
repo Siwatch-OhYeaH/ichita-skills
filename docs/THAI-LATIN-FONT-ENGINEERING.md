@@ -969,6 +969,11 @@ shrink fixed, Book's scale solves at exactly the nominal 0.9140, its Thai measur
 **Predict nothing here — measure the band.** Any future thinned weight does the same
 thing, and `restore_vertical()` handles it, but the check is what makes that true.
 
+The full post-mortem — the three falsified hypotheses, the experiment that settled it,
+and why every existing check was blind to it — is
+`docs/archive/2026-08-10-changeweight-vertical-inset.md`. This section is the distillate;
+that file is the trail.
+
 **2. `sxHeight` and `sCapHeight` are inherited and were lying.** Aeonik-Book shipped
 `sxHeight` 510 over ink topping out at 504. It did not show on SemiBold because
 emboldening happened to leave Medium's 512 intact — the kind of accident that keeps a

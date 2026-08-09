@@ -18,6 +18,7 @@ falsified — that is the main reason they are archived rather than deleted.
 | `2026-08-02-windows-font-install.md` | locked files, and three bugs in the fix | still accurate; distilled into §9 |
 | `2026-08-04-th-aeonik-latin-parity-and-line-pitch.md` | the format flip and `usWin` | **`usWin` claim later bounded** — it holds for CFF only |
 | `2026-08-05-th-aeonik-line-box-reversal-and-cross-platform.md` | the plan for the final reversal | executed |
+| `2026-08-10-changeweight-vertical-inset.md` | `changeWeight` insets every edge; the defect that shipped in Book | still accurate; distilled into §4c |
 | `2026-08-05-completion-and-cross-platform-acceptance.md` | what that execution found | contains the **macOS acceptance test**, which has not been run |
 
 Two specific traps for anyone reading these:
