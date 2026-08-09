@@ -44,16 +44,23 @@
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-SemiBoldItalic.otf')format('opentype'); font-weight: 600; font-style: italic; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Bold.otf')         format('opentype'); font-weight: 700; font-style: normal; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-BoldItalic.otf')   format('opentype'); font-weight: 700; font-style: italic; }
+/* 800 is SYNTHETIC too — thinned from Black, added 2026-08-09 to complete the
+   ten-weight ladder. Aeonik's own FAMILY structure is deliberately unchanged
+   (Siwatch, 2026-08-06 and again 08-09): this declares a weight by number, it
+   does not restructure a licensed vendor font. */
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-ExtraBold.otf')     format('opentype'); font-weight: 800; font-style: normal; }
+@font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-ExtraBoldItalic.otf')format('opentype'); font-weight: 800; font-style: italic; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-Black.otf')        format('opentype'); font-weight: 900; font-style: normal; }
 @font-face { font-family: 'Aeonik'; src: url('../fonts/aeonik/Aeonik-BlackItalic.otf')  format('opentype'); font-weight: 900; font-style: italic; }
 
 /* -- TH Aeonik — Aeonik Latin + Bai Thai. Thai or mixed. Line box 1537. ---- */
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Air.otf')          format('opentype'); font-weight: 100; font-style: normal; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-AirItalic.otf')    format('opentype'); font-weight: 100; font-style: italic; }
-/* The 200 weight is filed as AirBold since 2026-08-07 — the Thin FAMILY was
-   retired (Air's bold already is Thin), the outlines were not. */
-@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-AirBold.otf')       format('opentype'); font-weight: 200; font-style: normal; }
-@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-AirBoldItalic.otf') format('opentype'); font-weight: 200; font-style: italic; }
+/* Thin is a style in its own right again as of 2026-08-09, so the file is
+   named for the weight it carries. It was filed as AirBold from 08-07 while it
+   served as Air's bold slot. */
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Thin.otf')          format('opentype'); font-weight: 200; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-ThinItalic.otf')    format('opentype'); font-weight: 200; font-style: italic; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Light.otf')        format('opentype'); font-weight: 300; font-style: normal; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-LightItalic.otf')  format('opentype'); font-weight: 300; font-style: italic; }
 /* Book, weight 350. Synthetic Latin, and the one weight defined from the Thai:
@@ -69,19 +76,19 @@
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-SemiBoldItalic.otf') format('opentype'); font-weight: 600; font-style: italic; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Bold.otf')         format('opentype'); font-weight: 700; font-style: normal; }
 @font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-BoldItalic.otf')   format('opentype'); font-weight: 700; font-style: italic; }
-/* The 900 weight is named "Medium Bold" since 2026-08-06 — it ships as TH Aeonik
-   Medium's bold rather than as a face called Black. Same outlines, and a browser
-   addresses it by number, so nothing here changes but the filename.
-
-   Every weight 100–900 is declared exactly once above. The four style-link
-   DUPLICATES in that directory (-LightBold, -SemiBoldBold and their italics)
-   are deliberately NOT declared: they are byte-identical copies of Medium and
-   MediumBold that exist so Word never synthesises a bold, and a second face at
-   the same weight would only make the CSS match ambiguous. Promoted faces are
-   different — AirBold (200) and MediumBold (900) carry outlines nothing else
-   ships, so they ARE declared, at their true weight. */
-@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-MediumBold.otf')       format('opentype'); font-weight: 900; font-style: normal; }
-@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-MediumBoldItalic.otf') format('opentype'); font-weight: 900; font-style: italic; }
+/* 800 — ExtraBold. Its Thai is on Bai Jamjuree's aperture ceiling, so 700, 800
+   and 900 separate ~2.3% in the Thai against ~11% in the Latin. Use 800 where
+   the line is Latin-dominant; in a Thai-dominant heading it will not read as a
+   step above 700. Measured, accepted, and recorded in §1b. */
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-ExtraBold.otf')       format('opentype'); font-weight: 800; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-ExtraBoldItalic.otf') format('opentype'); font-weight: 800; font-style: italic; }
+/* Every one of the ten weights is declared exactly once, from a file named for
+   the weight it carries. That became true on 2026-08-09: until then six of the
+   24 shipped faces were duplicate outlines filling a bold slot, and this block
+   had to explain which ones were deliberately NOT declared so the CSS match
+   stayed unambiguous. There are no duplicates left to exclude. */
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-Black.otf')       format('opentype'); font-weight: 900; font-style: normal; }
+@font-face { font-family: 'TH Aeonik'; src: url('../fonts/th-aeonik/TH-Aeonik-BlackItalic.otf') format('opentype'); font-weight: 900; font-style: italic; }
 
 /* -- Betatron — display numerals ONLY. Never body text, labels or sentences. */
 @font-face { font-family: 'Betatron'; src: url('../fonts/betatron/Betatron-Regular.otf') format('opentype'); font-weight: 400; font-style: normal; }

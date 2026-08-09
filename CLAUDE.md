@@ -113,18 +113,25 @@ The seven things most likely to cost a day if you skip the document:
    `fc-cache -f`, *then* run QC. Committed fonts disagree with the committed builder.
    Expected state is **22/22** — check 6 stopped being red-on-purpose on 2026-08-06,
    and the tolerance was not widened (§4b).
-5. **TH Aeonik ships 24 faces from 18 outline sets in 6 families**, and every family
-   holds a real bold so Word never synthesises one. `scripts/th_style_link.py` is the
-   sole authority on face naming. `TH Aeonik Black` and `TH Aeonik Thin` are retired
-   into Medium's and Air's bold slots. Aeonik (the Latin) keeps its own structure.
-   **A bold-slot face declares itself Bold in every field and drops nameID16/17** —
-   doing otherwise made `fc-match "TH Aeonik Air"` return the bold (§4b).
-6. **Aeonik SemiBold (600) and Book (350) are synthetic** — CoType drew neither, and
-   Aeonik is not interpolatable in ANY adjacent pair (184-197 of 657 glyphs, digits
-   included), so `build_aeonik_semibold.py` derives both with `changeWeight`. They are
-   the only Latin here that is not CoType's bytes. Run it **before** the merge; it is a
-   Latin source. §4c records the costs. Direction matters: growing spends counter,
-   thinning opens it but **shrinks the x-height**, which the merge scales Thai to.
+5. **TH Aeonik ships 20 faces from 20 outline sets in 6 families — ten unique weights
+   in one Windows Settings card.** `scripts/th_style_link.py` is the sole authority on
+   face naming, and its `--check` asserts the invariant the structure rests on: **no
+   two shipped faces share a (usWeightClass, slant)**. There are no duplicate outlines
+   and no bold slot declaring a weight it is not. **`TH Aeonik Air` and `TH Aeonik
+   Thin` hold no bold slot on purpose** — Word synthesises theirs, which is safe only
+   because their counter aperture is 113.3 and 97.7 against a floor of 46.5. Giving Air
+   a bold is what made `fc-match "TH Aeonik Air"` return the bold, +199% ink (§1b).
+   Aeonik (the Latin) keeps its own structure, deliberately.
+6. **Aeonik Book (350), SemiBold (600) and ExtraBold (800) are synthetic** — CoType
+   drew none of them, and Aeonik is not interpolatable in ANY adjacent pair (172-197 of
+   657 glyphs, digits included), so `build_aeonik_semibold.py` derives all three with
+   `changeWeight`. They are the only Latin here that is not CoType's bytes. Run it
+   **before** the merge; it is a Latin source. §4c records the costs. Direction
+   matters: growing spends counter, thinning opens it — so thin from the heavier
+   neighbour where you can. **`changeWeight` insets every edge**, so a thinned face
+   comes out short and lifted off the baseline; `restore_vertical()` corrects it and
+   `--check` measures the band against the base. Do not re-target a weight to
+   compensate for a shrink — that is what shipped Book 2.7% short for two days.
 7. **Siwatch's visual defect reports are measurements to explain, not claims to verify.**
    Every one has been correct. **Never prescribe `fix-th-fonts.sh --apply-system
    --restart`** — he installs via Windows Settings; `--check` is a fine read-only report.

@@ -23,7 +23,7 @@ renderer reads which field, and roughly thirty defects not to repeat.
 | Directory | Contents | Status |
 |---|---|---|
 | `aeonik/` | Aeonik v1.001 = v1.000 + Greek/math, 14 faces + a **synthetic** SemiBold pair | **BUILT — install this. It is the only Aeonik here.** |
-| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, **24 faces** from 18 outline sets | **BUILT — install**; uninstall `TH Aeonik Black` and `TH Aeonik Thin` first |
+| `th-aeonik/` | TH Aeonik = Aeonik Latin + Bai Thai, **20 faces**, ten weights, one Settings card | **BUILT — install**; delete EVERY installed TH-Aeonik file first |
 | `slussen/` | Slussen desktop, 4 faces | pristine source; incomplete (a 10-face set exists in an old `D:` build) |
 | `th-slussen/` | TH Slussen = Slussen + Bai Thai, 4 faces | **BUILT — install**; no documented brand role yet |
 | `aeonik-web/` | Aeonik v2.000 web cut, 6 faces | source for the Greek harvest **only** — box 1140, respaced digits, do not migrate to |
@@ -58,38 +58,55 @@ renders the Latin 16–20% lighter through a different rasteriser.
 
 ### Weights
 
-Aeonik, 14 faces: Air, Thin, Light, Regular, Medium, Bold, Black, plus an italic of
-each. TH Slussen, 4 faces: Regular, Medium, SemiBold, Bold. Betatron is Regular only.
+Aeonik, 20 faces: Air 100, Thin 200, Light 300, Book 350, Regular 400, Medium 500,
+SemiBold 600, Bold 700, ExtraBold 800, Black 900, plus an italic of each. TH Slussen,
+4 faces: Regular, Medium, SemiBold, Bold. Betatron is Regular only.
 
-**TH Aeonik ships 24 faces from 18 outline sets**, and its family structure
-diverged from Aeonik's on 2026-08-06. Every family now holds a real bold, because the
-alternative is Word synthesising one — a double-strike, which spends the counter
-aperture that keeps ฃ ธ ฮ open at text sizes.
+**TH Aeonik ships 20 faces from 20 outline sets — ten unique weights, one Windows
+Settings card.** Every face carries `nameID16 = "TH Aeonik"` with a distinct
+`nameID17`, and its own true `usWeightClass`. There are no duplicate outlines: the six
+faces that used to exist only to fill a bold slot were replaced by weights somebody
+drew (Siwatch, 2026-08-09).
+
+Word's dropdown lists `nameID1` families, and a family holds four slots, so **ten
+weights are reached through six names**:
 
 | Family in Word | Regular | Italic | Bold | Bold Italic |
 |---|---|---|---|---|
-| `TH Aeonik Air` | Air | Air Italic | Thin | Thin Italic |
-| `TH Aeonik Light` | Light | Light Italic | *Medium* | *Medium Italic* |
-| `TH Aeonik` | Regular | Italic | Bold | Bold Italic |
-| `TH Aeonik Medium` | Medium | Medium Italic | Black | Black Italic |
-| `TH Aeonik SemiBold` | SemiBold | SemiBold Italic | *Black* | *Black Italic* |
+| `TH Aeonik Air` | Air 100 | Air Italic | *none — Word synthesises* | *none* |
+| `TH Aeonik Thin` | Thin 200 | Thin Italic | *none — Word synthesises* | *none* |
+| `TH Aeonik Light` | Light 300 | Light Italic | ExtraBold 800 | ExtraBold Italic |
+| `TH Aeonik Book` | Book 350 | Book Italic | SemiBold 600 | SemiBold Italic |
+| `TH Aeonik` | Regular 400 | Italic | Bold 700 | Bold Italic |
+| `TH Aeonik Medium` | Medium 500 | Medium Italic | Black 900 | Black Italic |
 
-*Italics in that table are the same outlines shipped a second time under a bold name.*
+**Air and Thin have no bold on purpose.** Synthetic bold double-strikes the outline,
+which spends the counter aperture that keeps ฃ ธ ฮ open — but those two measure 113.3
+and 97.7 against a floor of 46.5, so they are the only weights in the family that can
+afford it. Giving Air a real bold is what made `fc-match "TH Aeonik Air"` return the
+bold instead (+199% ink), and that is what forced six Settings cards until 08-09.
 
-`TH Aeonik Black` and `TH Aeonik Thin` no longer exist. Their outlines ship as
-Medium's and Air's bold — `TH-Aeonik-MediumBold.otf` and `TH-Aeonik-AirBold.otf`.
-Black's Thai is identical to Bold's (both pinned to Bai's counter floor at 134.8);
-in the Latin it is 24% heavier, which is why it still ships.
+**Light bolds heavier than Book does**, which reads backwards and is deliberate: Book
+350 is the body weight for Thai and mixed text, so Ctrl+B on body copy has to land near
+Regular's own 1.73x. Light is a display weight almost nothing bolds.
 
-**SemiBold's Latin is synthetic.** CoType never drew an Aeonik SemiBold, so
-`scripts/build_aeonik_semibold.py` derives one from Medium. Every other Latin in
-this repo is CoType's own bytes. Both faces say so in `nameID5`. See §4c of
+**Bold, ExtraBold and Black share one Thai colour.** Bai Jamjuree Bold is the heaviest
+Thai available and all three are it, at three embolden amounts; they separate ~2.3% in
+the Thai against ~11% in the Latin. Documented cap, accepted explicitly — not a defect.
+
+**Three Latin weights are synthetic.** CoType never drew Book 350, SemiBold 600 or
+ExtraBold 800, so `scripts/build_aeonik_semibold.py` derives them. Every other Latin in
+this repo is CoType's own bytes, and all six faces say so in `nameID5`. See §4c of
 `docs/THAI-LATIN-FONT-ENGINEERING.md` for what that costs.
 
 **Aeonik itself was deliberately left alone**, so bolding `Aeonik Light` in an
-English-only document still synthesises while `TH Aeonik Light` gets a real Medium.
-Siwatch's call, 2026-08-06 — the Latin is CoType's and this repo alters it only for
-Greek coverage.
+English-only document still synthesises while `TH Aeonik Light` gets a real ExtraBold.
+Siwatch's call, 2026-08-06 and again 2026-08-09 — the Latin is CoType's and this repo
+alters it only for Greek coverage and the three weights above.
+
+**These fonts are INTERNAL.** `NOTICE.txt` and `OFL.txt` ship beside them. They may be
+installed and embedded; they may not be handed to anyone outside ICHITA, because OFL
+1.1 clause 5 and the Aeonik EULA cannot both be satisfied by one file.
 
 Bai Jamjuree ships 12 faces but only the ones named in
 `scripts/th_thai_prep.BUILD_TABLE` are used — **pairing is by measured stem, not by
@@ -119,11 +136,14 @@ document.
 
 What to install:
 
-- **16** from `aeonik/` — **over** the existing Aeonik. Same family name, so it *is*
+- **20** from `aeonik/` — **over** the existing Aeonik. Same family name, so it *is*
   Aeonik to Word; `nameID5` reads `Version 1.001; ICHITA Greek/math coverage`.
-- **20** from `th-aeonik/` — remove any installed `TH Aeonik Black` and
-  `TH Aeonik Thin` first, or the retired families stay in the dropdown alongside
-  their replacements
+- **20** from `th-aeonik/` — **delete every installed TH-Aeonik file first.** Six
+  filenames from the previous structure no longer exist (`-AirBold`, `-LightBold`,
+  `-BookBold`, `-MediumBold`, `-SemiBoldBold` and their italics), so nothing
+  overwrites them and they would sit in the font menu declaring weights that now
+  belong to different outlines. Windows Settings should end up showing ONE card
+  called TH Aeonik with ten styles in it
 - 4 from `th-slussen/`
 - `bai-jamjuree/` and `betatron/` if not already present
 

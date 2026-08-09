@@ -81,11 +81,13 @@ Aeonik" and "keeps two Thai lines apart" are not jointly satisfiable. Three atte
 
 ---
 
-## 1b. The final family list — Siwatch, 2026-08-07
+## 1b. The shipped family list — ten weights, one card (2026-08-09)
 
-Given after a full manual QC pass. **Nothing below is built yet**; §4b/§4c describe what
-is currently on disk, which this supersedes. Two items must be resolved first — see
-the end of this section.
+**This section is the current structure and it is BUILT.** §4b and §4c describe how the
+faces are made and record two earlier structures that this supersedes — read them for
+the reasoning, not for what ships. The face table below and `scripts/th_style_link.py`
+are the only two places that say what ships, and they are checked against each other
+every run.
 
 ### Approved sources
 
@@ -107,153 +109,152 @@ Thai   ก น ล บ ร ข ง ม อ แ า พ ห ย
 
 Line spacing for Thai stays **~15xx**, not the 1200 that Latin alone needs.
 
-### The families
+### The families — TEN WEIGHTS, ONE CARD (Siwatch, 2026-08-09; BUILT)
 
-| Family | Latin | Thai | Bold slot |
+Siwatch: *"I want one font deck for TH Aeonik that contains 10 font style with
+according weight for Latin ... and build the thai font accordingly - follows the latin
+one ... I know thai font has limitation for heavier size, so just let it gradually and
+maximum at black."*
+
+**20 files, 20 distinct outline sets, six `nameID1` families, one `nameID16`.**
+
+| `nameID1` (Word's dropdown) | Regular slot | Bold slot | in the Settings card as |
 |---|---|---|---|
-| `TH Aeonik Air` | Aeonik Air | as current | **Thin** — so Thin is retired |
-| `TH Aeonik Light` | strictly Aeonik Light | as current | built Aeonik **Medium** |
-| `TH Aeonik Book` **(new)** | **synthetic**, thinned from Regular to stem 71.9 | **Bai Regular undistorted** | built Aeonik **Medium** |
-| `TH Aeonik` | strictly Aeonik Regular/Bold + italics | Bai at `WEIGHT_RATIO` of the Latin | Aeonik Bold |
-| `TH Aeonik Medium` | as current | as current | **Black** thickness |
-| `TH Aeonik SemiBold` | **synthetic**, grown from Medium | Bai Bold thinned | **Black** thickness |
+| `TH Aeonik Air` | Air 100 | *none — synthesised* | Air |
+| `TH Aeonik Thin` | Thin 200 | *none — synthesised* | Thin |
+| `TH Aeonik Light` | Light 300 | ExtraBold 800 | Light, ExtraBold |
+| `TH Aeonik Book` | Book 350 | SemiBold 600 | Book, SemiBold |
+| `TH Aeonik` | Regular 400 | Bold 700 | Regular, Bold |
+| `TH Aeonik Medium` | Medium 500 | Black 900 | Medium, Black |
 
-**BUILT 2026-08-07. 24 shipped faces, 18 outline sets, 6 families**, every family
-holding a real bold. QC 22/22, `th_style_link --check`, `verify-fonts`,
-`build_aeonik_semibold --check` all green.
+Every face carries `nameID16 = "TH Aeonik"`, a distinct `nameID17`, and its own true
+`usWeightClass`. `scripts/th_style_link.py` is the sole authority and its `--check`
+now asserts the invariant the whole structure rests on: **no two shipped faces share a
+(`usWeightClass`, slant)**.
 
-### APPROVED, NOT YET BUILT — twelve unique weights, one card (Siwatch, 2026-08-07)
+**Measured 2026-08-09 on the built fonts.** `fc_family_probe.py` returns **zero
+faults** — 12 bare family queries (six families x roman/italic), 8 `family:bold`
+queries, 20 `TH Aeonik:weight=N` queries. `qc_th_fonts.py` 22/22.
+`build_aeonik_semibold.py --check` green on all three ladders. The rendered
+acceptance sheet embeds all 20 faces under their own names, which is the check that
+caught the 08-07 defect (`TH-Aeonik-Air` embedded nowhere).
 
-Siwatch: *"I want easy installation and management where one card should be enough, and I
-don't accept defect you show, except we build more font to cover all."* Then, on the table
-below: *"I buy this twelve unique weights."*
+#### Why Air and Thin hold no bold slot
 
-**Why the current 24 cannot be one card.** A typographic family resolves correctly only
-while every member holds a unique (weight, slant). The 14 faces that already share
-`nameID16 = "TH Aeonik"` do — 100/300/350/400/500/600/700 plus italics — which is why that
-card has never misbehaved. The 10 bold-slot faces are **the same outlines shipped again
-under a second name**, because Light and Book bold to Medium and Medium and SemiBold bold
-to Black. Put them in the family and three faces claim weight 500 and two claim 900.
+This is the decision that made one card possible, after the twelve-weight plan proved
+it impossible. An unqualified fontconfig query defaults to fc 80 and the nearest
+member of the `nameID1` family wins, so a family's plain face resolves only while it
+sits closer to 80 than its own bold. Air is fc 0, distance 80; to beat that its bold
+would need fc above 160, i.e. weight 600 or heavier — a jump from stem 7.8 to 130.9,
+which is not a bold, it is a different typeface. Pairing Air with Thin was measured on
+2026-08-07: bare `TH Aeonik Air` resolved to Thin, **+199.3% ink**.
 
-Measured 2026-08-07 with isolated fontconfig trees (`fc-match` + WeasyPrint renders):
+So Air and Thin stand alone and Word synthesises their bold. §4b calls synthetic bold
+the worst thing that can happen to this typeface, because double-striking spends
+counter aperture and below ~47 units a Thai counter fills under any rasteriser. **That
+reason does not reach these two:**
 
-```
-variant                          fc-match "TH Aeonik:bold"   bare "TH Aeonik Air/Light/Book"
-today (bold slots, no ID16)      Bold            OK          Air / Light / Book      OK
-one card, bold slots at 700      AirBold      BROKEN         Air / Light / Book      OK
-one card, bold slots true wt     Bold            OK          their BOLDs          BROKEN
-six cards (no ID16 anywhere)     Bold            OK          Air / Light / Book      OK
-```
+| face | counter aperture | `APERTURE_FLOOR` |
+|---|---|---|
+| Air | 113.3 | 46.5 |
+| Thin | 97.7 | 46.5 |
+| Bold | 50.8 | 46.5 — *why the rule exists* |
 
-At 700 the bold line renders LIGHTER than body text — Thin outlines, stem 20 against 148.
+They are the only two weights in the family where synthesis costs nothing. The
+exemption is asserted in both directions, so a third family losing its bold fails and
+so does one of these gaining one.
 
-**The fix is to stop shipping duplicates.** Every bold slot becomes a real weight:
+#### Why Light bolds heavier than Book does
 
-| family | regular | its bold | source |
-|---|---|---|---|
-| TH Aeonik Air | 100 | 200 | Thin — exists |
-| TH Aeonik Light | 300 | **450** | new |
-| TH Aeonik Book | 350 | **550** | new |
-| TH Aeonik | 400 | 700 | Bold — exists |
-| TH Aeonik Medium | 500 | **800** | new |
-| TH Aeonik SemiBold | 600 | 900 | Black — exists |
+Light's bold is ExtraBold 800 and Book's is SemiBold 600, which reads backwards in the
+table and is deliberate. fontconfig only requires each of their bolds to come from
+{600, 800}; which gets which is a design choice, and Book 350 is the body weight for
+Thai and mixed documents:
 
-Twelve unique weights, still **24 files** — the six alias faces (`LightBold`,
-`BookBold`, `SemiBoldBold` + italics) are REPLACED, not supplemented. Every face then
-carries `nameID16 = "TH Aeonik"` with a distinct `nameID17`, and its own true
-`usWeightClass`. Keep `nameID1`/`nameID2`/`macStyle` as they are — that is what Word's
-Ctrl+B links on, and it is independent of all of this.
+| pair | Latin | Thai |
+|---|---|---|
+| Regular 400 -> Bold 700 *(the reference)* | 85.9 -> 148.4, **1.73x** | 76.2 -> 130.9, **1.72x** |
+| Book 350 -> SemiBold 600 | 74.2 -> 130.9, **1.76x** | 66.4 -> 118.2, **1.78x** |
+| Book 350 -> ExtraBold 800 | 74.2 -> 166.0, 2.24x | rejected |
+| Light 300 -> ExtraBold 800 | 52.7 -> 166.0, 3.15x | display weight, almost never bolded |
 
-Light's bold lands at 450 rather than exactly Medium, and Medium's at 800 rather than
-exactly Black. That deviation from the 08-06 spec is the price of uniqueness and Siwatch
-accepted it explicitly.
+Ctrl+B on body copy has to land near the reference. The odd-looking rung goes where
+nothing exercises it.
 
-#### THE RISK, MEASURED — it reproduces, and it is structural
+#### The top of the ladder is one Thai weight and three Latin weights
 
-Tested 2026-08-07 before drawing a single outline: the 24 shipped faces were copied to a
-scratch tree with nothing changed but `usWeightClass` and `nameID16`/`nameID17`, then
-matched against an isolated fontconfig tree. Weights alone decide this, so no new Latin was
-needed.
-
-`scripts/fc_family_probe.py` is that test, kept. It asks three questions of any directory
-of faces — bare `nameID1`, `nameID1:bold`, and `nameID16:weight=N` for every weight present
-— and **derives the expected answer from the fonts themselves**, so it works against a
-structure it has never seen. `th_style_link.py --check` verifies the fields; this verifies
-what a matcher does with them, and both of the one-card defects were invisible to the first.
-It passes on the shipped tree and fails on the twelve-weight tree with exactly the two
-faults below, which is the evidence that it can actually see the thing.
-
-    python3 scripts/fc_family_probe.py --render test-output/one-card-today.png
-
-**Everything the change exists for works.** All 24 faces take a distinct (fc weight, slant).
-All twelve per-weight queries on family `TH Aeonik` hit their own file — fc 0/40/50/55/80/
-90/100/140/180/200/205/210 → Air/Thin/Light/Book/Regular/LightBold/Medium/BookBold/SemiBold/
-Bold/MediumBold/Black. All six `sub-family:bold` queries hit their own bold. The
-bold-renders-hairline defect of row 2 is gone.
-
-**Two of the six bare sub-family queries break, exactly as predicted:**
+Bai Jamjuree Bold is the heaviest Thai this family has, and 2026-08-04 measured every
+heavier Thai on the machine to confirm none buys stem without going under
+`APERTURE_FLOOR`. So Bold, ExtraBold and Black are all Bai Bold at three embolden
+amounts, and the whole ladder above 700 lives in 5.8 units of Thai:
 
 ```
-bare query            today          twelve weights        ink change (measured)
-TH Aeonik             Regular   OK   Regular         OK     +0.0%
-TH Aeonik Air         Air       OK   AirBold     BROKEN   +199.3%
-TH Aeonik Light       Light     OK   LightBold   BROKEN    +92.5%
-TH Aeonik Book        Book      OK   Book            OK     +0.0%
-TH Aeonik Medium      Medium    OK   Medium          OK     +0.0%
-TH Aeonik SemiBold    SemiBold  OK   SemiBold        OK     +0.0%
+            Latin              Thai            aperture
+Bold  700   148.4              130.9              50.8
+ExtraBold   166.0  +11.8%      134.8   +3.0%      46.9   ON THE FLOOR
+Black 900   183.6  +10.6%      136.7   +1.4%      46.9   ON THE FLOOR
 ```
 
-Rendered side by side in `test-output/one-card-bare-query.png` (also
-`one-card-today.png` and `one-card-twelve-weights.png` separately). Light is the loud one:
-it sets as heavy as Medium, sitting directly above a *lighter* Book line.
+`WEIGHT_RATIO[800]` is **.806, not the .8175 the ratio ladder interpolates to**.
+Interpolating puts the Thai at 135.7, one unit under Black — half a probe step, so the
+two would measure as one weight and could invert on rounding. .806 splits the
+available range evenly at 133.8 instead, ~1.5 probe steps per rung. That is the most
+gradual ladder the source admits, which is what "just let it gradually and maximum at
+black" asks for. **The top three still read as one Thai colour and three Latin
+colours. Accepted, measured, not a defect to re-open.**
 
-**It cannot be tuned away, and the proof needs no measurement.** An unqualified query
-defaults to fc 80, and within one `nameID1` family the nearest member wins. So a family's
-plain face resolves only while it is closer to fc 80 than its own bold slot:
+QC check 6 was rewritten for this. It used to carry a `LADDER_EXCLUDE` list that
+dropped Black from the ladder entirely to stay green — asserting the defect. The rule
+is now stated properly: a pair may fail the separation bar **only if the heavier face
+is measured against `APERTURE_FLOOR`**, and check 12 then requires that pair to
+separate in the Latin. "Bai has run out" is a number the shipped font proves every
+run, not a name on an exclusion list.
 
-* **Air.** Its bold is by construction the second-lightest ink in the whole typeface, so an
-  ink-ordered ladder must give it the second-lowest weight. To beat Air (fc 0, distance 80)
-  it would instead need fc > 160 — above ten of the twelve. Contradiction.
-* **Light.** Its bold is thinned from Medium and lands between Regular and Medium in ink, so
-  the ladder must declare it 400–500, i.e. fc 80–100, distance ≤ 20. Light (fc 50) is 30
-  away. Contradiction.
+#### What this replaced, and why the twelve-weight plan was abandoned
 
-Both survive any reshuffle that keeps the declared ladder ordered by ink. Breaking that
-order is the only escape and it is a worse defect: `TH Aeonik` at weight 580 would render
-the second-lightest face in the family. **Do not do it.**
+Approved 2026-08-07, measured 2026-08-08, **abandoned**: twelve weights in one card
+put Light's bold at 450 and Air's at 200, and two of the six bare sub-family queries
+broke — `TH Aeonik Air` -> AirBold +199.3%, `TH Aeonik Light` -> LightBold +92.5%. It
+was structural, not a tuning error: within one `nameID1` family the plain face
+resolves only while it is closer to fc 80 than its bold, and both of those families
+had a bold by construction lighter than fc 160. Variant D (three cards, zero faults)
+was offered as the middle option.
 
-**Blast radius.** fontconfig only — Pango, WeasyPrint, LibreOffice. Not Windows: GDI and
-DirectWrite match `nameID1` + the `macStyle` bold bit, so Word's dropdown and Ctrl+B never
-see this. Not ICHITA's HTML/PDF path either: `ichita.css` declares `@font-face` by file path
-with an explicit `font-weight`, which is the per-weight query, and that is green. What *is*
-exposed is `soffice`, the DOCX→PDF delivery engine (`skills/ichita-convert`), rendering a
-document whose runs name `TH Aeonik Light` or `TH Aeonik Air` — which is exactly what Word
-writes when you pick those out of the font dropdown. Our own QC documents do it too
-(`build_th_font_qc.py`, `qc_check_th_font_doc.py`).
-
-#### The middle option — three cards, no defect (variant D, measured clean)
-
-Only Air and Light break, so only Air's and Light's bold slots need the old treatment.
-Give the other four their true weights and put them in `nameID16 = "TH Aeonik"`; leave
-`AirBold`/`LightBold` (+italics) out of the typographic family and declaring 700, which is
-today's rule 2. Measured 2026-08-07 — `fc_family_probe.py` returns **zero faults**: all six
-bare queries, all six bolds, all twenty in-family weights.
+Siwatch chose neither. The ten-weight ladder dissolves the conflict instead of trading
+around it, because dropping the bold slot is available once Thin is a weight in its
+own right. It is also **cheaper**: one new Latin instead of three, and 20 files
+instead of 24.
 
 ```
-                        Settings cards          new Latin weights   bare query
-today                   1 x 14 + 5 x 2 = 6      —                   clean
-twelve weights          1 x 24         = 1      3 (450, 550, 800)   Air + Light BROKEN
-variant D               1 x 20 + 2 x 2 = 3      2 (550, 800)        clean
+                        Settings cards      new Latin weights   bare query
+before (08-07)          1 x 14 + 5 x 2 = 6  —                   clean
+twelve weights          1 x 24         = 1  3 (450, 550, 800)   Air + Light BROKEN
+variant D               1 x 20 + 2 x 2 = 3  2 (550, 800)        clean
+TEN WEIGHTS (shipped)   1 x 20         = 1  1 (800)             clean
 ```
 
-D costs one fewer synthetic Latin than the full plan: `LightBold` no longer needs its own
-outline, because outside the family it may keep Medium's — which is what Siwatch approved
-on 08-06 anyway. `BookBold` (550) and `MediumBold` (800) still need real outlines, or
-`TH Aeonik` at 500/550 and at 800/900 would render identical ink, which is the duplicate
-problem this whole change exists to remove.
+#### Metadata — ICHITA internal, with the attribution intact
 
-**Status: reported to Siwatch, awaiting his call.** One card and a correct bare sub-family
-query are mutually exclusive for the two lightest families. Nothing is built yet.
+Siwatch, 2026-08-09: *"modify to mark all ID as ICHITA internal use, so it not get
+confuse."* Nine identity fields say ICHITA. `nameID0` does not, and that is the same
+decision rather than an exception to it: it carries CoType's copyright, Bai
+Jamjuree's notice verbatim as SIL OFL 1.1 clause 2 asks, and ICHITA's copyright on the
+build. Writing ICHITA over that field would assert ownership of outlines we did not
+draw. `nameID13` pointed at This Is Our Shop's EULA for nine builds — for a font that
+is half OFL — and `nameID9` credited CoType's designers as the designers of our merged
+font, which OFL clause 4 specifically discourages.
+
+`nameID5` is `Version 1.000; build YYYY-MM-DD` — 1.000 because TH Aeonik has never
+shipped, and the build date because every face read a bare `Version 1.000` across nine
+rebuilds, which is why a stale install has twice been reported as a font defect. The
+date is derived at build time rather than pinned to a constant somebody forgets to
+bump, so `--check` asserts the shape and reports the date.
+
+`OFL.txt` and `NOTICE.txt` now travel with the fonts. **Redistribution is held**: OFL
+clause 5 requires a modified version to be distributed entirely under OFL, and the
+Aeonik component is under a commercial licence that cannot allow it. One file cannot
+satisfy both. Installing and embedding are use, not redistribution, and OFL permits
+embedding explicitly — handing anyone the `.otf` files is the thing that is held.
 
 ### The two blockers, resolved
 
@@ -317,8 +318,17 @@ them; Regular→Medium 172; Medium→Bold 197. So Book is synthesised like SemiB
 counters, so the Light→Book→Regular→Medium counter ladder is monotonic by construction and
 needs no `COUNTER_INVERSION_MAX` bound.
 
-Shipped: Latin 72.3, Thai 64.0, ratio .885 against a .8975 target — **−0.9 units, tighter
-than Regular's own**.
+**Shipped 2026-08-09: Latin 74.2, Thai 66.4, ratio .895 against a .8975 target — −0.2
+units, the tightest face in the family.** Those are the numbers the weight was
+*defined* by: Bai Regular undistorted normalises to Thai stem 66.4, and
+`WEIGHT_RATIO[350]` = .8975 pins the Latin at 66.4/.8975 = 74.0.
+
+It did not measure that way on 2026-08-07. The first build came out Latin 72.3, Thai
+64.0, and **the Latin target was lowered from 74.0 to 71.9 to keep the ratio** — which
+treated a symptom. The Thai was short because `changeWeight` had shrunk Book's Latin
+x-height to 496 against Regular's 510, and the merge scales the Thai to the Latin's
+x-height. See §4c: the shrink is fixed at its source now, and the derived target went
+back in.
 
 ---
 
@@ -606,77 +616,52 @@ nine sessions is rule 10 in §0 — **the generators were never exposed to it.**
 real Bold face. The defect only ever reached the layer Siwatch actually exercises,
 which is typing in plain Word.
 
-### The shipped structure — 20 faces, 16 outline sets, 5 families
+### The shipped structure — superseded twice; §1b is current
 
-Revised 2026-08-07: a SemiBold was added and the Thin family retired.
+This section records WHY Word must never synthesise a bold, which has not changed. The
+face table that used to live here has moved to §1b, because it moved twice in three
+days and two copies of it is how a stale one gets read.
 
-| Family (`nameID1`) | Regular | Italic | Bold | Bold Italic |
-|---|---|---|---|---|
-| `TH Aeonik Air` | Air | AirItalic | Thin | ThinItalic |
-| `TH Aeonik Light` | Light | LightItalic | *Medium* | *MediumItalic* |
-| `TH Aeonik` | Regular | RegularItalic | Bold | BoldItalic |
-| `TH Aeonik Medium` | Medium | MediumItalic | Black | BlackItalic |
-| `TH Aeonik SemiBold` | SemiBold | SemiBoldItalic | *Black* | *BlackItalic* |
+The short history, because each step falsified the one before:
 
-*Italic entries are duplicate files; the rest are the only copy of those outlines.*
+| date | structure | what broke it |
+|---|---|---|
+| 2026-08-06 | 5 families, bold slots at 700 with no `nameID16` | six Settings cards; Siwatch asked for one |
+| 2026-08-07 | + SemiBold, + Book; 24 faces, 18 outline sets | 6 of 24 faces were duplicate outlines, so one card was impossible |
+| 2026-08-09 | **10 weights, 20 faces, 20 outline sets, 6 families, one card** | current |
 
-Two weights exist as outlines but name no family of their own, and neither name
-survives in any field:
+### A bold slot declares its true weight now — and why it used to lie
 
-* **Black**, retired 2026-08-06 — it is Medium's bold, and SemiBold's.
-* **Thin**, retired 2026-08-07 — Air's bold already *was* Thin, so a Thin entry in
-  the dropdown reached outlines you get by pressing Ctrl+B on Air. Siwatch: *"thin
-  is not necessary, because we can get thin by bold the new air, and get bold thin
-  by the light font."*
+From 2026-08-06 to 2026-08-08 every bold slot declared `usWeightClass` 700 and `panose`
+8 whatever its outlines weighed, and dropped `nameID16`/`nameID17`. Both halves are now
+reversed. **The rule was not wrong; the condition it existed under is gone.**
 
-Measured per family (`th_metrics`, 512 px/em):
+It existed because bold slots were DUPLICATES — `TH Aeonik Light`'s bold and
+`TH Aeonik Medium`'s Regular were the same file. Put both in the typographic family and
+`TH Aeonik` holds several faces at weight 500, so a WeasyPrint or LibreOffice request
+for 700 can resolve to Medium's outlines: a Thai PDF that silently renders one weight
+light. Declaring 700 and hiding from `nameID16` was the way to keep one face per weight.
 
-| family | Thai R→B | Latin R→B | tightest counter |
-|---|---|---|---|
-| Air | 7.3 → 20.5 | 7.8 → 23.4 | 113.3 → 97.7 |
-| Light | 48.8 → 102.5 | 52.7 → 115.2 | 74.2 → 67.4 |
-| TH Aeonik | 79.1 → 134.8 | 85.9 → 148.4 | 74.2 → 46.9 |
-| Medium | 102.5 → 134.8 | 115.2 → 183.6 | 67.4 → 46.9 |
-| SemiBold | 118.2 → 134.8 | 130.9 → 183.6 | 70.3 → 46.9 |
+There are no duplicates left. The typographic family holds exactly one face per weight
+because there IS exactly one face per weight, and the invariant is asserted directly
+(`th_style_link.check()`: no two shipped faces share a (`usWeightClass`, slant)) rather
+than enforced by a naming convention.
 
-**SemiBold's bold is weak in the Thai and strong in the Latin** — +14% against +40%
-— because Black's Thai is pinned to Bai's counter floor at 134.8, the same ceiling
-Bold hits. Expected, and the same cap §4 describes.
+What links Word's Ctrl+B is `nameID1`/`nameID2` plus the `macStyle` bold bit, never
+`usWeightClass`, and that is unchanged: `_face()` derives fsSelection and macStyle from
+nameID2, so `TH-Aeonik-ExtraBold.otf` announces itself as "TH Aeonik Light Bold" to the
+style linker and as "ExtraBold" to the Settings card. **Linux cannot confirm it.**
+`scripts/build_style_link_doc.py` is the sheet that does, in Word.
 
-### A bold slot is a bold slot — two rules, no exceptions
-
-Every face filling a Bold or Bold Italic slot obeys both rules, whether its outlines
-are unique (*promoted*: Thin, ThinItalic, Black, BlackItalic) or a byte-identical
-duplicate of another shipped face (*alias*: LightBold, SemiBoldBold and italics).
-
-  1. **No `nameID16`/`nameID17`.** The typographic family `TH Aeonik` then holds
-     exactly one face per weight. Otherwise fontconfig sees several bold-flagged
-     faces in it and a weasyprint or LibreOffice request for `TH Aeonik` at 700 can
-     resolve to Medium's outlines instead of Bold's — a Thai PDF that silently
-     renders one weight light. It is also how CoType names its own `Aeonik-Bold.otf`
-     (measured: both fields empty).
-  2. **`usWeightClass` 700, `panose` 8** — the face declares itself Bold in every
-     field even when its outlines weigh 200 or 900.
-
-**The two kinds were treated differently until 2026-08-07, and it shipped a defect.**
-Promoted faces kept `nameID16/17` and their true weight, reasoning that the outlines
-really are that weight and `ichita.css` selects them by number. Both halves were
-wrong:
-
-* `fc-match "TH Aeonik Air"` returned **AirBold**. Air declares 100 and its promoted
-  bold declared 200; fontconfig maps those to thin(0) and extralight(40) against a
-  default request at regular(80) — so the *bold* was the closer match. LibreOffice
-  picked it for the plain-Air row of the acceptance sheet, and `TH-Aeonik-Air`
-  embedded nowhere in the PDF. **Asking for Air quietly got Thin.** Found by reading
-  the embedded-font list of the rendered artifact, not by any check.
-* CSS never needed rule 2 relaxed. `@font-face { font-weight: 200 }` is a
-  *descriptor*: it declares how the resource is matched and overrides the file's
-  OS/2. `ichita.css` reaches every weight by number regardless.
-
-Rule 2 is the one thing Word could disagree with, since the outlines under it are not
-700. Word links on `nameID1`/`nameID2` + the `macStyle` bold bit, not on
-`usWeightClass` — but Linux cannot confirm that. If Word synthesises anyway, the retry
-is the face's true weight.
+**One measured consequence worth keeping.** On 2026-08-07, promoted faces kept their
+true weight while aliases declared 700, and `fc-match "TH Aeonik Air"` returned
+**AirBold** — Air declares 100 (fc 0) and its bold declared 200 (fc 40) against a
+default request at fc 80, so the bold was the closer match. LibreOffice picked it for
+the plain-Air row of the acceptance sheet and `TH-Aeonik-Air` embedded nowhere in the
+PDF. **Asking for Air quietly got Thin.** Found by reading the embedded-font list of
+the rendered artifact, not by any check. That is the defect §1b's Air/Thin decision
+exists to prevent, and reading `pdffonts` on the acceptance sheet is now part of the
+gate.
 
 ### A family name that ends in a weight word is re-parsed
 
@@ -744,33 +729,47 @@ in `cfg["file"]` instead.
 
 ---
 
-## 4c. The synthetic SemiBold — what shipping a weight CoType never drew costs
+## 4c. The three synthetic Latins — what shipping weights CoType never drew costs
 
-**Siwatch, 2026-08-07, after being shown the costs below: ship it.** Every other
-Latin glyph in this repo is CoType's own charstrings — `th_cff.convert_to_cff`
-restores them verbatim after the merge and `win_latin_parity.py` is the acceptance
-test for that. `scripts/build_aeonik_semibold.py` breaks the invariant once,
-deliberately, and both faces declare it in `nameID5` and `nameID10`.
+**Siwatch, 2026-08-07 for SemiBold and Book, 2026-08-09 for ExtraBold, after being
+shown the costs below: ship them.** Every other Latin glyph in this repo is CoType's
+own charstrings — `th_cff.convert_to_cff` restores them verbatim after the merge and
+`win_latin_parity.py` is the acceptance test for that.
+`scripts/build_aeonik_semibold.py` breaks the invariant three times, deliberately, and
+all six faces declare it in `nameID5` and `nameID10`.
 
 ### What was ruled out first
 
-* **No Aeonik SemiBold exists.** Desktop v1.000 is Air/Thin/Light/Regular/Medium/
-  Bold/Black; the v2.000 web cut is only Light/Regular/Bold.
-* **Interpolating Medium → Bold fails.** 197 of 657 glyphs have incompatible point
-  structures — `three` `five` `six` `dollar` `ampersand` `question` among them. The
-  digits are in the broken set, which for ICHITA is disqualifying on its own.
+* **No Aeonik SemiBold, Book or ExtraBold exists.** Desktop v1.000 is Air/Thin/Light/
+  Regular/Medium/Bold/Black; the v2.000 web cut is only Light/Regular/Bold.
+* **Interpolation fails in EVERY adjacent pair.** Light→Regular has 184 of 657 glyphs
+  with incompatible point structures, Regular→Medium 172, Medium→Bold 197 —
+  `three` `five` `six` `dollar` `ampersand` `question` among them. The digits are in
+  the broken set, which for ICHITA is disqualifying on its own.
 
 ### The targets, interpolated not chosen
 
 Aeonik's real ladder gives 16.6 of stem and 118 of advance per 100 weight units
-between 500 and 700, so weight 600 sits at **stem 131.8, advance 11516**.
+between 500 and 700, so weight 600 sits at **stem 131.8, advance 11516**. ExtraBold is
+the 700/900 midpoint on the same arithmetic, measured 2026-08-09.
 
-| weight | class | stem | advance | counter `e` |
-|---|---|---|---|---|
-| Medium | 500 | 115.2 | 11398 | 118.2 |
-| **SemiBold** | **600** | **130.9** | **11515** | **93.8** |
-| Bold | 700 | 148.4 | 11634 | 97.7 |
-| Black | 900 | 183.6 | 11867 | 78.1 |
+| weight | class | stem | advance | counter `e` | drawn by |
+|---|---|---|---|---|---|
+| Light | 300 | 52.7 | 11024 | 171.9 | CoType |
+| **Book** | **350** | **74.2** | **11142** | **152.3** | **thinned from Regular** |
+| Regular | 400 | 85.9 | 11206 | 136.7 | CoType |
+| Medium | 500 | 115.2 | 11398 | 118.2 | CoType |
+| **SemiBold** | **600** | **130.9** | **11515** | **93.8** | **grown from Medium** |
+| Bold | 700 | 148.4 | 11634 | 97.7 | CoType |
+| **ExtraBold** | **800** | **166.0** | **11750** | **93.8** | **thinned from Black** |
+| Black | 900 | 183.6 | 11867 | 78.1 | CoType |
+
+**Two of the three THIN, and that is the measured preference, not a coincidence.**
+Thinning opens counters where growing spends them, so the thinned faces need no
+`COUNTER_INVERSION_MAX` bound: Book sits cleanly between Light and Regular, and
+ExtraBold's 93.8 sits between Bold's 97.7 and Black's 78.1. Only SemiBold, the one
+grown face, inverts against the weight above it. Where a target can be reached from
+either side, thin from the heavier neighbour.
 
 ### The two things synthesis gets wrong
 
@@ -840,14 +839,50 @@ monotonic ladder with no bound needed. Book is the safer synthesis.
 
 Two things only the thinning direction revealed:
 
-**1. Thinning shrinks the glyph, and the merge scales Thai to the Latin's x-height.**
-`changeWeight` moves every edge inward, not only the vertical stems, so Aeonik-Book's `x`
-ink-top came out **504 against Regular's 510**. `build_th_aeonik` sizes Thai to the Latin
-x-height (QC check 1), so the shorter x-height scaled Bai Regular down with it and the
-merged Thai landed 64.5 where 66.4 was predicted. Book's rule is that the Thai is fixed
-and the **Latin moves**, so the target came down 74.0 → 71.9 and the pairing closed to
-−0.9 units. Any future thinned weight will do the same thing; predict the x-height, do not
-assume the base's.
+**1. Thinning shrinks the glyph AND lifts it off the baseline. Fixed 2026-08-09;
+the 08-07 entry below treated the symptom.**
+
+`changeWeight` insets the outline by roughly half the requested amount on **every**
+edge, the horizontal ones included. Measured thinning Aeonik Black by −18.4:
+
+```
+glyph    Black         thinned        drift
+x          0..516        9..507       baseline +9, x-height −9
+H          0..700        9..691       baseline +9, cap      −9
+```
+
+Three hypotheses were tested and falsified before the fix was written:
+
+* *the glyf intermediate loses the CFF blue zones* — it does, confirmed; passing
+  `custom_zones` explicitly changes nothing;
+* *"auto" mode ignores zones but "LCG" honours them* — both produce the identical
+  9-unit inset, and so does running `changeWeight` on the pristine `.otf` with its
+  BlueValues intact;
+* *it is a cu2qu rounding artefact* — the inset is 9 units at −18.4 and 7 at −14.5,
+  i.e. half the requested amount, not a rounding.
+
+It is inherent to the tool, so `restore_vertical()` corrects it: the affine map that
+makes the baseline and the x-height exact against the base face. Cap and descender
+scale with it and land within ~2% rather than exactly — a constant inset is not an
+affine transform, so no single map restores every extreme, and the x-height band is
+the one the merge and the reader key on. It is a **no-op on a grown face** (SemiBold
+measures the same band as Medium), which is asserted rather than assumed, and
+`check()` now compares every synthesised face's band against its base with a 2-unit
+tolerance.
+
+**What it cost while it was unseen.** Aeonik-Book's `x` ink-top was **496 against
+Regular's 510** and the whole face floated 7 units above the baseline.
+`build_th_aeonik` sizes Thai to the Latin x-height (QC check 1), so the merged Thai
+landed 64.5 where 66.4 was predicted — and on 2026-08-07 **the Latin target was
+lowered 74.0 → 71.9 to keep the ratio**, which fixed the number and left the face
+2.7% shorter than every other weight in the ladder. It went unseen because the merge
+scales the Thai to the Latin, so both scripts agreed with each other inside the font
+while both were wrong: nothing measured the Latin against its own base. With the
+shrink fixed, Book's scale solves at exactly the nominal 0.9140, its Thai measures
+66.4, and the derived target 74.0 goes back in at −0.2 units.
+
+**Predict nothing here — measure the band.** Any future thinned weight does the same
+thing, and `restore_vertical()` handles it, but the check is what makes that true.
 
 **2. `sxHeight` and `sCapHeight` are inherited and were lying.** Aeonik-Book shipped
 `sxHeight` 510 over ink topping out at 504. It did not show on SemiBold because
@@ -1189,49 +1224,65 @@ Other test-design failures, each of which shipped a defect:
 
 ---
 
-## 13. Current state — 2026-08-07
+## 13. Current state — 2026-08-09
 
-**Shipping:** **24** TH-Aeonik faces from **18** outline sets in **6** families
-(§4b) + 4 TH-Slussen + **18** Aeonik faces, all `.otf`/CFF. Aeonik carries **two**
-synthetic pairs, §4c — SemiBold (600, grown from Medium) and Book (350, thinned from
-Regular) — the only Latin here that is not CoType's drawing.
+**Shipping:** **20** TH-Aeonik faces from **20** outline sets in **6** families, ten
+unique weights in ONE Windows Settings card (§1b) + 4 TH-Slussen + **20** Aeonik faces,
+all `.otf`/CFF. Aeonik carries **three** synthetic pairs, §4c — Book (350, thinned from
+Regular), SemiBold (600, grown from Medium) and ExtraBold (800, thinned from Black) —
+the only Latin here that is not CoType's drawing.
 
-**All faces were rebuilt 2026-08-07 from one code state.** The pristine Aeonik v1.000
-source was never gone: the `D:` path was hardcoded and Siwatch renamed `Doccument` to
-`02 Doccument`, which turned every build into "source missing". `find_aeonik()` now
-globs for the folder rather than naming its parents.
+**All faces were rebuilt 2026-08-09 from one code state**, into an emptied output
+directory, then copied to `~/.local/share/fonts/th-current/` and `fc-cache -f` before
+any check ran.
 
-The rebuild corrected the Thai weight table, which had been hand-set while
-`solve_weight_table.py` could not open a font at all — three romans were solved against
-the **italic's** Latin stem. §1b has the numbers. Bold came off `APERTURE_FLOOR`
-(46.9 → 50.8) as a result, and Thai Bold is no longer identical to Thai Black.
+Two things this rebuild fixed that were not in the request:
+
+* **`changeWeight` insets every edge, so thinned faces came out short and lifted off
+  the baseline.** Book had been shipping 2.7% shorter than the ladder and floating 7
+  units up since 2026-08-07, and the 08-07 response was to lower its Latin target
+  rather than restore the height. `restore_vertical()` fixes it at source and
+  `build_aeonik_semibold --check` now measures every synthesised face's vertical band
+  against its base. §4c.
+* **Nine builds shipped as a bare `Version 1.000`** inherited from CoType, so a stale
+  install was invisible — which is how a stale install got reported as a font defect
+  twice. `nameID5` now carries the build date and `nameID3` agrees with it.
 
 ```
 scripts/thai_line_pitch.py --check   OK — both families spare +75
-scripts/th_style_link.py --check     OK — 24 faces, 18 outline sets, 6 families,
-                                     every family has a real bold, no 3/4/6 collisions
-scripts/fc_family_probe.py           OK — every family and every declared weight
-                                     resolves to its own file. NEW 2026-08-07: the
-                                     fields being right is not the same as the matcher
-                                     answering right, and twice it was not (§1b).
-                                     fontconfig only — Pango, WeasyPrint, soffice. It
-                                     says nothing about Word
-scripts/verify-fonts.py              OK — 20 fonts. Its usWinAscent >= 1550 check was
-                                     STALE (it encoded the falsified clip-box belief,
-                                     §3) and had been red on every face; it now asserts
-                                     usWin == hhea == sTypo
-scripts/qc_th_fonts.py               22/22 — and check 2 is now TIGHTER: judged in
-                                     stem units (2.5, one probe step) instead of a
-                                     0.08 ratio band that meant 0.6 units at Air and
-                                     11.9 at Bold. The four Air/Thin widenings were
-                                     deleted, not carried over. TH-Slussen Bold is
-                                     pinned in CAPPED_STEM_RATIO at its measured .8276
-                                     — it had been passing on luck inside the old band
-scripts/build_aeonik_semibold.py     OK — TWO ladders now: Light/Book/Regular/Medium
-                                     --check                and Medium/SemiBold/Bold/
-                                     Black, both monotonic in stem AND width. Counter
-                                     inverts 4.2% at SemiBold, bounded 10%; Book needs
-                                     no bound, thinning opens counters (§4c)
+scripts/th_style_link.py --check     OK — 20 faces, 20 outline sets, 6 families,
+                                     weights 100 200 300 350 400 500 600 700 800 900,
+                                     no two faces sharing a (weight, slant). That last
+                                     invariant is the whole point of the structure and
+                                     nothing asserted it before 2026-08-09
+scripts/fc_family_probe.py           OK, 0 faults — 12 bare family queries (roman AND
+                                     italic), 8 family:bold, 20 weight queries. NEW
+                                     2026-08-07: the fields being right is not the same
+                                     as the matcher answering right, and twice it was
+                                     not (§1b). The italic queries were added 08-09;
+                                     roman-only would have passed a structure that gets
+                                     emphasis wrong in half the cases. fontconfig only
+                                     — Pango, WeasyPrint, soffice. Nothing about Word
+scripts/verify-fonts.py              OK — asserts usWin == hhea == sTypo
+scripts/qc_th_fonts.py               22/22. Check 6 was REWRITTEN 08-09: it used to
+                                     carry a LADDER_EXCLUDE list dropping Black from
+                                     the ladder to stay green, which is asserting the
+                                     defect. A pair may now fail the separation bar
+                                     only if the heavier face measures against
+                                     APERTURE_FLOOR, and check 12 then requires that
+                                     pair to separate in the LATIN. Check 12 also
+                                     stopped naming Bold and Black and derives the
+                                     capped run by measuring, so ExtraBold arriving
+                                     between them is judged rather than ignored
+scripts/build_aeonik_semibold.py     OK — THREE ladders: Light/Book/Regular/Medium,
+                                     --check                Medium/SemiBold/Bold/Black
+                                     and Bold/ExtraBold/Black, all monotonic in stem
+                                     AND width. Counter inverts 4.2% at SemiBold,
+                                     bounded 10%; the two thinned faces need no bound.
+                                     Also asserts the vertical band per face
+pdffonts on the acceptance sheet     OK — all 20 faces embedded under their own names.
+                                     This is the check that caught the 08-07 AirBold
+                                     defect, where TH-Aeonik-Air embedded nowhere
 scripts/win_latin_parity.py          CANNOT VALIDATE THIS BUILD — it measures what is
                                      installed on WINDOWS, and that is stale: TH Aeonik
                                      resolves UNRESOLVED (substituted), TH Slussen to a
