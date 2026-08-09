@@ -312,7 +312,7 @@ FACES = {
 }
 
 
-def _alias(key, id1, source, weight_label, italic=False):
+def _alias(key, id1, source, italic=False):
     """A duplicate face whose only job is to fill another family's Bold slot.
 
     THREE OF THESE EXIST AND EACH ONE COSTS A SETTINGS CARD. That is the price
@@ -343,24 +343,26 @@ def _alias(key, id1, source, weight_label, italic=False):
                  id16=None, source=source)
 
 
-# EMPTY, AND THAT IS THE DESIGN — Siwatch, 2026-08-09: "my target is one card."
+# ONE PAIR, and it is the body weight — Siwatch, 2026-08-09: "I want it's ctrl+b
+# become more weight, equal to TH aeonik medium for both latin and thai."
 #
-# Every alias costs a Settings card, because a duplicate cannot carry nameID16
-# and therefore files under its own nameID1 instead. Three aliases (Book->Medium,
-# Medium->Bold, SemiBold->Bold) were built and measured at 26 files / 4 cards
-# before this was emptied.
+# Book 350 is the body weight for Thai and mixed documents, so it is the one
+# family where Ctrl+B is exercised constantly. Left to Word it synthesises at
+# 1.29x Latin / 1.38x Thai, against a drawn bold's 1.73x. Pointed at Medium it
+# lands on 1.55x / 1.54x, and the ink is Medium's exactly because the file is a
+# byte-identical copy — asserted, not claimed.
 #
-# What one card costs, measured on Windows GDI+ 2026-08-09 (+23/1000em
-# double-strike below weight 600, nothing at or above it):
-#
-#   Book 350    Ctrl+B synthesises   1.29x Latin, 1.38x Thai
-#   Medium 500  Ctrl+B synthesises   1.17x Latin, 1.24x Thai
-#   SemiBold 600, ExtraBold 800, Black 900   Ctrl+B returns the face itself
-#
-# against the real Regular->Bold pair at 1.73x. The helper below is kept
-# because reinstating any one pair is a two-line change, and the reasoning for
-# why it would cost a card is the expensive part.
-ALIASES = {}
+# THIS COSTS ONE SETTINGS CARD. A duplicate cannot carry nameID16 (two faces at
+# one weight in the typographic family is what makes a weight query resolve to
+# the wrong outlines), so it files under its own nameID1 instead: one card of
+# ten styles plus a small "TH Aeonik Book" card. Siwatch took that trade for
+# this face and no other — Medium's and SemiBold's Ctrl+B were measured at
+# 26 files / 4 cards on the same day and left as Word's own behaviour.
+ALIASES = {
+    "BookBold": _alias("BookBold", "TH Aeonik Book", "Medium"),
+    "BookBoldItalic": _alias("BookBoldItalic", "TH Aeonik Book",
+                             "MediumItalic", italic=True),
+}
 
 SHIPPED = {**FACES, **ALIASES}
 
@@ -373,7 +375,7 @@ SHIPPED = {**FACES, **ALIASES}
 # Black, both ratio 1.00, and Marlett at 500 confirms the threshold by
 # synthesising at 1.24.
 NO_BOLD_SLOT = {"TH Aeonik Air", "TH Aeonik Thin", "TH Aeonik Light",
-                "TH Aeonik Book", "TH Aeonik Medium", "TH Aeonik SemiBold",
+                "TH Aeonik Medium", "TH Aeonik SemiBold",
                 "TH Aeonik ExtraBold", "TH Aeonik Black"}
 
 # Names from earlier structures that no longer ship. install-fonts.sh globs the
@@ -383,7 +385,6 @@ NO_BOLD_SLOT = {"TH Aeonik Air", "TH Aeonik Thin", "TH Aeonik Light",
 RETIRED_FILES = [
     "TH-Aeonik-AirBold.otf", "TH-Aeonik-AirBoldItalic.otf",
     "TH-Aeonik-LightBold.otf", "TH-Aeonik-LightBoldItalic.otf",
-    "TH-Aeonik-BookBold.otf", "TH-Aeonik-BookBoldItalic.otf",
     "TH-Aeonik-MediumBold.otf", "TH-Aeonik-MediumBoldItalic.otf",
     "TH-Aeonik-SemiBoldBold.otf", "TH-Aeonik-SemiBoldBoldItalic.otf",
 ]
@@ -395,8 +396,7 @@ def outline_files():
 
 
 def shipped_files():
-    """Every file that gets installed. Equal to outline_files() while ALIASES
-    is empty, which is the one-card state."""
+    """Every file that gets installed — the ten weights plus any alias pairs."""
     return [cfg["file"] + ".otf" for cfg in SHIPPED.values()]
 
 

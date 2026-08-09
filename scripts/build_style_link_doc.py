@@ -31,7 +31,10 @@ Ctrl+B should do — measured on Windows GDI+ 2026-08-09, not assumed:
   weight >= 600  Word REFUSES and returns the face unchanged. Segoe UI Semibold
                  600 and Arial Black 900 both measure exactly 1.00; Marlett at
                  500 synthesises at 1.24, which fixes the threshold at 600.
-  real bold      only `TH Aeonik`, which reaches the drawn Bold 700 at 1.73x.
+  real bold      `TH Aeonik` -> the drawn Bold 700, 1.73x, and `TH Aeonik Book`
+                 -> Medium's outlines, 1.55x. Book is the body weight and the
+                 one place a synthesised bold was not good enough; it costs the
+                 second Settings card.
 
 Saying which is expected is the whole point. Three of these families are
 SUPPOSED to do nothing on Ctrl+B, and without the sheet saying so that reads as
@@ -110,12 +113,13 @@ CTRL_B = [
      "11 pt, not at heading sizes."),
     ("TH Aeonik Thin", "Thin", "synth", 46.9, "thickens cleanly"),
     ("TH Aeonik Light", "Light", "synth", 76.2, "thickens cleanly"),
-    ("TH Aeonik Book", "Book", "synth", 95.7,
-     "THE BODY WEIGHT for Thai and mixed text. 1.29x against a real bold's "
-     "1.73x — bolded body copy will read lighter than you are used to. This is "
-     "the one place the single-card structure costs something."),
+    ("TH Aeonik Book", "Book", "real", 115.2,
+     "THE BODY WEIGHT for Thai and mixed text, and the one family besides the "
+     "core given a real bold. Ctrl+B reaches Medium's outlines exactly — Latin "
+     "115.2 and Thai 102.5, byte-identical to TH Aeonik Medium. Set this row "
+     "and a TH Aeonik Medium row side by side and they must be one face."),
     ("TH Aeonik", "Regular", "real", 148.4,
-     "the ONLY real bold in the typeface — a drawn face, 1.73x"),
+     "the drawn Bold 700, 1.73x"),
     ("TH Aeonik Medium", "Medium", "synth", 134.8,
      "1.17x — barely visible, because the synthetic offset is a constant and "
      "Medium is already heavy"),
@@ -149,12 +153,13 @@ def main():
     _para(doc, "Read this page first. Every line must be visibly heavier than "
                "the one above it. Ten lines, ten weights.", CHROME_FONT, pt=9,
           space_after=2, colour=GREY)
-    _para(doc, "Before you start: Windows Settings > Fonts should show ONE card "
-               "called TH Aeonik listing all ten styles. If you see extra cards, "
-               "or a style called Air Bold, Light Bold, Book Bold, Medium Bold "
-               "or SemiBold Bold, the old faces were not removed before these "
-               "went in — close Word, PowerPoint and Excel, delete every "
-               "TH-Aeonik file, and install the twenty again.",
+    _para(doc, "Before you start: Windows Settings > Fonts should show a card "
+               "called TH Aeonik listing all ten styles, plus one small card "
+               "called TH Aeonik Book holding its bold. Two cards, nothing "
+               "else. If you see a style called Air Bold, Light Bold, Medium "
+               "Bold or SemiBold Bold, the old faces were not removed before "
+               "these went in — close Word, PowerPoint and Excel, delete every "
+               "TH-Aeonik file, and install the twenty-two again.",
           CHROME_FONT, pt=9, space_after=2, colour=RED)
     _para(doc, "EXPECTED, NOT A DEFECT: the top three weights barely separate in "
                "the Thai. Bold, ExtraBold and Black are 2.3% apart in Thai and "
@@ -236,7 +241,7 @@ def main():
     for k, label in KIND_LABEL.items():
         print(f"  {sum(1 for c in CTRL_B if c[2] == k)} x {label}")
     print("\n  Close Word/PowerPoint/Excel, delete every TH-Aeonik file from the "
-          "font folder,\n  install the 20 from assets/fonts/th-aeonik, then open "
+          "font folder,\n  install the 22 from assets/fonts/th-aeonik, then open "
           "this in Word.")
 
 

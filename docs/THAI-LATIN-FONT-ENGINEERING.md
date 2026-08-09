@@ -115,14 +115,15 @@ Siwatch: *"I want one font deck for TH Aeonik that contains 10 font style with
 according weight for Latin"*, and after three structures were measured, *"my target is
 one card."*
 
-**20 files, 20 distinct outline sets, NINE `nameID1` families, ONE Settings card.**
+**22 files, 20 distinct outline sets, NINE `nameID1` families, TWO Settings cards** —
+one holding all ten styles, plus a small `TH Aeonik Book` card holding its bold.
 
 | `nameID1` (Word's dropdown) | weight | what Ctrl+B does |
 |---|---|---|
 | `TH Aeonik Air` | Air 100 | Word synthesises |
 | `TH Aeonik Thin` | Thin 200 | Word synthesises |
 | `TH Aeonik Light` | Light 300 | Word synthesises |
-| `TH Aeonik Book` | Book 350 | Word synthesises |
+| `TH Aeonik Book` | Book 350 | **reaches Medium's outlines, 1.55x** |
 | `TH Aeonik` | Regular 400 **+ Bold 700** | **reaches the drawn Bold — the only real bold** |
 | `TH Aeonik Medium` | Medium 500 | Word synthesises |
 | `TH Aeonik SemiBold` | SemiBold 600 | **nothing — Word refuses at 600+** |
@@ -213,19 +214,33 @@ by reproducing GDI's double-strike in raster (union of the outline and a copy sh
 it had been generalised past its evidence for three days. Nothing in the shipped
 structure ever synthesises at 700+: Bold is a bold slot, and 800/900 are refused.
 
-#### What one card costs
+#### Book is the one exception, and what it costs
 
-`TH Aeonik` is the only family with a real bold, so **bolded body copy is
-synthesised**. If Book 350 is the Thai body weight, Ctrl+B on it gives 1.29x where a
-drawn bold gives 1.73x. That is the single price of the structure, and it was taken
-deliberately: the alternative measured at **26 files and 4 Settings cards**, because
-serving Book's bold from Medium (and Medium's and SemiBold's from Bold) needs each
-target face shipped a second time under a second `nameID1`, and a duplicate cannot
-carry `nameID16` without putting two faces at one weight in the typographic family.
+Siwatch, 2026-08-09: *"only one font face I want you to fix, TH Aeonik Book. I want
+it's ctrl+b become more weight, equal to TH aeonik medium for both latin and thai."*
 
-`th_style_link.ALIASES` is empty and the `_alias` machinery is kept, because
-reinstating any one pair is a two-line change and the reasoning for what it costs is
-the expensive part.
+Book 350 is the body weight for Thai and mixed documents, so it is the one family where
+Ctrl+B is exercised constantly, and Word's synthesised bold is not good enough there:
+
+```
+                    Latin              Thai
+Book, synthesised   74.2 -> 95.7  1.29x    66.4 ->  91.8  1.38x
+Book -> Medium      74.2 -> 115.2 1.55x    66.4 -> 102.5  1.54x   SHIPPED
+Regular -> Bold     85.9 -> 148.4 1.73x    76.2 -> 130.9  1.72x   the reference
+```
+
+`TH-Aeonik-BookBold.otf` is a byte-identical copy of `TH-Aeonik-Medium.otf` under a
+second name, so the ink IS Medium's — asserted by comparing charstrings after every
+write, not claimed.
+
+**It costs the second Settings card.** A duplicate cannot carry `nameID16` — two faces
+at one weight in the typographic family is what makes a weight query resolve to the
+wrong outlines — so it files under its own `nameID1` instead. Everything else stays
+Word's own behaviour: Medium's and SemiBold's Ctrl+B were measured with real bold slots
+on the same day at **26 files and 4 cards**, and left alone.
+
+The rule that fell out: **a real bold belongs where text is set and bolded, and
+nowhere else.** Two families qualify.
 
 #### The top of the ladder is one Thai weight and three Latin weights
 
@@ -277,8 +292,9 @@ before (08-07)             24  1x14 + 5x2 = 6  —          clean        every f
 twelve weights             24  1x24       = 1  3          BROKEN x2    every family real
 variant D                  24  1x20 + 2x2 = 3  2          clean        every family real
 bold slots (08-09 am)      20  1x20       = 1  1          clean        Light->ExtraBold, rejected
-Siwatch's Ctrl+B map       26  1x20 + 3x2 = 4  1          clean        Book->Medium etc
-ONE CARD (shipped)         20  1x20       = 1  1          clean        Arial's structure
+Siwatch's Ctrl+B map       26  1x20 + 3x2 = 4  1          clean        Book/Medium/SemiBold real
+one card                   20  1x20       = 1  1          clean        Arial's structure
+SHIPPED                    22  1x20 + 1x2 = 2  1          clean        Arial + a real bold on Book
 ```
 
 #### Metadata — ICHITA internal, with the attribution intact
@@ -1273,8 +1289,9 @@ Other test-design failures, each of which shipped a defect:
 
 ## 13. Current state — 2026-08-09
 
-**Shipping:** **20** TH-Aeonik faces from **20** outline sets in **9** `nameID1`
-families, ten unique weights in ONE Windows Settings card (§1b) + 4 TH-Slussen + **20** Aeonik faces,
+**Shipping:** **22** TH-Aeonik faces from **20** outline sets in **9** `nameID1`
+families, ten unique weights in TWO Windows Settings cards — one of ten styles plus a
+small `TH Aeonik Book` holding its bold (§1b) + 4 TH-Slussen + **20** Aeonik faces,
 all `.otf`/CFF. Aeonik carries **three** synthetic pairs, §4c — Book (350, thinned from
 Regular), SemiBold (600, grown from Medium) and ExtraBold (800, thinned from Black) —
 the only Latin here that is not CoType's drawing.
@@ -1297,8 +1314,8 @@ Two things this rebuild fixed that were not in the request:
 
 ```
 scripts/thai_line_pitch.py --check   OK — both families spare +75
-scripts/th_style_link.py --check     OK — 20 faces, 20 outline sets, 9 families,
-                                     one Settings card, one real bold slot,
+scripts/th_style_link.py --check     OK — 22 faces, 20 outline sets, 9 families,
+                                     two Settings cards, two real bold slots,
                                      weights 100 200 300 350 400 500 600 700 800 900,
                                      no two faces sharing a (weight, slant). That last
                                      invariant is the whole point of the structure and

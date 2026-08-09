@@ -113,17 +113,17 @@ The seven things most likely to cost a day if you skip the document:
    `fc-cache -f`, *then* run QC. Committed fonts disagree with the committed builder.
    Expected state is **22/22** — check 6 stopped being red-on-purpose on 2026-08-06,
    and the tolerance was not widened (§4b).
-5. **TH Aeonik ships 20 faces, ten unique weights, in ONE Windows Settings card**,
-   and its structure is **Arial's**: `TH Aeonik` holds Regular + Bold and is the only
-   family with a real bold; the other eight weights are plain faces in their own
+5. **TH Aeonik ships 22 faces, ten unique weights, in TWO Windows Settings cards** —
+   one of ten styles plus a small `TH Aeonik Book` card — and its structure is
+   **Arial's**: `TH Aeonik` holds Regular + Bold, `TH Aeonik Book` bolds to a copy of
+   Medium because it is the body weight, and the other seven weights are plain faces in their own
    `nameID1`, grouped by `nameID16`. Measured 2026-08-09 — *no Microsoft family links
    a light weight to a heavy one*; `Arial Black` is a plain face, not Arial's bold.
    **Word decides Ctrl+B from `usWeightClass` alone**: below 600 it thickens the
    outline itself (+23/1000 em, a constant — so 1.50x at Light and 1.17x at Medium),
    at 600 and above it REFUSES and returns the face unchanged. `scripts/th_style_link.py`
-   is the sole authority on naming; `ALIASES` is empty and each one would cost a
-   Settings card. The cost of one card is that bolded body copy is synthesised (1.29x
-   at Book against a drawn bold's 1.73x).
+   is the sole authority on naming. **Every alias costs a Settings card**, so there is
+   exactly one: a real bold belongs where text is set and bolded and nowhere else.
 6. **Aeonik Book (350), SemiBold (600) and ExtraBold (800) are synthetic** — CoType
    drew none of them, and Aeonik is not interpolatable in ANY adjacent pair (172-197 of
    657 glyphs, digits included), so `build_aeonik_semibold.py` derives all three with
