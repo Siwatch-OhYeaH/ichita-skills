@@ -8,38 +8,34 @@ Word on Windows is the acceptance renderer and Linux cannot stand in for it
 font-mapper question, and `fc_family_probe.py` — which returns zero faults —
 only speaks for fontconfig.
 
-WHAT CHANGED ON 2026-08-09, AND WHY THE SHEET HAD TO BE REWRITTEN
+WHAT THE STRUCTURE IS, AND WHY THE SHEET LOOKS LIKE THIS
 
-The old sheet's method was to set a bolded line and, directly beneath it, THE
-SAME OUTLINES SELECTED BY ANOTHER FAMILY NAME. If the link worked the two lines
-were indistinguishable; if Word synthesised, the first was a fuzzy double-strike.
-It worked because bold slots were duplicates — `TH Aeonik Light + Ctrl+B` and
-`TH Aeonik Medium` were literally the same file.
+Siwatch, 2026-08-09: "my target is one card." Ten weights, twenty files, ONE
+Windows Settings card, and only the RIBBI core (`TH Aeonik`) holds a real bold.
+That is the Arial and Segoe UI pattern — `Arial Black` is a plain face in its
+own dropdown family, not Arial's bold — and it is what Word does naturally.
 
-There are no duplicates left. Each of the ten weights is drawn once, and four of
-them — SemiBold, Bold, ExtraBold, Black — are reachable ONLY by pressing Ctrl+B
-on their family. There is no second name to compare against, so that test cannot
-be built any more.
+So there is nothing left to compare against by name, and the old method is gone.
+It used to set a bolded line above THE SAME OUTLINES SELECTED BY ANOTHER FAMILY
+NAME, which only worked while bold slots were duplicates.
 
-WHAT REPLACES IT
+Page 1 is the ladder instead: ten weights in ink order, each with the family
+name that reaches it. Every line must be heavier than the one above.
 
-Page 1 is the ladder: all ten weights in ink order, each labelled with how a
-Word user reaches it. Every line must be visibly heavier than the one above.
-That is a stronger test than the old one for what Siwatch actually asked for —
-ten weights that read as ten weights — and it is still read by eye at 100% with
-no instrument.
+Pages 2 onward are one family each, and each page states WHICH OF THREE THINGS
+Ctrl+B should do — measured on Windows GDI+ 2026-08-09, not assumed:
 
-Pages 2 onward are one family each: Regular, Ctrl+B, Ctrl+I, Ctrl+B+Ctrl+I, with
-the measured stem printed beside each. A synthesised bold lands near the plain
-stem plus one pixel and looks blurred rather than drawn.
+  weight < 600   Word thickens the outline itself, +23/1000 em. Ratio depends
+                 entirely on how light the face was: 1.50x at Light, 1.17x at
+                 Medium.
+  weight >= 600  Word REFUSES and returns the face unchanged. Segoe UI Semibold
+                 600 and Arial Black 900 both measure exactly 1.00; Marlett at
+                 500 synthesises at 1.24, which fixes the threshold at 600.
+  real bold      only `TH Aeonik`, which reaches the drawn Bold 700 at 1.73x.
 
-THE TWO FAMILIES THAT SYNTHESISE ON PURPOSE
-
-`TH Aeonik Air` and `TH Aeonik Thin` hold no bold slot, so Word WILL synthesise
-their bold. That is the decision, not a defect, and the sheet says so on those
-pages — otherwise it reads as exactly the failure the rest of the sheet hunts
-for. The reason it is safe only there: synthetic bold spends counter aperture,
-and these two measure 113.3 and 97.7 against a floor of 46.5.
+Saying which is expected is the whole point. Three of these families are
+SUPPOSED to do nothing on Ctrl+B, and without the sheet saying so that reads as
+the exact defect the rest of it hunts for.
 
 USAGE
     python3 scripts/build_style_link_doc.py
@@ -83,8 +79,9 @@ STEMS = {
     "Black": (183.6, 136.7),
 }
 
-# The ladder, lightest first: (weight name, usWeightClass, family to select in
-# Word, whether Ctrl+B is needed to reach it).
+# The ladder, lightest first. Every weight is its own dropdown name now, so the
+# "how do I reach it" column is just the family — except Bold, which is
+# TH Aeonik's bold slot and therefore Ctrl+B only, exactly as `Arial Bold` is.
 LADDER = [
     ("Air", 100, "TH Aeonik Air", False),
     ("Thin", 200, "TH Aeonik Thin", False),
@@ -92,27 +89,52 @@ LADDER = [
     ("Book", 350, "TH Aeonik Book", False),
     ("Regular", 400, "TH Aeonik", False),
     ("Medium", 500, "TH Aeonik Medium", False),
-    ("SemiBold", 600, "TH Aeonik Book", True),
+    ("SemiBold", 600, "TH Aeonik SemiBold", False),
     ("Bold", 700, "TH Aeonik", True),
-    ("ExtraBold", 800, "TH Aeonik Light", True),
-    ("Black", 900, "TH Aeonik Medium", True),
+    ("ExtraBold", 800, "TH Aeonik ExtraBold", False),
+    ("Black", 900, "TH Aeonik Black", False),
 ]
 
-# (family, its Regular weight, its Bold weight or None, note)
-FAMILIES = [
-    ("TH Aeonik Air", "Air", None,
-     "NO BOLD SLOT — Word synthesises, and that is the decision"),
-    ("TH Aeonik Thin", "Thin", None,
-     "NO BOLD SLOT — Word synthesises, and that is the decision"),
-    ("TH Aeonik Light", "Light", "ExtraBold",
-     "bolds to ExtraBold 800 — a display pair, deliberately the widest jump"),
-    ("TH Aeonik Book", "Book", "SemiBold",
-     "the BODY weight for Thai and mixed text; bolds to SemiBold 600"),
-    ("TH Aeonik", "Regular", "Bold",
-     "the classic pair, unchanged"),
-    ("TH Aeonik Medium", "Medium", "Black",
-     "bolds to Black 900"),
+# What Ctrl+B does in each family, and the stem it should land on.
+#
+# Measured on Windows GDI+ 2026-08-09: below usWeightClass 600 Word applies a
+# +23/1000 em double-strike; at 600 and above it REFUSES and returns the face
+# itself (Segoe UI Semibold 600 and Arial Black 900 both measured 1.00, and
+# Marlett at 500 synthesises at 1.24, which fixes the threshold at 600).
+#
+# (family, weight key, kind, expected Latin stem after Ctrl+B, note)
+CTRL_B = [
+    ("TH Aeonik Air", "Air", "synth", 9.8,
+     "hairline — the offset is wider than the stem, so expect a DOUBLE IMAGE "
+     "rather than a thicker letter. Report it only if it looks doubled at "
+     "11 pt, not at heading sizes."),
+    ("TH Aeonik Thin", "Thin", "synth", 46.9, "thickens cleanly"),
+    ("TH Aeonik Light", "Light", "synth", 76.2, "thickens cleanly"),
+    ("TH Aeonik Book", "Book", "synth", 95.7,
+     "THE BODY WEIGHT for Thai and mixed text. 1.29x against a real bold's "
+     "1.73x — bolded body copy will read lighter than you are used to. This is "
+     "the one place the single-card structure costs something."),
+    ("TH Aeonik", "Regular", "real", 148.4,
+     "the ONLY real bold in the typeface — a drawn face, 1.73x"),
+    ("TH Aeonik Medium", "Medium", "synth", 134.8,
+     "1.17x — barely visible, because the synthetic offset is a constant and "
+     "Medium is already heavy"),
+    ("TH Aeonik SemiBold", "SemiBold", "none", 130.9,
+     "NOTHING HAPPENS, and that is correct — Word refuses to simulate a bold "
+     "at weight 600 or above"),
+    ("TH Aeonik ExtraBold", "ExtraBold", "none", 166.0,
+     "NOTHING HAPPENS — same rule. This is what you asked for: Ctrl+B on "
+     "ExtraBold gives ExtraBold."),
+    ("TH Aeonik Black", "Black", "none", 183.6,
+     "NOTHING HAPPENS — same rule, and the same as Arial Black on any Windows "
+     "machine."),
 ]
+
+KIND_LABEL = {
+    "real": "REAL drawn Bold 700",
+    "synth": "Word synthesises",
+    "none": "Word refuses — returns the face itself",
+}
 
 
 def main():
@@ -151,60 +173,54 @@ def main():
               CHROME_FONT, pt=8, space_after=7, colour=GREY)
 
     # ---- one page per family -----------------------------------------------
-    for family, plain_w, bold_w, note in FAMILIES:
+    for family, key, kind, want, note in CTRL_B:
         doc.add_page_break()
-        _para(doc, f"{family}    ({note})", CHROME_FONT, pt=11, bold=True,
-              space_after=1)
-
-        p_lat, p_thai = STEMS[plain_w]
-        if bold_w:
-            b_lat, b_thai = STEMS[bold_w]
-            _para(doc, f"Ctrl+B must reach {bold_w} — Latin stem {p_lat} -> "
-                       f"{b_lat}, a real drawn face. A synthesised bold lands "
-                       f"near {p_lat} + 1 px instead, and looks blurred rather "
-                       f"than drawn.",
-                  CHROME_FONT, pt=8, space_after=6, colour=GREY)
+        plain = STEMS[key][0]
+        _para(doc, f"{family}    ({KIND_LABEL[kind]})", CHROME_FONT, pt=11,
+              bold=True, space_after=1)
+        colour = GREY if kind == "real" else BLUE
+        if kind == "real":
+            detail = (f"Ctrl+B must reach the drawn Bold face — Latin stem "
+                      f"{plain} -> {want}, {want/plain:.2f}x. A synthesised "
+                      f"bold would land near {plain} + 1 px and look blurred.")
+        elif kind == "synth":
+            detail = (f"Word has no bold face to reach, so it thickens the "
+                      f"outline itself — Latin stem {plain} -> about {want}, "
+                      f"{want/plain:.2f}x. {note}")
         else:
-            _para(doc, f"THIS FAMILY HAS NO BOLD. Word will synthesise one and "
-                       f"it is meant to — {plain_w} is a hairline whose counters "
-                       f"({'113.3' if plain_w == 'Air' else '97.7'}/1000 em) can "
-                       f"afford the double-strike, and giving it a real bold is "
-                       f"what broke the one-card structure on 2026-08-07. The "
-                       f"bold rows below should look thickened. Report them only "
-                       f"if the counters of ธ ฮ ฃ have FILLED IN.",
-                  CHROME_FONT, pt=8, space_after=6, colour=BLUE)
+            detail = (f"Ctrl+B changes NOTHING here, by Word's own rule. The "
+                      f"two rows below must be identical. {note}")
+        _para(doc, detail, CHROME_FONT, pt=8, space_after=6, colour=colour)
 
         _para(doc, SPEC, family, pt=BODY_PT, space_after=1)
-        _para(doc, f"^ {family}, Regular — {plain_w} {p_lat}/{p_thai}",
+        _para(doc, f"^ {family}, plain — {key} {STEMS[key][0]}/{STEMS[key][1]}",
               CHROME_FONT, pt=8, space_after=6, colour=GREY)
 
         _para(doc, SPEC, family, pt=BODY_PT, bold=True, space_after=1)
-        _para(doc, f"^ {family} + Ctrl+B — must be "
-                   f"{bold_w + ' ' + str(STEMS[bold_w][0]) if bold_w else 'SYNTHETIC, expected'}",
+        tail = {"real": "must be the drawn Bold",
+                "synth": f"expect about {want}",
+                "none": "must be IDENTICAL to the row above"}[kind]
+        _para(doc, f"^ {family} + Ctrl+B — {tail}",
               CHROME_FONT, pt=8, space_after=6, colour=GREY)
 
         _para(doc, SPEC, family, pt=BODY_PT, italic=True, space_after=1)
         _para(doc, f"^ {family} + Ctrl+I", CHROME_FONT, pt=8, space_after=6,
               colour=GREY)
 
-        # The italic slots are where a half-linked family shows up — Word takes
-        # the real bold for upright text and synthesises the italic — so the
-        # bold italic gets its own row rather than a cross-reference.
         _para(doc, SPEC, family, pt=BODY_PT, bold=True, italic=True,
               space_after=1)
-        _para(doc, f"^ {family} + Ctrl+B + Ctrl+I — must match the Ctrl+B row's "
-                   f"weight, sloped",
-              CHROME_FONT, pt=8, space_after=12, colour=GREY)
+        _para(doc, f"^ {family} + Ctrl+B + Ctrl+I", CHROME_FONT, pt=8,
+              space_after=12, colour=GREY)
 
     # ---- what the sheet cannot tell you ------------------------------------
     doc.add_page_break()
     _para(doc, "Three things this sheet cannot tell you", CHROME_FONT, pt=11,
           bold=True, space_after=4)
-    _para(doc, "1. SemiBold, Bold, ExtraBold and Black are NOT in the font "
-               "dropdown. They are reachable only by pressing Ctrl+B on Book, "
-               "TH Aeonik, Light and Medium. That is the cost of ten weights in "
-               "one card: Word lists nameID1 families, and a family holds four "
-               "slots.", CHROME_FONT, pt=9, space_after=3, colour=GREY)
+    _para(doc, "1. Bold 700 is the only weight NOT in the font dropdown. It is "
+               "TH Aeonik's bold slot, reached with Ctrl+B — exactly as "
+               "\"Arial Bold\" is not in the dropdown either. Every other "
+               "weight has its own name.", CHROME_FONT, pt=9, space_after=3,
+          colour=GREY)
     _para(doc, "2. Aeonik (Latin, for English-only documents) was deliberately "
                "NOT restructured, so bolding Aeonik Light there still "
                "synthesises. Siwatch's call, 2026-08-06 and again 2026-08-09.",
@@ -216,9 +232,9 @@ def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(OUT))
     print(f"  {OUT.relative_to(ROOT)}")
-    print(f"  {len(LADDER)} weights on page 1, {len(FAMILIES)} families after it")
-    print(f"  {sum(1 for _, _, b, _ in FAMILIES if b)} real bold slots, "
-          f"{sum(1 for _, _, b, _ in FAMILIES if not b)} that synthesise by design")
+    print(f"  {len(LADDER)} weights on page 1, {len(CTRL_B)} families after it")
+    for k, label in KIND_LABEL.items():
+        print(f"  {sum(1 for c in CTRL_B if c[2] == k)} x {label}")
     print("\n  Close Word/PowerPoint/Excel, delete every TH-Aeonik file from the "
           "font folder,\n  install the 20 from assets/fonts/th-aeonik, then open "
           "this in Word.")

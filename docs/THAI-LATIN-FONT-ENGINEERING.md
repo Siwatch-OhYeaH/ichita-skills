@@ -112,74 +112,120 @@ Line spacing for Thai stays **~15xx**, not the 1200 that Latin alone needs.
 ### The families — TEN WEIGHTS, ONE CARD (Siwatch, 2026-08-09; BUILT)
 
 Siwatch: *"I want one font deck for TH Aeonik that contains 10 font style with
-according weight for Latin ... and build the thai font accordingly - follows the latin
-one ... I know thai font has limitation for heavier size, so just let it gradually and
-maximum at black."*
+according weight for Latin"*, and after three structures were measured, *"my target is
+one card."*
 
-**20 files, 20 distinct outline sets, six `nameID1` families, one `nameID16`.**
+**20 files, 20 distinct outline sets, NINE `nameID1` families, ONE Settings card.**
 
-| `nameID1` (Word's dropdown) | Regular slot | Bold slot | in the Settings card as |
+| `nameID1` (Word's dropdown) | weight | what Ctrl+B does |
+|---|---|---|
+| `TH Aeonik Air` | Air 100 | Word synthesises |
+| `TH Aeonik Thin` | Thin 200 | Word synthesises |
+| `TH Aeonik Light` | Light 300 | Word synthesises |
+| `TH Aeonik Book` | Book 350 | Word synthesises |
+| `TH Aeonik` | Regular 400 **+ Bold 700** | **reaches the drawn Bold — the only real bold** |
+| `TH Aeonik Medium` | Medium 500 | Word synthesises |
+| `TH Aeonik SemiBold` | SemiBold 600 | **nothing — Word refuses at 600+** |
+| `TH Aeonik ExtraBold` | ExtraBold 800 | **nothing** |
+| `TH Aeonik Black` | Black 900 | **nothing** |
+
+Every face carries `nameID16 = "TH Aeonik"` and a distinct `nameID17`, so all ten
+styles list in one card. Only Bold 700 is absent from the dropdown, because it is the
+core family's bold slot — exactly as `Arial Bold` is absent from Windows' own.
+
+#### This is Arial's structure, and that is not a coincidence
+
+Siwatch, 2026-08-09, rejecting an earlier build that bolted heavy weights into light
+families' bold slots: *"I think logic of bolding light to extrabold is not make sense
+... microsoft word itself do not make it happen naturally."* He was right, and he named
+the reference. Measured from `C:\Windows\Fonts`:
+
+```
+file           nameID1 (dropdown)   nameID2   macStyle  ID16 / ID17            wt   stem
+arial.ttf      Arial                Regular      0      -                     400   93.8
+arialbd.ttf    Arial                Bold         1      -                     700  144.5
+ariblk.ttf     Arial Black          Regular      0      Arial / Black         900  220.7
+
+segoeui.ttf    Segoe UI             Regular      0      -                     400   80.1
+segoeuib.ttf   Segoe UI             Bold         1      -                     700  156.2
+segoeuil.ttf   Segoe UI Light       Regular      0      Segoe UI / Light      300   46.9
+segoeuisl.ttf  Segoe UI Semilight   Regular      0      Segoe UI / Semilight  350   64.5
+seguisb.ttf    Segoe UI Semibold    Regular      0      Segoe UI / Semibold   600  115.2
+```
+
+**Arial Black is not Arial's bold.** It is a *plain* face — `nameID2 = Regular`,
+`macStyle = 0` — in its own dropdown family, carrying `nameID16 = "Arial"` so it still
+files under Arial. Segoe UI does the same for Light, Semilight and Semibold. Neither
+family ever links a light weight to a heavy one. **No Microsoft family does.**
+
+#### What Word actually does on Ctrl+B — measured, not assumed
+
+There is no ratio logic anywhere. Word does one of three things, and which one is
+decided by `usWeightClass` alone. Measured on Windows GDI+ from WSL, 2026-08-09,
+`HHHH` at 128 pt:
+
+| family | wt | Ctrl+B | what happened |
 |---|---|---|---|
-| `TH Aeonik Air` | Air 100 | *none — synthesised* | Air |
-| `TH Aeonik Thin` | Thin 200 | *none — synthesised* | Thin |
-| `TH Aeonik Light` | Light 300 | ExtraBold 800 | Light, ExtraBold |
-| `TH Aeonik Book` | Book 350 | SemiBold 600 | Book, SemiBold |
-| `TH Aeonik` | Regular 400 | Bold 700 | Regular, Bold |
-| `TH Aeonik Medium` | Medium 500 | Black 900 | Medium, Black |
+| Segoe UI Light | 300 | 1.50x | synthesised |
+| Segoe UI Semilight | 350 | 1.36x | synthesised |
+| Arial | 400 | 1.56x | **real drawn bold** |
+| Marlett | 500 | 1.24x | synthesised |
+| Segoe UI Semibold | 600 | **1.00x** | **REFUSED — returns the face itself** |
+| Arial Black | 900 | **1.00x** | **REFUSED** |
 
-Every face carries `nameID16 = "TH Aeonik"`, a distinct `nameID17`, and its own true
-`usWeightClass`. `scripts/th_style_link.py` is the sole authority and its `--check`
-now asserts the invariant the whole structure rests on: **no two shipped faces share a
-(`usWeightClass`, slant)**.
+**The threshold is `usWeightClass` 600.** Below it Word thickens the outline itself;
+at 600 and above it declines and hands back the face unchanged. That is why
+`TH Aeonik SemiBold`, `ExtraBold` and `Black` need no bold slot to satisfy "Ctrl+B
+becomes itself" — it is Windows' own behaviour, free.
 
-**Measured 2026-08-09 on the built fonts.** `fc_family_probe.py` returns **zero
-faults** — 12 bare family queries (six families x roman/italic), 8 `family:bold`
-queries, 20 `TH Aeonik:weight=N` queries. `qc_th_fonts.py` 22/22.
-`build_aeonik_semibold.py --check` green on all three ladders. The rendered
-acceptance sheet embeds all 20 faces under their own names, which is the check that
-caught the 08-07 defect (`TH-Aeonik-Air` embedded nowhere).
+**Synthetic bold is a constant, not a percentage: +23/1000 em**, converged at 64 and
+128 pt. So the *ratio* it produces collapses as the weight rises, which is what makes
+it useless at the heavy end and fine at the light end:
 
-#### Why Air and Thin hold no bold slot
+```
+weight        Latin plain -> Ctrl+B    Thai plain -> Ctrl+B
+Air 100          7.8 ->   9.8  1.25x     7.3 ->   7.8  1.07x   ghosts: offset > stem
+Thin 200        23.4 ->  46.9  2.00x    20.5 ->  21.5  1.05x
+Light 300       52.7 ->  76.2  1.44x    48.8 ->  74.2  1.52x
+Book 350        74.2 ->  95.7  1.29x    66.4 ->  91.8  1.38x
+Regular 400     85.9 -> 148.4  1.73x    76.2 -> 130.9  1.72x   REAL Bold
+Medium 500     115.2 -> 134.8  1.17x   102.5 -> 127.0  1.24x
+SemiBold 600+                  1.00x                   1.00x   refused
+```
 
-This is the decision that made one card possible, after the twelve-weight plan proved
-it impossible. An unqualified fontconfig query defaults to fc 80 and the nearest
-member of the `nameID1` family wins, so a family's plain face resolves only while it
-sits closer to 80 than its own bold. Air is fc 0, distance 80; to beat that its bold
-would need fc above 160, i.e. weight 600 or heavier — a jump from stem 7.8 to 130.9,
-which is not a bold, it is a different typeface. Pairing Air with Thin was measured on
-2026-08-07: bare `TH Aeonik Air` resolved to Thin, **+199.3% ink**.
+#### Counter cost of a synthesised bold — the reason the old rule existed
 
-So Air and Thin stand alone and Word synthesises their bold. §4b calls synthetic bold
-the worst thing that can happen to this typeface, because double-striking spends
-counter aperture and below ~47 units a Thai counter fills under any rasteriser. **That
-reason does not reach these two:**
+§4b's rule "Word must never synthesise a bold" was written because double-striking
+spends counter aperture, and below ~47 units a Thai counter fills. Measured 2026-08-09
+by reproducing GDI's double-strike in raster (union of the outline and a copy shifted
++23/1000 em) and taking the largest inscribed circle in the tightest loop of ธ ฮ ฃ:
 
-| face | counter aperture | `APERTURE_FLOOR` |
-|---|---|---|
-| Air | 113.3 | 46.5 |
-| Thin | 97.7 | 46.5 |
-| Bold | 50.8 | 46.5 — *why the rule exists* |
+| weight | counter, plain | after Ctrl+B | |
+|---|---|---|---|
+| Light 300 | 85.9 | 64.4 | survives |
+| Book 350 | 82.0 | 61.8 | survives |
+| Regular 400 | 92.9 | 72.0 | survives |
+| Medium 500 | 74.2 | 58.6 | survives |
+| SemiBold 600 | 70.3 | 63.0 | survives — and is refused anyway |
+| Bold 700 | 54.7 | **22.1** | **would fill** |
 
-They are the only two weights in the family where synthesis costs nothing. The
-exemption is asserted in both directions, so a third family losing its bold fails and
-so does one of these gaining one.
+**The rule was right about Bold and heavier and wrong about everything below it**, and
+it had been generalised past its evidence for three days. Nothing in the shipped
+structure ever synthesises at 700+: Bold is a bold slot, and 800/900 are refused.
 
-#### Why Light bolds heavier than Book does
+#### What one card costs
 
-Light's bold is ExtraBold 800 and Book's is SemiBold 600, which reads backwards in the
-table and is deliberate. fontconfig only requires each of their bolds to come from
-{600, 800}; which gets which is a design choice, and Book 350 is the body weight for
-Thai and mixed documents:
+`TH Aeonik` is the only family with a real bold, so **bolded body copy is
+synthesised**. If Book 350 is the Thai body weight, Ctrl+B on it gives 1.29x where a
+drawn bold gives 1.73x. That is the single price of the structure, and it was taken
+deliberately: the alternative measured at **26 files and 4 Settings cards**, because
+serving Book's bold from Medium (and Medium's and SemiBold's from Bold) needs each
+target face shipped a second time under a second `nameID1`, and a duplicate cannot
+carry `nameID16` without putting two faces at one weight in the typographic family.
 
-| pair | Latin | Thai |
-|---|---|---|
-| Regular 400 -> Bold 700 *(the reference)* | 85.9 -> 148.4, **1.73x** | 76.2 -> 130.9, **1.72x** |
-| Book 350 -> SemiBold 600 | 74.2 -> 130.9, **1.76x** | 66.4 -> 118.2, **1.78x** |
-| Book 350 -> ExtraBold 800 | 74.2 -> 166.0, 2.24x | rejected |
-| Light 300 -> ExtraBold 800 | 52.7 -> 166.0, 3.15x | display weight, almost never bolded |
-
-Ctrl+B on body copy has to land near the reference. The odd-looking rung goes where
-nothing exercises it.
+`th_style_link.ALIASES` is empty and the `_alias` machinery is kept, because
+reinstating any one pair is a two-line change and the reasoning for what it costs is
+the expensive part.
 
 #### The top of the ladder is one Thai weight and three Latin weights
 
@@ -226,11 +272,13 @@ own right. It is also **cheaper**: one new Latin instead of three, and 20 files
 instead of 24.
 
 ```
-                        Settings cards      new Latin weights   bare query
-before (08-07)          1 x 14 + 5 x 2 = 6  —                   clean
-twelve weights          1 x 24         = 1  3 (450, 550, 800)   Air + Light BROKEN
-variant D               1 x 20 + 2 x 2 = 3  2 (550, 800)        clean
-TEN WEIGHTS (shipped)   1 x 20         = 1  1 (800)             clean
+                        files  Settings cards  new Latin  bare query   Ctrl+B
+before (08-07)             24  1x14 + 5x2 = 6  —          clean        every family real
+twelve weights             24  1x24       = 1  3          BROKEN x2    every family real
+variant D                  24  1x20 + 2x2 = 3  2          clean        every family real
+bold slots (08-09 am)      20  1x20       = 1  1          clean        Light->ExtraBold, rejected
+Siwatch's Ctrl+B map       26  1x20 + 3x2 = 4  1          clean        Book->Medium etc
+ONE CARD (shipped)         20  1x20       = 1  1          clean        Arial's structure
 ```
 
 #### Metadata — ICHITA internal, with the attribution intact
@@ -630,38 +678,37 @@ The short history, because each step falsified the one before:
 | 2026-08-07 | + SemiBold, + Book; 24 faces, 18 outline sets | 6 of 24 faces were duplicate outlines, so one card was impossible |
 | 2026-08-09 | **10 weights, 20 faces, 20 outline sets, 6 families, one card** | current |
 
-### A bold slot declares its true weight now — and why it used to lie
+### There is one bold slot in the whole typeface, and why that is right
 
-From 2026-08-06 to 2026-08-08 every bold slot declared `usWeightClass` 700 and `panose`
-8 whatever its outlines weighed, and dropped `nameID16`/`nameID17`. Both halves are now
-reversed. **The rule was not wrong; the condition it existed under is gone.**
+From 2026-08-06 to 2026-08-09 the rule was "every family holds a real bold", and every
+bold slot declared `usWeightClass` 700 and `panose` 8 whatever its outlines weighed so
+that a duplicate could not out-score the plain face it served. All of that is gone.
 
-It existed because bold slots were DUPLICATES — `TH Aeonik Light`'s bold and
-`TH Aeonik Medium`'s Regular were the same file. Put both in the typographic family and
-`TH Aeonik` holds several faces at weight 500, so a WeasyPrint or LibreOffice request
-for 700 can resolve to Medium's outlines: a Thai PDF that silently renders one weight
-light. Declaring 700 and hiding from `nameID16` was the way to keep one face per weight.
+**The rule protected something real and was applied far past it.** Synthetic bold
+double-strikes the outline and spends counter aperture; below ~47 units a Thai counter
+fills. Measured (§1b), the double-strike costs 15–21 units of counter, so it destroys
+**Bold 700 and heavier** and nothing below. The families that were given real bolds to
+protect them — Light, Book, Medium, SemiBold — were never at risk.
 
-There are no duplicates left. The typographic family holds exactly one face per weight
-because there IS exactly one face per weight, and the invariant is asserted directly
-(`th_style_link.check()`: no two shipped faces share a (`usWeightClass`, slant)) rather
-than enforced by a naming convention.
+What ships now is Arial's structure: `TH Aeonik` holds Regular + Bold, and the other
+eight weights are plain faces in their own `nameID1`, grouped into one card by
+`nameID16`. Nothing in it can ever synthesise at 700+ — Bold is a bold slot, and Word
+refuses to simulate at 600 and above.
 
-What links Word's Ctrl+B is `nameID1`/`nameID2` plus the `macStyle` bold bit, never
-`usWeightClass`, and that is unchanged: `_face()` derives fsSelection and macStyle from
-nameID2, so `TH-Aeonik-ExtraBold.otf` announces itself as "TH Aeonik Light Bold" to the
-style linker and as "ExtraBold" to the Settings card. **Linux cannot confirm it.**
-`scripts/build_style_link_doc.py` is the sheet that does, in Word.
+**Two things the old rule got right, kept for the day an alias comes back.** A
+duplicate must drop `nameID16`/`nameID17`, or the typographic family holds two faces at
+one weight and a WeasyPrint or LibreOffice request resolves to whichever it reached
+first — a Thai PDF that silently renders one weight light. And it must declare 700,
+because an unqualified query defaults to fc 80 and the nearest family member wins:
+`fc-match "TH Aeonik Air"` returned AirBold on 08-07 because 200 (fc 40) sits closer to
+80 than 100 (fc 0). Both live in `th_style_link._alias`, which has no callers and is
+kept for that reason.
 
-**One measured consequence worth keeping.** On 2026-08-07, promoted faces kept their
-true weight while aliases declared 700, and `fc-match "TH Aeonik Air"` returned
-**AirBold** — Air declares 100 (fc 0) and its bold declared 200 (fc 40) against a
-default request at fc 80, so the bold was the closer match. LibreOffice picked it for
-the plain-Air row of the acceptance sheet and `TH-Aeonik-Air` embedded nowhere in the
-PDF. **Asking for Air quietly got Thin.** Found by reading the embedded-font list of
-the rendered artifact, not by any check. That is the defect §1b's Air/Thin decision
-exists to prevent, and reading `pdffonts` on the acceptance sheet is now part of the
-gate.
+**Word links on `nameID1`/`nameID2` + the `macStyle` bold bit, never on
+`usWeightClass`.** LINUX CANNOT CONFIRM ANY OF THIS.
+`scripts/build_style_link_doc.py` is the sheet that does, and it now states for each
+family which of the three behaviours is expected — three of the nine are SUPPOSED to do
+nothing on Ctrl+B, and without saying so that reads as the defect the sheet hunts for.
 
 ### A family name that ends in a weight word is re-parsed
 
@@ -1226,8 +1273,8 @@ Other test-design failures, each of which shipped a defect:
 
 ## 13. Current state — 2026-08-09
 
-**Shipping:** **20** TH-Aeonik faces from **20** outline sets in **6** families, ten
-unique weights in ONE Windows Settings card (§1b) + 4 TH-Slussen + **20** Aeonik faces,
+**Shipping:** **20** TH-Aeonik faces from **20** outline sets in **9** `nameID1`
+families, ten unique weights in ONE Windows Settings card (§1b) + 4 TH-Slussen + **20** Aeonik faces,
 all `.otf`/CFF. Aeonik carries **three** synthetic pairs, §4c — Book (350, thinned from
 Regular), SemiBold (600, grown from Medium) and ExtraBold (800, thinned from Black) —
 the only Latin here that is not CoType's drawing.
@@ -1250,7 +1297,8 @@ Two things this rebuild fixed that were not in the request:
 
 ```
 scripts/thai_line_pitch.py --check   OK — both families spare +75
-scripts/th_style_link.py --check     OK — 20 faces, 20 outline sets, 6 families,
+scripts/th_style_link.py --check     OK — 20 faces, 20 outline sets, 9 families,
+                                     one Settings card, one real bold slot,
                                      weights 100 200 300 350 400 500 600 700 800 900,
                                      no two faces sharing a (weight, slant). That last
                                      invariant is the whole point of the structure and

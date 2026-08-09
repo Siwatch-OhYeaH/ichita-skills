@@ -215,7 +215,8 @@ def build_stamp():
 # TH-Aeonik-MediumBold), and `legacy` below is what renames them.
 # ---------------------------------------------------------------------------
 
-def _face(*, key, id1, id2, id17, weight, panose, legacy=None):
+def _face(*, key, id1, id2, id17, weight, panose, legacy=None,
+          id16="TH Aeonik", source=None):
     """One shipped face.
 
     fsSelection and macStyle are DERIVED from nameID2 rather than written by
@@ -239,11 +240,11 @@ def _face(*, key, id1, id2, id17, weight, panose, legacy=None):
         mac |= MAC_BOLD
     file = f"TH-Aeonik-{key}"
     return {
-        "file": file, "legacy": legacy,
+        "file": file, "legacy": legacy, "source": source,
         "nameID1": id1, "nameID2": id2,
         "nameID4": id1 if id2 == "Regular" else f"{id1} {id2}",
         "nameID6": file,
-        "nameID16": "TH Aeonik", "nameID17": id17,
+        "nameID16": id16, "nameID17": id17 if id16 else None,
         "fsSelection": fs, "macStyle": mac,
         "weightClass": weight, "panose_bWeight": panose,
     }
@@ -263,63 +264,127 @@ def _pair(key, id1, id2, id17, weight, panose, legacy=None):
 
 
 # PANOSE bWeight is a 2..11 ladder (2 Very Light .. 10 Black). It is
-# informational here — nothing matches on it — but it is now a real ten-step
+# informational here — nothing matches on it — but this is a real ten-step
 # ladder, so it is written as one. Book and Regular share 5 because PANOSE has
 # one "Book" step and both belong in it.
+#
+# NINE nameID1 FAMILIES. Five of them hold no Bold slot, and which five is
+# Siwatch's specification of 2026-08-09, not an inference:
+#
+#   Air 100, Thin 200, Light 300   Word SYNTHESISES. Measured on Windows GDI+:
+#                                  a face under 600 gets a +23/1000em
+#                                  double-strike, 1.50x at Light. Their counter
+#                                  aperture is 85.9/102.8/113.3 against a floor
+#                                  of 46.5, so they can afford it.
+#   ExtraBold 800, Black 900       Word REFUSES. Measured 2026-08-09: GDI does
+#                                  not synthesise at usWeightClass >= 600 —
+#                                  Segoe UI Semibold 600 and Arial Black 900
+#                                  both return the face itself, ratio 1.00.
+#                                  So "Ctrl+B becomes itself" needs no bold
+#                                  slot; it is Windows' own behaviour.
 FACES = {
-    # --- TH Aeonik Air --- plain only; see docstring point 2 ----------------
+    # --- no bold slot: Word synthesises ------------------------------------
     **_pair("Air", "TH Aeonik Air", "Regular", "Air", 100, 2),
-
-    # --- TH Aeonik Thin --- plain only ---------------------------------------
-    # Was `TH-Aeonik-AirBold.otf`: the same outlines, declared 700, serving as
-    # Air's bold slot and absent from the Settings card. Siwatch asked for Thin
-    # back as a style in its own right on 2026-08-09, and it cannot be both.
     **_pair("Thin", "TH Aeonik Thin", "Regular", "Thin", 200, 3,
             legacy="TH-Aeonik-AirBold"),
-
-    # --- TH Aeonik Light ----------------------------------------------------
     **_pair("Light", "TH Aeonik Light", "Regular", "Light", 300, 4),
-    # Light's bold is the HEAVIER of the two available, and Book's is the
-    # lighter. Backwards on the page, right for the reader — see docstring
-    # point 3. Its Latin is synthetic.
-    **_pair("ExtraBold", "TH Aeonik Light", "Bold", "ExtraBold", 800, 9),
 
-    # --- TH Aeonik Book -----------------------------------------------------
-    # The body weight for Thai and mixed documents. Its Thai is Bai Jamjuree
-    # Regular UNDISTORTED — the only entry in BUILD_TABLE at embolden 0.0 — and
-    # the Latin was drawn to fit it, which is the reverse of every other face.
+    # --- Book 350, the body weight for Thai and mixed text -----------------
+    # Its Thai is Bai Jamjuree Regular UNDISTORTED — the only entry in
+    # BUILD_TABLE at embolden 0.0 — and the Latin was drawn to fit it, which is
+    # the reverse of every other face. Bolds to Medium (ALIASES below), because
+    # body copy is the one thing that gets bolded constantly and a synthesised
+    # bold at 350 measures 1.29x against a real bold's 1.73x.
     **_pair("Book", "TH Aeonik Book", "Regular", "Book", 350, 5),
-    **_pair("SemiBold", "TH Aeonik Book", "Bold", "SemiBold", 600, 7),
 
-    # --- TH Aeonik ----------------------------------------------------------
+    # --- the RIBBI core: the only family whose bold is a face of its own ----
     **_pair("Regular", "TH Aeonik", "Regular", "Regular", 400, 5),
     **_pair("Bold", "TH Aeonik", "Bold", "Bold", 700, 8),
 
-    # --- TH Aeonik Medium ---------------------------------------------------
+    # --- Medium and SemiBold: own dropdown entries, both bolding to Bold ----
     **_pair("Medium", "TH Aeonik Medium", "Regular", "Medium", 500, 6),
-    # Was `TH-Aeonik-MediumBold.otf`, declared 700. It is Black, it weighs 900,
-    # and now it says so.
-    **_pair("Black", "TH Aeonik Medium", "Bold", "Black", 900, 10,
+    **_pair("SemiBold", "TH Aeonik SemiBold", "Regular", "SemiBold", 600, 7),
+
+    # --- no bold slot: Word refuses to synthesise at 600+ -------------------
+    **_pair("ExtraBold", "TH Aeonik ExtraBold", "Regular", "ExtraBold", 800, 9),
+    **_pair("Black", "TH Aeonik Black", "Regular", "Black", 900, 10,
             legacy="TH-Aeonik-MediumBold"),
 }
 
-# Backwards-compatible name. There is no longer any difference between "the
-# faces with outlines" and "the faces that ship" — that difference WAS the
-# duplicate problem.
-SHIPPED = FACES
 
-# The two families that hold no bold slot, and the only two allowed to.
-# Asserted in both directions: a third family losing its bold is a fault, and
-# so is one of these gaining one.
-NO_BOLD_SLOT = {"TH Aeonik Air", "TH Aeonik Thin"}
+def _alias(key, id1, source, weight_label, italic=False):
+    """A duplicate face whose only job is to fill another family's Bold slot.
 
-# The duplicate faces retired on 2026-08-09. install-fonts.sh globs the
+    THREE OF THESE EXIST AND EACH ONE COSTS A SETTINGS CARD. That is the price
+    of Siwatch's 2026-08-09 Ctrl+B map: Medium has to be both `TH Aeonik
+    Medium`'s Regular and `TH Aeonik Book`'s Bold, and Bold has to be `TH
+    Aeonik`'s Bold and Medium's and SemiBold's. `nameID1` holds one value, so
+    the face is shipped again under the second name.
+
+    TWO RULES, NEITHER OPTIONAL — both were measured the hard way on 08-07:
+
+      1. NO nameID16/17. The typographic family then holds exactly one face per
+         weight. Otherwise fontconfig sees two faces claiming 500 (or three
+         claiming 700) and a WeasyPrint or LibreOffice request for a weight can
+         resolve to the wrong outlines — a Thai PDF that silently renders one
+         weight light.
+      2. usWeightClass 700, panose 8, whatever the outlines weigh. An
+         unqualified query defaults to fc 80 and the nearest family member
+         wins, so a duplicate declaring its TRUE weight can beat the plain face
+         it serves: `fc-match "TH Aeonik Air"` returned AirBold on 08-07
+         because 200 (fc 40) sits closer to 80 than 100 (fc 0). At 700 (fc 200)
+         no plain face here loses.
+
+    Word is unaffected by rule 2 — it links on nameID1/nameID2 + the macStyle
+    bold bit, never on usWeightClass.
+    """
+    style = "Bold Italic" if italic else "Bold"
+    return _face(key=key, id1=id1, id2=style, id17=None, weight=700, panose=8,
+                 id16=None, source=source)
+
+
+# EMPTY, AND THAT IS THE DESIGN — Siwatch, 2026-08-09: "my target is one card."
+#
+# Every alias costs a Settings card, because a duplicate cannot carry nameID16
+# and therefore files under its own nameID1 instead. Three aliases (Book->Medium,
+# Medium->Bold, SemiBold->Bold) were built and measured at 26 files / 4 cards
+# before this was emptied.
+#
+# What one card costs, measured on Windows GDI+ 2026-08-09 (+23/1000em
+# double-strike below weight 600, nothing at or above it):
+#
+#   Book 350    Ctrl+B synthesises   1.29x Latin, 1.38x Thai
+#   Medium 500  Ctrl+B synthesises   1.17x Latin, 1.24x Thai
+#   SemiBold 600, ExtraBold 800, Black 900   Ctrl+B returns the face itself
+#
+# against the real Regular->Bold pair at 1.73x. The helper below is kept
+# because reinstating any one pair is a two-line change, and the reasoning for
+# why it would cost a card is the expensive part.
+ALIASES = {}
+
+SHIPPED = {**FACES, **ALIASES}
+
+# The families that hold no Bold slot, and the only ones allowed to. Asserted
+# in both directions: a sixth family losing its bold is a fault, and so is one
+# of these gaining one.
+# Everything except the RIBBI core. Air/Thin/Light/Book/Medium get Word's
+# synthesised bold; SemiBold/ExtraBold/Black get nothing, because GDI refuses to
+# simulate at usWeightClass >= 600 — measured on Segoe UI Semibold and Arial
+# Black, both ratio 1.00, and Marlett at 500 confirms the threshold by
+# synthesising at 1.24.
+NO_BOLD_SLOT = {"TH Aeonik Air", "TH Aeonik Thin", "TH Aeonik Light",
+                "TH Aeonik Book", "TH Aeonik Medium", "TH Aeonik SemiBold",
+                "TH Aeonik ExtraBold", "TH Aeonik Black"}
+
+# Names from earlier structures that no longer ship. install-fonts.sh globs the
 # directory, so one of these left behind is not clutter — it is a face that
 # reappears in somebody's font menu declaring a weight that now belongs to a
 # different outline.
 RETIRED_FILES = [
+    "TH-Aeonik-AirBold.otf", "TH-Aeonik-AirBoldItalic.otf",
     "TH-Aeonik-LightBold.otf", "TH-Aeonik-LightBoldItalic.otf",
     "TH-Aeonik-BookBold.otf", "TH-Aeonik-BookBoldItalic.otf",
+    "TH-Aeonik-MediumBold.otf", "TH-Aeonik-MediumBoldItalic.otf",
     "TH-Aeonik-SemiBoldBold.otf", "TH-Aeonik-SemiBoldBoldItalic.otf",
 ]
 
@@ -330,8 +395,9 @@ def outline_files():
 
 
 def shipped_files():
-    """All 20 files that get installed. Same set; see SHIPPED."""
-    return outline_files()
+    """Every file that gets installed. Equal to outline_files() while ALIASES
+    is empty, which is the one-card state."""
+    return [cfg["file"] + ".otf" for cfg in SHIPPED.values()]
 
 
 # ---------------------------------------------------------------------------
@@ -501,25 +567,83 @@ def restyle_outline_faces(out_dir, verbose=True):
     return faults
 
 
+def write_aliases(out_dir, verbose=True):
+    """Write the three duplicate pairs that fill Book's, Medium's and
+    SemiBold's Bold slots.
+
+    Byte-identical to their source — the write is followed by a re-read and a
+    charstring comparison, because "it is a copy" is worthless as a claim and
+    cheap as an assertion.
+    """
+    faults = []
+    stamp = build_stamp()
+    for key, cfg in ALIASES.items():
+        src_cfg = FACES[cfg["source"]]
+        src = out_dir / f"{src_cfg['file']}.otf"
+        if not src.exists():
+            faults.append(f"{key}: source {src.name} is missing")
+            continue
+        dst = out_dir / f"{cfg['file']}.otf"
+        before = outline_digest(src)
+
+        font = TTFont(str(src))
+        apply_face_metadata(font, key, cfg, stamp)
+        font.save(str(dst))
+        font.close()
+
+        drift = _diff_outlines(before, outline_digest(dst))
+        if drift:
+            faults.append(f"{key}: not a faithful duplicate of "
+                          f"{cfg['source']} — {drift}")
+            continue
+        if verbose:
+            print(f"  {key:18s} {dst.name}  = {cfg['source']} outlines, "
+                  f"'{cfg['nameID1']}' Bold slot")
+    return faults
+
+
 def retire_duplicates(out_dir, verbose=True):
-    """Delete the six duplicate faces the ten-weight deck replaced."""
+    """Delete files from earlier structures that no longer ship.
+
+    A retired name can also be some face's `legacy` name — `TH-Aeonik-AirBold`
+    was Thin's filename while Thin filled Air's bold slot, and
+    `TH-Aeonik-MediumBold` was Black's. Deleting one of those while the face has
+    not yet been written under its current name would destroy the only copy of
+    an outline set, so those are SKIPPED and left for `_resolve_source()` to
+    rename.
+    """
+    protected = {cfg["legacy"] + ".otf": key
+                 for key, cfg in FACES.items() if cfg.get("legacy")
+                 and not (out_dir / f"{cfg['file']}.otf").exists()}
     for name in RETIRED_FILES:
-        p = out_dir / name
-        if p.exists():
-            p.unlink()
+        f = out_dir / name
+        if not f.exists():
+            continue
+        if name in protected:
             if verbose:
-                print(f"  removed {name}  (duplicate outlines, retired 2026-08-09)")
+                print(f"  kept {name}  — it is the only copy of "
+                      f"{protected[name]}, and gets renamed below")
+            continue
+        f.unlink()
+        if verbose:
+            print(f"  removed {name}  (retired, not a shipped face)")
     return []
 
 
 def apply_all(out_dir=OUTPUT_DIR, verbose=True):
+    # RETIREMENT RUNS FIRST. A retired alias can share a filename with some
+    # face's legacy name (MediumBold was Black's), and leaving it in place makes
+    # _resolve_source() see one face under two names and refuse to guess.
     if verbose:
         print(f"Shipped faces -> {out_dir}")
-        print("\n[1/2] Outline faces")
-    faults = restyle_outline_faces(out_dir, verbose)
+        print("\n[1/3] Retired files")
+    faults = retire_duplicates(out_dir, verbose)
     if verbose:
-        print("\n[2/2] Retired duplicates")
-    faults += retire_duplicates(out_dir, verbose)
+        print("\n[2/3] Outline faces")
+    faults += restyle_outline_faces(out_dir, verbose)
+    if verbose:
+        print("\n[3/3] Style-link aliases")
+    faults += write_aliases(out_dir, verbose)
     return faults
 
 
@@ -602,17 +726,23 @@ def check(out_dir=OUTPUT_DIR, verbose=True):
                               f"{seen[nid][val]} — Windows will shadow one of them")
             seen[nid][val] = key
 
-        # THE INVARIANT THIS WHOLE STRUCTURE EXISTS FOR. A typographic family
-        # resolves correctly only while every member holds a unique
-        # (weight, slant); nothing asserted it before 2026-08-09, and shipping
-        # three faces at 500 is what forced six Settings cards.
-        slot = (os2.usWeightClass, bool(os2.fsSelection & ITALIC))
-        if slot in slots:
-            faults.append(
-                f"{key}: weight {slot[0]}{' italic' if slot[1] else ''} is "
-                f"already taken by {slots[slot]} — two faces in one typographic "
-                f"family cannot share a weight")
-        slots[slot] = key
+        # THE INVARIANT THE ONE-CARD STRUCTURE RESTS ON, and it applies to the
+        # TYPOGRAPHIC family only. A face inside nameID16 must hold a unique
+        # (weight, slant), or a weight query resolves to whichever of them
+        # fontconfig reached first. The three alias pairs are outside nameID16
+        # precisely so they may share 700 with the real Bold — that is what
+        # keeps them out of the ambiguity, and it is why they cost a card.
+        if cfg["nameID16"]:
+            slot = (os2.usWeightClass, bool(os2.fsSelection & ITALIC))
+            if slot in slots:
+                faults.append(
+                    f"{key}: weight {slot[0]}{' italic' if slot[1] else ''} is "
+                    f"already taken by {slots[slot]} — two faces in one "
+                    f"typographic family cannot share a weight")
+            slots[slot] = key
+        elif key not in ALIASES:
+            faults.append(f"{key}: has no nameID16 but is not an alias — every "
+                          f"shipped weight belongs in the card")
 
         families.setdefault(cfg["nameID1"], {})[cfg["nameID2"]] = key
         font.close()
@@ -640,6 +770,18 @@ def check(out_dir=OUTPUT_DIR, verbose=True):
         faults.append(f"NO_BOLD_SLOT names {sorted(missing_exempt)}, which ship "
                       f"no faces — the exemption is stale")
 
+    # An alias must be its source, byte for byte.
+    for key, cfg in ALIASES.items():
+        src = out_dir / f"{FACES[cfg['source']]['file']}.otf"
+        dst = out_dir / f"{cfg['file']}.otf"
+        if not (src.exists() and dst.exists()):
+            faults.append(f"{key}: cannot compare against {cfg['source']} — "
+                          f"a missing file is not a pass")
+            continue
+        drift = _diff_outlines(outline_digest(src), outline_digest(dst))
+        if drift:
+            faults.append(f"{key}: differs from {cfg['source']} — {drift}")
+
     # Anything in the directory that is not a shipped face is stale.
     # install-fonts.sh globs the directory, so an orphan is not clutter — it is
     # a retired face that reappears in somebody's font menu.
@@ -664,10 +806,16 @@ def check(out_dir=OUTPUT_DIR, verbose=True):
                 print(f"  - {f}")
         else:
             ladder = " ".join(str(w) for w, i in sorted(slots) if not i)
-            print(f"OK — {len(SHIPPED)} shipped faces, "
-                  f"{len(FACES)} outline sets, {len(families)} families, "
-                  f"no shared (weight, slant)")
-            print(f"     weights {ladder}")
+            cards = 1 + len({c["nameID1"] for c in ALIASES.values()})
+            bolds = sorted(f for f in families if f not in NO_BOLD_SLOT)
+            print(f"OK — {len(SHIPPED)} shipped faces, {len(FACES)} outline "
+                  f"sets, {len(families)} Word families")
+            print(f"     one Settings card, weights {ladder}"
+                  if cards == 1 else
+                  f"     {cards} Settings cards ({len(ALIASES)} aliases), "
+                  f"weights {ladder}")
+            print(f"     real bold: {', '.join(bolds)}  —  every other family "
+                  f"is Word's own behaviour")
     return faults
 
 

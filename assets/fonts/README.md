@@ -68,27 +68,32 @@ Settings card.** Every face carries `nameID16 = "TH Aeonik"` with a distinct
 faces that used to exist only to fill a bold slot were replaced by weights somebody
 drew (Siwatch, 2026-08-09).
 
-Word's dropdown lists `nameID1` families, and a family holds four slots, so **ten
-weights are reached through six names**:
+**Its structure is Arial's.** `TH Aeonik` holds Regular + Bold and is the only family
+with a real bold; every other weight is a plain face in its own dropdown family,
+grouped into one card by `nameID16`. That is how Windows ships Arial (`Arial Black` is
+a plain face, not Arial's bold) and Segoe UI (Light, Semilight, Semibold likewise).
 
-| Family in Word | Regular | Italic | Bold | Bold Italic |
-|---|---|---|---|---|
-| `TH Aeonik Air` | Air 100 | Air Italic | *none — Word synthesises* | *none* |
-| `TH Aeonik Thin` | Thin 200 | Thin Italic | *none — Word synthesises* | *none* |
-| `TH Aeonik Light` | Light 300 | Light Italic | ExtraBold 800 | ExtraBold Italic |
-| `TH Aeonik Book` | Book 350 | Book Italic | SemiBold 600 | SemiBold Italic |
-| `TH Aeonik` | Regular 400 | Italic | Bold 700 | Bold Italic |
-| `TH Aeonik Medium` | Medium 500 | Medium Italic | Black 900 | Black Italic |
+| Family in Word | weight | Ctrl+B |
+|---|---|---|
+| `TH Aeonik Air` | Air 100 | Word synthesises |
+| `TH Aeonik Thin` | Thin 200 | Word synthesises |
+| `TH Aeonik Light` | Light 300 | Word synthesises |
+| `TH Aeonik Book` | Book 350 | Word synthesises |
+| `TH Aeonik` | Regular 400 + **Bold 700** | the drawn Bold |
+| `TH Aeonik Medium` | Medium 500 | Word synthesises |
+| `TH Aeonik SemiBold` | SemiBold 600 | **nothing** |
+| `TH Aeonik ExtraBold` | ExtraBold 800 | **nothing** |
+| `TH Aeonik Black` | Black 900 | **nothing** |
 
-**Air and Thin have no bold on purpose.** Synthetic bold double-strikes the outline,
-which spends the counter aperture that keeps ฃ ธ ฮ open — but those two measure 113.3
-and 97.7 against a floor of 46.5, so they are the only weights in the family that can
-afford it. Giving Air a real bold is what made `fc-match "TH Aeonik Air"` return the
-bold instead (+199% ink), and that is what forced six Settings cards until 08-09.
+**Word decides Ctrl+B from `usWeightClass` alone**, measured on Windows 2026-08-09:
+below 600 it thickens the outline itself by a constant +23/1000 em; at 600 and above it
+refuses and hands back the face unchanged, the same as `Arial Black`. So the ratio a
+synthesised bold produces falls as the weight rises — 1.50x at Light, 1.29x at Book,
+1.17x at Medium, 1.00x at SemiBold and above. Only `TH Aeonik` reaches a drawn bold, at
+1.73x.
 
-**Light bolds heavier than Book does**, which reads backwards and is deliberate: Book
-350 is the body weight for Thai and mixed text, so Ctrl+B on body copy has to land near
-Regular's own 1.73x. Light is a display weight almost nothing bolds.
+**Bold 700 is the only weight not in the dropdown**, because it is the core family's
+bold slot — exactly as `Arial Bold` is not in Windows' own dropdown.
 
 **Bold, ExtraBold and Black share one Thai colour.** Bai Jamjuree Bold is the heaviest
 Thai available and all three are it, at three embolden amounts; they separate ~2.3% in
