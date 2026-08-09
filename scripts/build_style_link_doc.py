@@ -113,11 +113,12 @@ CTRL_B = [
      "11 pt, not at heading sizes."),
     ("TH Aeonik Thin", "Thin", "synth", 46.9, "thickens cleanly"),
     ("TH Aeonik Light", "Light", "synth", 76.2, "thickens cleanly"),
-    ("TH Aeonik Book", "Book", "real", 115.2,
+    ("TH Aeonik Book", "Book", "real", 130.9,
      "THE BODY WEIGHT for Thai and mixed text, and the one family besides the "
-     "core given a real bold. Ctrl+B reaches Medium's outlines exactly — Latin "
-     "115.2 and Thai 102.5, byte-identical to TH Aeonik Medium. Set this row "
-     "and a TH Aeonik Medium row side by side and they must be one face."),
+     "core given a real bold. Ctrl+B reaches SemiBold's outlines exactly — "
+     "Latin 130.9 and Thai 118.2, byte-identical to TH Aeonik SemiBold, 1.76x. "
+     "Set this row and a TH Aeonik SemiBold row side by side and they must be "
+     "one face."),
     ("TH Aeonik", "Regular", "real", 148.4,
      "the drawn Bold 700, 1.73x"),
     ("TH Aeonik Medium", "Medium", "synth", 134.8,

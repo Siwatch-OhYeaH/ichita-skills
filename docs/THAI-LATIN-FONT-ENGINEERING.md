@@ -123,7 +123,7 @@ listing eleven styles — the ten weights plus `Book Bold`, which is Book's bold
 | `TH Aeonik Air` | Air 100 | Word synthesises |
 | `TH Aeonik Thin` | Thin 200 | Word synthesises |
 | `TH Aeonik Light` | Light 300 | Word synthesises |
-| `TH Aeonik Book` | Book 350 | **reaches Medium's outlines, 1.55x** |
+| `TH Aeonik Book` | Book 350 | **reaches SemiBold's outlines, 1.76x** |
 | `TH Aeonik` | Regular 400 **+ Bold 700** | **reaches the drawn Bold — the only real bold** |
 | `TH Aeonik Medium` | Medium 500 | Word synthesises |
 | `TH Aeonik SemiBold` | SemiBold 600 | **nothing — Word refuses at 600+** |
@@ -218,20 +218,25 @@ structure ever synthesises at 700+: Bold is a bold slot, and 800/900 are refused
 
 Siwatch, 2026-08-09: *"only one font face I want you to fix, TH Aeonik Book. I want
 it's ctrl+b become more weight, equal to TH aeonik medium for both latin and thai."*
+Then, after reading the built face on screen, 2026-08-10: *"I want BookBold to have
+weight 600 (current is a bit thin)."* **It carries SemiBold's ink, not Medium's** —
+another visual report that measured out.
 
 Book 350 is the body weight for Thai and mixed documents, so it is the one family where
 Ctrl+B is exercised constantly, and Word's synthesised bold is not good enough there:
 
 ```
-                    Latin              Thai
-Book, synthesised   74.2 -> 95.7  1.29x    66.4 ->  91.8  1.38x
-Book -> Medium      74.2 -> 115.2 1.55x    66.4 -> 102.5  1.54x   SHIPPED
-Regular -> Bold     85.9 -> 148.4 1.73x    76.2 -> 130.9  1.72x   the reference
+                    Latin                   Thai
+Book, synthesised   74.2 ->  95.7  1.29x    66.4 ->  91.8  1.38x
+Book -> Medium      74.2 -> 115.2  1.55x    66.4 -> 102.5  1.54x   "a bit thin"
+Book -> SemiBold    74.2 -> 130.9  1.76x    66.4 -> 118.2  1.78x   SHIPPED
+Regular -> Bold     85.9 -> 148.4  1.73x    76.2 -> 130.9  1.72x   the reference
 ```
 
-`TH-Aeonik-BookBold.otf` is a byte-identical copy of `TH-Aeonik-Medium.otf` under a
-second name, so the ink IS Medium's — asserted by comparing charstrings after every
-write, not claimed.
+SemiBold lands within a hair of the reference pair in both scripts, which is the
+argument for it beyond Siwatch's eye. `TH-Aeonik-BookBold.otf` is a byte-identical copy
+of `TH-Aeonik-SemiBold.otf` under a second name, so the ink IS SemiBold's — asserted by
+comparing charstrings after every write, not claimed.
 
 **The second FILE is unavoidable; the second CARD is not.** OpenType style linking is
 per-file metadata — the bold of a family must be a file whose own `nameID1` names that
@@ -241,10 +246,12 @@ answer is the format's.
 
 A duplicate normally drops `nameID16` so it cannot collide with the real face at its
 weight, which files it under its own `nameID1` and opens a card. This one stays in the
-card and declares a weight **nothing else uses — 550, listed as `Book Bold`** — so the
-typographic family still holds exactly one face per weight. `fc_family_probe` returns
-zero faults: bare `TH Aeonik Book` still resolves to Book (fc 55, distance 25, against
-550's fc ~140, distance 60 — the same scoring that made rule 2 pin aliases at 700),
+card and declares a weight **nothing else uses — 650, listed as `Book Bold`** — so the
+typographic family still holds exactly one face per weight. 650 rather than 550 so the
+card sorts it AFTER the face it duplicates; the ink is SemiBold's exactly, and listing
+it above SemiBold would show two identical entries in the wrong order.
+`fc_family_probe` returns zero faults: bare `TH Aeonik Book` still resolves to Book
+(fc 55, distance 25, against 650's fc ~190, distance 110 — the same scoring that made rule 2 pin aliases at 700),
 `TH Aeonik Book:bold` reaches the copy, and all eleven weight queries hit their own
 file. Word is indifferent to the number; it links on `nameID1`/`nameID2` + `macStyle`.
 
@@ -308,7 +315,8 @@ bold slots (08-09 am)      20  1x20       = 1  1          clean        Light->Ex
 Siwatch's Ctrl+B map       26  1x20 + 3x2 = 4  1          clean        Book/Medium/SemiBold real
 one card                   20  1x20       = 1  1          clean        Arial's structure
 Book bold, own card        22  1x20 + 1x2 = 2  1          clean        Arial + a real bold on Book
-SHIPPED                    22  1x22       = 1  1          clean        + Book Bold at 550, in the card
+Book Bold = Medium         22  1x22       = 1  1          clean        1.55x — "a bit thin"
+SHIPPED                    22  1x22       = 1  1          clean        Book Bold = SemiBold, 1.76x
 ```
 
 #### Metadata — ICHITA internal, with the attribution intact
@@ -1305,7 +1313,7 @@ Other test-design failures, each of which shipped a defect:
 
 **Shipping:** **22** TH-Aeonik faces from **20** outline sets in **9** `nameID1`
 families, ONE Windows Settings card listing eleven styles — the ten weights plus
-`Book Bold` 550, which is Book's bold slot (§1b) + 4 TH-Slussen + **20** Aeonik faces,
+`Book Bold` 650, which is Book's bold slot and carries SemiBold's ink (§1b) + 4 TH-Slussen + **20** Aeonik faces,
 all `.otf`/CFF. Aeonik carries **three** synthetic pairs, §4c — Book (350, thinned from
 Regular), SemiBold (600, grown from Medium) and ExtraBold (800, thinned from Black) —
 the only Latin here that is not CoType's drawing.

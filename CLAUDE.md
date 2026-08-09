@@ -114,8 +114,8 @@ The seven things most likely to cost a day if you skip the document:
    Expected state is **22/22** — check 6 stopped being red-on-purpose on 2026-08-06,
    and the tolerance was not widened (§4b).
 5. **TH Aeonik ships 22 faces in ONE Windows Settings card** — ten weights plus
-   `Book Bold` 550, Book's bold slot, which stays in the card by declaring a weight
-   nothing else uses rather than dropping `nameID16` — and its structure is
+   `Book Bold` 650 (SemiBold's ink), Book's bold slot, which stays in the card by
+   declaring a weight nothing else uses rather than dropping `nameID16` — and its structure is
    **Arial's**: `TH Aeonik` holds Regular + Bold, `TH Aeonik Book` bolds to a copy of
    Medium because it is the body weight, and the other seven weights are plain faces in their own
    `nameID1`, grouped by `nameID16`. Measured 2026-08-09 — *no Microsoft family links

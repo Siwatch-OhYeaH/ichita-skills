@@ -78,7 +78,7 @@ a plain face, not Arial's bold) and Segoe UI (Light, Semilight, Semibold likewis
 | `TH Aeonik Air` | Air 100 | Word synthesises |
 | `TH Aeonik Thin` | Thin 200 | Word synthesises |
 | `TH Aeonik Light` | Light 300 | Word synthesises |
-| `TH Aeonik Book` | Book 350 | **Medium's outlines, 1.55x** |
+| `TH Aeonik Book` | Book 350 | **SemiBold's outlines, 1.76x** |
 | `TH Aeonik` | Regular 400 + **Bold 700** | the drawn Bold |
 | `TH Aeonik Medium` | Medium 500 | Word synthesises |
 | `TH Aeonik SemiBold` | SemiBold 600 | **nothing** |

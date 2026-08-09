@@ -350,9 +350,13 @@ def _alias(key, id1, source, italic=False, weight=700, id16=None, id17=None):
 #
 # Book 350 is the body weight for Thai and mixed documents, so it is the one
 # family where Ctrl+B is exercised constantly. Left to Word it synthesises at
-# 1.29x Latin / 1.38x Thai, against a drawn bold's 1.73x. Pointed at Medium it
-# lands on 1.55x / 1.54x, and the ink IS Medium's because the file is a
-# byte-identical copy — asserted by comparing charstrings, not claimed.
+# 1.29x Latin / 1.38x Thai, against a drawn bold's 1.73x.
+#
+# IT CARRIES SEMIBOLD'S INK, NOT MEDIUM'S. Medium was shipped first and Siwatch
+# read it on screen: "current is a bit thin". At SemiBold it lands on 1.76x
+# Latin / 1.78x Thai — within a hair of the reference pair, Regular -> Bold at
+# 1.73x / 1.72x. The file is a byte-identical copy of TH-Aeonik-SemiBold.otf,
+# asserted by comparing charstrings after every write, not claimed.
 #
 # THERE IS NO WAY TO AVOID THE SECOND FILE. OpenType style linking is per-file
 # metadata: the bold of a family must be a file whose own nameID1 names that
@@ -364,22 +368,26 @@ def _alias(key, id1, source, italic=False, weight=700, id16=None, id17=None):
 # files it under its own nameID1 and opens a card. Instead it stays in the card
 # and declares a weight NOTHING ELSE USES:
 #
-#   550, between Medium 500 and SemiBold 600, listed as "Book Bold"
+#   650, between SemiBold 600 and Bold 700, listed as "Book Bold"
+#
+# 650 rather than 550 so the card sorts it AFTER the face it duplicates: the ink
+# is SemiBold's exactly, and listing it above SemiBold would show two identical
+# entries in the wrong order.
 #
 # so the typographic family still holds exactly one face per weight, and the
 # card lists eleven styles instead of ten. Measured 2026-08-09,
 # fc_family_probe 0 faults: bare `TH Aeonik Book` still resolves to Book
-# (fc 55, distance 25, against 550's fc ~140, distance 60 — the reason rule 2
+# (fc 55, distance 25, against 650's fc ~190, distance 110 — the reason rule 2
 # used to pin aliases at 700), `TH Aeonik Book:bold` reaches this file, and all
 # eleven weight queries hit their own file.
 #
 # Word is indifferent to the number: it links on nameID1/nameID2 + macStyle.
 ALIASES = {
-    "BookBold": _alias("BookBold", "TH Aeonik Book", "Medium",
-                       weight=550, id16="TH Aeonik", id17="Book Bold"),
+    "BookBold": _alias("BookBold", "TH Aeonik Book", "SemiBold",
+                       weight=650, id16="TH Aeonik", id17="Book Bold"),
     "BookBoldItalic": _alias("BookBoldItalic", "TH Aeonik Book",
-                             "MediumItalic", italic=True,
-                             weight=550, id16="TH Aeonik", id17="Book Bold"),
+                             "SemiBoldItalic", italic=True,
+                             weight=650, id16="TH Aeonik", id17="Book Bold"),
 }
 
 SHIPPED = {**FACES, **ALIASES}
