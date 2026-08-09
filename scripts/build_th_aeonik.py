@@ -95,7 +95,7 @@ from th_mark_clearance import raise_upper_marks
 from th_baseline import seat_thai_on_baseline
 from th_cff import assert_advance_single_source, convert_to_cff
 from th_style_link import (FACES as WEIGHT_CONFIG, USE_TYPO,  # noqa: E402
-                           apply_face_metadata, write_aliases)
+                           apply_face_metadata, retire_duplicates)
 import th_greek
 
 warnings.filterwarnings("ignore")
@@ -149,20 +149,24 @@ WEIGHTS = {
     "SemiBoldItalic": "Aeonik-SemiBoldItalic.otf",
     "Book":          "Aeonik-Book.otf",
     "BookItalic":    "Aeonik-BookItalic.otf",
+    "ExtraBold":     "Aeonik-ExtraBold.otf",
+    "ExtraBoldItalic": "Aeonik-ExtraBoldItalic.otf",
 }
 
-# The two faces CoType never drew.
+# The three weights CoType never drew.
 #
-# Siwatch asked for a SemiBold on 2026-08-07 and there is no source for one —
-# not in the v1.000 desktop cut, not in the v2.000 web cut. Ours is synthesised
-# by build_aeonik_semibold.py into assets/fonts/aeonik/, so for these two the
-# rule the rest of this file enforces does not apply: that directory IS the
-# source, and there is no pristine original it could be confused with.
+# SemiBold 600 and Book 350 were asked for on 2026-08-07, ExtraBold 800 on
+# 2026-08-09, and there is no source for any of them — not in the v1.000 desktop
+# cut, not in the v2.000 web cut. Ours are synthesised by
+# build_aeonik_semibold.py into assets/fonts/aeonik/, so for these six the rule
+# the rest of this file enforces does not apply: that directory IS the source,
+# and there is no pristine original it could be confused with.
 #
-# It is still NOT Aeonik's drawing. Both carry that in nameID5 and nameID10,
+# It is still NOT Aeonik's drawing. All six carry that in nameID5 and nameID10,
 # and §4c records what synthesis costs.
 SYNTHETIC_FACES = {"Aeonik-SemiBold.otf", "Aeonik-SemiBoldItalic.otf",
-                   "Aeonik-Book.otf", "Aeonik-BookItalic.otf"}
+                   "Aeonik-Book.otf", "Aeonik-BookItalic.otf",
+                   "Aeonik-ExtraBold.otf", "Aeonik-ExtraBoldItalic.otf"}
 AEONIK_SYNTHETIC = ASSETS / "fonts" / "aeonik"
 
 # Face naming lives in th_style_link.FACES, imported above as WEIGHT_CONFIG.
@@ -1384,27 +1388,27 @@ def main():
     if success != total:
         return 1
 
-    # Six of the twenty shipped faces are duplicates that fill a bold slot, so a
-    # build is not a shippable set until they exist. A partial build cannot make
-    # one — it would leave a family half style-linked, which is worse than not
-    # linked at all because Word would take the real bold for upright text and
-    # synthesise the italic.
+    # Every shipped face now carries its own outlines, so a build IS the shipped
+    # set — there is nothing to synthesise afterwards. What is left is removing
+    # the six duplicate faces the ten-weight deck replaced, and only a full
+    # build may do that: after a partial one the directory is a mix of two
+    # structures and deleting from it would strand a family without its bold.
     if len(weights) != len(WEIGHTS):
-        print("Partial build — style-link aliases NOT written. Run\n"
+        print("Partial build — retired duplicates NOT removed. Run\n"
               f"  python3 th_style_link.py --dir {out_dir}\n"
               "after a full build.\n")
         return 0
 
     print(f"{'=' * 70}")
-    print("  STYLE-LINK ALIASES")
+    print("  RETIRED DUPLICATES")
     print(f"{'=' * 70}")
-    faults = write_aliases(out_dir)
+    faults = retire_duplicates(out_dir)
     if faults:
         print("\nFAIL — the shipped set is incomplete:")
         for f in faults:
             print(f"  - {f}")
         return 1
-    print(f"\n  PASS: {len(WEIGHTS)} outline sets -> 20 shipped faces")
+    print(f"\n  PASS: {len(WEIGHTS)} outline sets -> {len(WEIGHTS)} shipped faces")
     print("  Verify with: python3 th_style_link.py --check\n")
     return 0
 

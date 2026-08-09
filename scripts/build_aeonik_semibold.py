@@ -104,6 +104,11 @@ ADVANCE_TOL = 0.0025
 # exactly the pattern being avoided.
 COUNTER_INVERSION_MAX = 0.10
 
+# How far the baseline and x-height may sit from the base face's, in em units.
+# 1 unit is the rounding of an integer coordinate grid; 2 admits a curve extreme
+# that lands either side of a half. The defect this bounds was 7 and 9 units.
+VERTICAL_TOL = 2.0
+
 # The faces to synthesise, what each is derived from, and where it must land.
 #
 # The filename still says "semibold" because SemiBold was the first and the name
@@ -134,20 +139,48 @@ SYNTH = {
                            family="Aeonik SemiBold", wclass=600, panose=7),
     "SemiBoldItalic": dict(base="MediumItalic",  stem=131.8, advance=11516.0,
                            family="Aeonik SemiBold", wclass=600, panose=7),
-    # Re-targeted from 74.0 after the first build measured out. THINNING SHRINKS
-    # THE GLYPH: Aeonik-Book's x ink-top came out 504 against Regular's 510,
-    # because changeWeight moves every edge inward, not just the vertical stems.
-    # build_th_aeonik then scales the Thai to the LATIN'S X-HEIGHT (QC check 1),
-    # so a 6-unit shorter x-height scaled Bai Regular down with it and the merged
-    # Thai landed 64.5 instead of the 66.4 the weight is defined by.
+    # BACK TO 74.0, 2026-08-09, and the round trip is the useful part of the
+    # record. 74.0 is the derived number: Bai Jamjuree Regular ships undistorted
+    # and normalises to Thai stem 66.4, and WEIGHT_RATIO[350] = .8975 pins the
+    # Latin at 66.4/.8975 = 74.0.
     #
-    # Book's rule is that the Thai is fixed and the Latin moves (see
-    # th_thai_prep.BUILD_TABLE), so the Latin comes down to 64.5/.8975 = 71.9.
-    # Advances re-interpolated at the new fraction of Light -> Regular.
-    "Book":           dict(base="Regular",       stem=71.9,  advance=11129.0,
+    # On 2026-08-07 the first build measured the merged Thai at 64.5 instead, so
+    # the LATIN was re-targeted down to 71.9 to keep the ratio. That treated a
+    # symptom: the Thai was short because changeWeight had shrunk Book's Latin
+    # x-height to 496 against Regular's 510, and build_th_aeonik scales the Thai
+    # to the Latin's x-height. restore_vertical() fixes the shrink at its
+    # source, the merged Thai measures 66.4 again, and the target that was
+    # derived from the design goes back in.
+    #
+    # Advances are re-interpolated at 74.0's fraction of Light -> Regular
+    # (64.2% roman, 58.1% italic).
+    "Book":           dict(base="Regular",       stem=74.0,  advance=11141.0,
                            family="Aeonik Book", wclass=350, panose=4),
-    "BookItalic":     dict(base="RegularItalic", stem=71.8,  advance=11079.0,
+    "BookItalic":     dict(base="RegularItalic", stem=74.0,  advance=11090.0,
                            family="Aeonik Book", wclass=350, panose=4),
+    # Added 2026-08-09 for the ten-weight deck. It is the ONLY gap in Siwatch's
+    # ladder — Air/Thin/Light/Book/Regular/Medium/SemiBold/Bold/Black all
+    # existed, drawn or synthesised, before this.
+    #
+    # THINS from Black rather than growing from Bold, which is §4c's measured
+    # direction: thinning opens counters, growing spends them, and the counter
+    # is the one thing synthesis cannot fix. It also means the Bold -> ExtraBold
+    # -> Black ladder should close monotonically without a bound, the way Book's
+    # does and unlike SemiBold's.
+    #
+    # Targets are the 700/900 midpoint, MEASURED 2026-08-09 not carried over:
+    #   Bold  148.4 / 11634      Black 183.6 / 11867      -> 166.0 / 11750
+    #   BoldItalic 150.4 / 11584 BlackItalic 183.6 / 11812 -> 167.0 / 11698
+    #
+    # Watch the artefact §4c records: thinning shrinks the x-height, and
+    # build_th_aeonik scales the Thai to the LATIN'S x-height, which is what
+    # moved Book's target 74.0 -> 71.9. Here the Thai is aperture-capped rather
+    # than pinned to the Latin, so the same shrink costs a fraction of a stem
+    # unit instead of re-targeting the face — but re-measure, do not assume.
+    "ExtraBold":       dict(base="Black",        stem=166.0, advance=11750.0,
+                            family="Aeonik ExtraBold", wclass=800, panose=9),
+    "ExtraBoldItalic": dict(base="BlackItalic",  stem=167.0, advance=11698.0,
+                            family="Aeonik ExtraBold", wclass=800, panose=9),
 }
 FACES = {k: v["base"] for k, v in SYNTH.items()}
 
@@ -257,6 +290,105 @@ def graft(base, bolder, delta, codepoints):
     return grafted, rejected, unresolved
 
 
+# Glyphs that sit flat on the baseline and top out flat at the x-height, so the
+# pair of them measures the vertical band the reader actually judges. Round
+# letters are excluded deliberately: `o` and `e` overshoot on both edges, so
+# they would fold the overshoot into the correction.
+FLAT_GLYPHS = ("x", "n", "u", "m", "H", "I")
+
+
+def _vertical_band(font):
+    """(baseline, x-height) as this font's ink actually draws them."""
+    lows, highs = [], []
+    for gn in FLAT_GLYPHS:
+        b = _bounds(font, gn)
+        if b:
+            lows.append(b[1])
+            if gn.islower():
+                highs.append(b[3])
+    if not lows or not highs:
+        return None
+    lows.sort(); highs.sort()
+    return lows[len(lows) // 2], highs[len(highs) // 2]
+
+
+def restore_vertical(font, base_band, verbose=True):
+    """Put the baseline back on 0 and the x-height back on the base's.
+
+    THE DEFECT THIS FIXES SHIPPED IN BOOK FOR TWO DAYS. FontForge's changeWeight
+    insets the outline by roughly half the requested amount on EVERY edge, the
+    horizontal ones included, so a thinned face comes out shorter AND lifted off
+    the baseline. Measured 2026-08-09, thinning Aeonik Black by -18.4:
+
+        glyph   Black          thinned        drift
+        x         0..516         9..507        baseline +9, x-height -9
+        H         0..700         9..691        baseline +9, cap      -9
+
+    Three hypotheses were tested and falsified before this was written:
+      * the glyf intermediate loses the CFF blue zones  -> it does, and passing
+        `custom_zones` explicitly changes nothing;
+      * FontForge's "auto" mode ignores zones but "LCG" honours them -> both
+        produce the identical 9-unit inset;
+      * it is a rounding artefact of cu2qu -> the inset is 9 units at -18.4 and
+        7 at -14.5, i.e. half the requested amount, not a rounding.
+
+    So it is inherent to the tool and has to be corrected here. §4c saw half of
+    it — "thinning shrinks the x-height" — and compensated by re-targeting the
+    Thai instead of restoring the Latin, which left Book's Latin 2.7% shorter
+    than every other weight and floating 7 units above the baseline. It went
+    unseen because the merge scales the Thai to the LATIN's x-height, so the two
+    scripts agreed with each other inside the font and every check comparing
+    them passed.
+
+    The correction is the affine map that makes the baseline and the x-height
+    exact: y' = base_low + (y - low) * k. Cap height and descender scale with
+    it and land within ~2% rather than exactly, which is the right trade — a
+    constant inset is not an affine transform, so no single map restores every
+    extreme, and the x-height band is the one the merge and the reader key on.
+
+    It is a NO-OP on a grown face: SemiBold measures the same band as Medium, so
+    k is 1 and the offset 0. That is asserted rather than assumed.
+    """
+    band = _vertical_band(font)
+    if band is None or base_band is None:
+        raise SystemExit("ERROR: cannot measure the vertical band — refusing to "
+                         "ship a face whose baseline was not checked")
+    low, high = band
+    base_low, base_high = base_band
+    if high - low <= 0:
+        raise SystemExit(f"ERROR: degenerate vertical band {band}")
+    k = (base_high - base_low) / (high - low)
+    off = base_low - low * k
+    if abs(k - 1.0) < 1e-9 and abs(off) < 1e-9:
+        if verbose:
+            print(f"     vertical band {low:.0f}..{high:.0f} already matches the "
+                  f"base — no correction")
+        return 0
+
+    glyf = font["glyf"]
+    moved = 0
+    for gn in font.getGlyphOrder():
+        g = glyf[gn]
+        if g.numberOfContours > 0:
+            # y' = y*k + off, applied to the coordinate array in place.
+            g.coordinates.transform(((1, 0), (0, k)))
+            g.coordinates.translate((0, off))
+            g.recalcBounds(glyf)
+            moved += 1
+        elif g.numberOfContours < 0:
+            # A component's own outline already carries the map, so only the
+            # offset scales — adding `off` again would apply it twice.
+            for comp in g.components:
+                comp.y = round(comp.y * k)
+            moved += 1
+    if verbose:
+        got = _vertical_band(font)
+        print(f"     vertical restore: baseline {low:.0f} -> {got[0]:.0f} "
+              f"(want {base_low:.0f}), x-height {high:.0f} -> {got[1]:.0f} "
+              f"(want {base_high:.0f}), y x{k:.5f} on {moved} glyphs")
+    return moved
+
+
 def scale_advances(font, k):
     """Widen every advance by `k`, splitting the gain across both sidebearings.
 
@@ -308,6 +440,10 @@ def build_face(name, base_name=None, verbose=True):
 
     font = TTFont(str(src))
     convert_to_glyf(font)
+    # Measured on the base BEFORE anything touches it — restore_vertical() puts
+    # the derived face back on this band. Taken after the glyf conversion so
+    # both readings come off the same representation.
+    base_band = _vertical_band(font)
 
     with tempfile.TemporaryDirectory() as td:
         work = Path(td)
@@ -343,6 +479,11 @@ def build_face(name, base_name=None, verbose=True):
                 f"through FontForge's renaming: {' '.join(unresolved[:12])}\n"
                 f"They would ship at {base_name} weight. Fix the mapping "
                 f"rather than letting them through.")
+
+        # BEFORE the advances are re-targeted: this only moves y, so the two
+        # passes are independent, but doing it first means the advance sum is
+        # measured on the geometry that ships.
+        restore_vertical(font, base_band, verbose)
 
         before = advance_sum(font)
         k = spec["advance"] / before
@@ -500,12 +641,14 @@ def _check_ladder(ladder, rows, faults):
 def check(verbose=True):
     faults = []
     rows = []
-    # Two ladders, one per synthesised weight, each running from the face below
-    # it to the face above. Book is checked on Light->Book->Regular->Medium
-    # because a fault there is a fault in the THINNING direction and the
-    # SemiBold ladder cannot see it.
+    # One ladder per synthesised weight, each running from the face below it to
+    # the face above. Book is checked on Light->Book->Regular->Medium because a
+    # fault there is a fault in the THINNING direction and the SemiBold ladder
+    # cannot see it. ExtraBold gets its own for the same reason: it sits above
+    # every face the other two ladders end on.
     ladders = [["Light", "Book", "Regular", "Medium"],
-               ["Medium", "SemiBold", "Bold", "Black"]]
+               ["Medium", "SemiBold", "Bold", "Black"],
+               ["Bold", "ExtraBold", "Black"]]
     for ladder in ladders:
         rows.append(" -> ".join(ladder))
         _check_ladder(ladder, rows, faults)
@@ -531,6 +674,30 @@ def check(verbose=True):
         if "synthesised" not in v:
             faults.append(f"{name} nameID5 does not declare its provenance: "
                           f"{v!r}")
+        # The vertical band, against the face it was derived from. This is the
+        # assertion that would have caught Book's lifted baseline on 2026-08-07
+        # — nothing measured the Latin against its own base, only the Thai
+        # against the Latin, and those two agreed with each other while both
+        # were wrong. See restore_vertical().
+        bp = AEONIK / f"Aeonik-{spec['base']}.otf"
+        if not bp.exists():
+            faults.append(f"{name}: base Aeonik-{spec['base']}.otf is missing — "
+                          f"cannot judge the baseline, and that is not a pass")
+        else:
+            bf = TTFont(str(bp))
+            want, got = _vertical_band(bf), _vertical_band(f)
+            bf.close()
+            if want and got:
+                rows.append(f"  {name:16s} baseline {got[0]:4.0f} (base "
+                            f"{want[0]:4.0f})   x-height {got[1]:4.0f} (base "
+                            f"{want[1]:4.0f})")
+                for label, a, b in (("baseline", got[0], want[0]),
+                                    ("x-height", got[1], want[1])):
+                    if abs(a - b) > VERTICAL_TOL:
+                        faults.append(
+                            f"{name} {label} is {a:.0f} against its base's "
+                            f"{b:.0f} — changeWeight insets every edge, and "
+                            f"restore_vertical() is what puts it back")
         # A synthesised weight must not be the one face missing Greek/math.
         cmap = f.getBestCmap()
         missing = [hex(cp) for cp in (0x0394, 0x03BC, 0x03A9, 0x03A3, 0x2300)
@@ -548,7 +715,8 @@ def check(verbose=True):
             for x in faults:
                 print(f"  - {x}")
         else:
-            print(f"OK — both ladders are monotonic in stem AND width, and all "
+            print(f"OK — all {len(ladders)} ladders are monotonic in stem AND "
+                  f"width, and all "
                   f"{len(SYNTH)} synthesised faces declare themselves in "
                   f"nameID5")
     return faults

@@ -193,24 +193,32 @@ def probe(faces, env, verbose=True):
 
     families = sorted({f["id1"] for f in faces})
 
-    # --- A. bare nameID1 ---------------------------------------------------
+    # --- A. bare nameID1, roman and italic ---------------------------------
+    #
+    # The italic form is asked too. It is the same competition — a bold italic
+    # is as close to fc 80 as its roman twin — and leaving it out would have
+    # passed a structure that gets emphasis wrong in exactly half the cases.
     if verbose:
         print(f"\nA. Bare family name — what a Word run carries, and what "
               f"soffice resolves.\n")
     for id1 in families:
-        want = _slot(faces, id1, bold=False)
-        if want is None:
-            continue
-        row(repr(id1), fc_match(env, id1), want["stem"])
+        for italic in (False, True):
+            want = _slot(faces, id1, bold=False, italic=italic)
+            if want is None:
+                continue
+            pat = f"{id1}:italic" if italic else id1
+            row(repr(pat), fc_match(env, pat), want["stem"])
 
     # --- B. nameID1 + :bold ------------------------------------------------
     if verbose:
         print(f"\nB. Family + :bold — Ctrl+B's fontconfig equivalent.\n")
     for id1 in families:
-        want = _slot(faces, id1, bold=True)
-        if want is None:
-            continue
-        row(f"{id1!r}:bold", fc_match(env, f"{id1}:bold"), want["stem"])
+        for italic in (False, True):
+            want = _slot(faces, id1, bold=True, italic=italic)
+            if want is None:
+                continue
+            pat = f"{id1}:bold:italic" if italic else f"{id1}:bold"
+            row(repr(pat), fc_match(env, pat), want["stem"])
 
     # --- C. nameID16 + :weight ---------------------------------------------
     typo = sorted({f["id16"] for f in faces if f["id16"]})

@@ -162,8 +162,23 @@ MARK_SCALE = {
 #     was synthesised to fit Bai Regular undistorted rather than the reverse —
 #     so the ratio here is what pinned the Latin at stem 74.0, and changing it
 #     would invalidate Aeonik-Book.otf rather than just re-solve a Thai.
+#     800 (ExtraBold) is NOT the linear interpolation of 700 and 900, and the
+#     difference is the whole point of the entry. Above Bold the Thai has 5.8
+#     units of range left — Bold 130.9 to Black 136.7, which is Bai Bold's
+#     emboldening ceiling under APERTURE_FLOOR — while the Latin climbs 148.4 to
+#     183.6. Interpolating the RATIO (.8175) puts the Thai at 135.7, one unit
+#     under Black, which is HALF A PROBE STEP: the two would measure as one
+#     weight and could invert on rounding.
+#
+#     So 800 is set to split the available range evenly instead: .806 x 166.0 =
+#     133.8, giving 2.9 units to each of Bold->ExtraBold and ExtraBold->Black.
+#     That is the most gradual ladder the source admits, which is what Siwatch
+#     asked for on 2026-08-09 — "I know thai font has limitation for heavier
+#     size, so just let it gradually and maximum at black." It is still ~1.5
+#     probe steps per rung, so the top three weights read as one Thai colour and
+#     three Latin colours. Accepted, measured, and not a defect to re-open.
 WEIGHT_RATIO = {100: 0.93, 200: 0.92, 300: 0.905, 350: 0.8975, 400: 0.89,
-                500: 0.89, 600: 0.89, 700: 0.89, 900: 0.745}
+                500: 0.89, 600: 0.89, 700: 0.89, 800: 0.806, 900: 0.745}
 
 # Minimum counter aperture, units/1000em: the widest circle that fits inside
 # the tightest enclosed counter of the Thai consonants. This is the number that
@@ -292,6 +307,14 @@ BUILD_TABLE = {
         # this table already does (Regular<-Medium, Medium<-SemiBold).
         "SemiBold":      ("BaiJamjuree-Bold.ttf",            -10.0),  # 130.9 -> 118.2 (want 116.5, aper 70.3 ฮ)
         "Bold":          ("BaiJamjuree-Bold.ttf",              8.1),  # 148.4 -> 130.9 (want 132.1, aper 50.8 ฮ)
+        # Added 2026-08-09. Same source as Bold and Black — Bai Bold is the
+        # heaviest Thai this family has, and 2026-08-04 measured every heavier
+        # Thai on the machine to confirm none of them buys stem without going
+        # under APERTURE_FLOOR. So all three of the top weights are one Bai face
+        # at three embolden amounts, and the whole ladder above 700 lives in the
+        # 7.1 units between Bold's +8.1 and Black's +15.2. SEED VALUE, replaced
+        # by the solver below.
+        "ExtraBold":     ("BaiJamjuree-Bold.ttf",             11.5),  # SEED
         "Black":         ("BaiJamjuree-Bold.ttf",             15.2),  # 183.6 -> 136.7 (want 136.8, aper 46.9 ฆ) CAP
         "AirItalic":     ("BaiJamjuree-ExtraLightItalic.ttf",-29.2),  # 7.8 -> 5.9 (want 7.3, no enclosed counter)
         "ThinItalic":    ("BaiJamjuree-ExtraLightItalic.ttf",-13.4),  # 23.4 -> 21.5 (want 21.6, aper 93.2 ฬ)
@@ -300,6 +323,7 @@ BUILD_TABLE = {
         "MediumItalic":  ("BaiJamjuree-SemiBoldItalic.ttf",   -4.8),  # 115.2 -> 101.6 (want 102.6, aper 66.9 ฆ)
         "SemiBoldItalic": ("BaiJamjuree-BoldItalic.ttf",   -10.0),  # 132.8 -> 117.2 (want 118.2, aper 70.3 ฮ)
         "BoldItalic":    ("BaiJamjuree-BoldItalic.ttf",       10.6),  # 150.4 -> 132.8 (want 133.8, aper 50.8 ฮ)
+        "ExtraBoldItalic": ("BaiJamjuree-BoldItalic.ttf",     13.5),  # SEED
         "BlackItalic":   ("BaiJamjuree-BoldItalic.ttf",       16.4),  # 183.6 -> 138.7 (want 136.8, aper 49.7 ษ) CAP
     },
     # Re-solved 2026-08-04 for the same WEIGHT_RATIO change; WEIGHT_RATIO is
@@ -376,6 +400,9 @@ EMBOLDEN_FLOOR = 2.0
 EXTREME_WEIGHTS = {
     ("TH-Aeonik", "Air"): "hairline; Thai very faint at text sizes",
     ("TH-Aeonik", "AirItalic"): "hairline; loops open out entirely",
+    ("TH-Aeonik", "ExtraBold"): "aperture-capped; Thai ~19% lighter, and within "
+                                "1.5 probe steps of Bold and Black either side",
+    ("TH-Aeonik", "ExtraBoldItalic"): "aperture-capped; Thai ~19% lighter",
     ("TH-Aeonik", "Black"): "aperture-capped; Thai ~26% lighter than the Latin",
     ("TH-Aeonik", "BlackItalic"): "aperture-capped; Thai ~26% lighter",
     ("TH-Slussen", "Bold"): "aperture-capped; Thai ~23% lighter than the Latin",

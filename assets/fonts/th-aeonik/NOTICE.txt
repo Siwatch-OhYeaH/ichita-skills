@@ -1,0 +1,40 @@
+TH Aeonik — ICHITA Technology Co., Ltd.
+=======================================
+
+INTERNAL USE ONLY. NOT FOR REDISTRIBUTION.
+
+These fonts may be installed on ICHITA machines and embedded in documents
+ICHITA produces. They may NOT be given to a client, a printer, a contractor
+or any other party outside ICHITA — see "Why" below.
+
+What is in these files
+----------------------
+Each face is a merge of two sources:
+
+  Latin   Aeonik, (c) 2018 CoType Foundry, licensed to ICHITA under the
+          This Is Our Shop end-user licence. Every Latin charstring is
+          CoType's own drawing, restored verbatim after the merge, EXCEPT
+          the three weights CoType never drew — Book 350, SemiBold 600 and
+          ExtraBold 800 — which ICHITA synthesised from the neighbouring
+          weight. Those three declare it in their own nameID5 and nameID10.
+
+  Thai    Bai Jamjuree, Copyright 2018 Bai Jamjuree
+          (https://github.com/cadsondemak/Bai-Jamjuree), licensed under the
+          SIL Open Font License, Version 1.1 — see OFL.txt beside this file.
+          The outlines are scaled, and in most weights emboldened or thinned,
+          to sit on Aeonik's baseline at a matched weight.
+
+Why redistribution is held
+--------------------------
+OFL 1.1 clause 5 requires that a modified version of OFL font software be
+"distributed entirely under this license, and must not be distributed under
+any other license". The Aeonik component is under a commercial licence that
+does not permit that. A single file cannot satisfy both, so these files are
+not distributed at all.
+
+Nothing here restricts USE. OFL clause 2 permits embedding explicitly, and
+embedding a font in a PDF is not redistribution of the font software.
+
+If ICHITA ever needs to hand these files to a third party, the EULA-versus-OFL
+question has to be resolved by someone with authority to decide it. It is not
+resolved by this notice.

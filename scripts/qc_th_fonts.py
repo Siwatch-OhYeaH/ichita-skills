@@ -93,7 +93,7 @@ FAMILIES = {
         "dir": ROOT / "assets/fonts/th-aeonik",
         "latin_dir": ROOT / "assets/fonts/aeonik",
         # merged weight -> Latin source it must match
-        # All 14 Aeonik faces. Ordered lightest-first so the ladder check in
+        # All 20 Aeonik faces. Ordered lightest-first so the ladder check in
         # check_ladder() walks the weight axis in design order.
         "pairs": {
             "Air": "Aeonik-Air.otf",
@@ -106,14 +106,20 @@ FAMILIES = {
             # Synthetic — CoType never drew it. §4c, build_aeonik_semibold.py.
             "SemiBold": "Aeonik-SemiBold.otf",
             "Bold": "Aeonik-Bold.otf",
+            # Synthetic, thinned from Black. Added 2026-08-09 to complete
+            # Siwatch's ten-weight ladder; it is the only weight that was
+            # missing.
+            "ExtraBold": "Aeonik-ExtraBold.otf",
             "Black": "Aeonik-Black.otf",
             "AirItalic": "Aeonik-AirItalic.otf",
             "ThinItalic": "Aeonik-ThinItalic.otf",
             "LightItalic": "Aeonik-LightItalic.otf",
+            "BookItalic": "Aeonik-BookItalic.otf",
             "RegularItalic": "Aeonik-RegularItalic.otf",
             "MediumItalic": "Aeonik-MediumItalic.otf",
             "SemiBoldItalic": "Aeonik-SemiBoldItalic.otf",
             "BoldItalic": "Aeonik-BoldItalic.otf",
+            "ExtraBoldItalic": "Aeonik-ExtraBoldItalic.otf",
             "BlackItalic": "Aeonik-BlackItalic.otf",
         },
         # LINE box — 1537, what the Thai measured out at, from 2026-08-05.
@@ -181,7 +187,8 @@ TEST_WORDS = ("ที่ ครั้ง ทุก สิ่ง ซึ่ง ก
 
 # usWeightClass per weight name, for indexing th_thai_prep.WEIGHT_RATIO.
 WCLASS = {"Air": 100, "Thin": 200, "Light": 300, "Book": 350, "Regular": 400,
-          "Medium": 500, "SemiBold": 600, "Bold": 700, "Black": 900}
+          "Medium": 500, "SemiBold": 600, "Bold": 700, "ExtraBold": 800,
+          "Black": 900}
 
 SIZE_TOL = 0.02      # 2% on x-height match
 PX = 512
@@ -263,10 +270,12 @@ results = []
 def face_path(fam, cfg, w):
     """Where build key `w`'s outlines live.
 
-    The build key stopped being the filename on 2026-08-06: TH Aeonik's "Black"
-    recipe ships as TH-Aeonik-MediumBold.otf, because Black was retired into
-    TH Aeonik Medium's bold slot. th_style_link.FACES is the authority; TH
-    Slussen was not restructured and keeps the old identity.
+    The build key and the filename agree again as of 2026-08-09 — every face is
+    `TH-Aeonik-<build key>.otf` — but the indirection stays. It diverged once
+    (Black shipped as TH-Aeonik-MediumBold.otf while it filled Medium's bold
+    slot) and hardcoding the name here is what would make the next divergence
+    silent. th_style_link.FACES is the authority; TH Slussen was not
+    restructured and keeps its own identity.
     """
     if fam == "TH-Aeonik":
         return cfg["dir"] / f"{th_style_link.FACES[w]['file']}.otf"
@@ -617,46 +626,75 @@ def check_shaping(fam, cfg):
            f"({len(TEST_WORDS)} words)", not bad, "\n".join(worst + bad))
 
 
-# Build keys that are NOT rungs on the reader-facing weight ladder, and why.
-#
-# TH Aeonik's "Black" recipe stopped being a selectable weight on 2026-08-06. It
-# ships as TH Aeonik Medium's BOLD, so a reader never meets it as the step above
-# Bold — they meet it as the bold of Medium. Judging it as a ladder rung is what
-# made check 6 fail on purpose for three days: Thai Bold and Thai Black are both
-# pinned to Bai's counter floor at 134.8, so no ladder containing both can ever
-# be "distinct". check_promoted_bold() judges it against the thing it actually
-# has to beat, which is Bold's LATIN.
-LADDER_EXCLUDE = {"TH-Aeonik": {"Black"}}
+# How close to APERTURE_FLOOR a face has to sit before "the Thai cannot separate
+# further" is a MEASUREMENT rather than an excuse. One probe step is 1.95 units,
+# so 4 is two steps: enough that a face genuinely against the ceiling is not
+# failed by rounding, tight enough that a face with real room left cannot hide.
+CAP_MARGIN = 4.0
+
+# The minimum Thai separation between adjacent weights. Below this the two read
+# as one colour on the page.
+LADDER_MIN_GAP = 0.04
 
 
 def check_ladder(fam, cfg):
-    """6 — weights must increase and stay distinguishable."""
-    skip = LADDER_EXCLUDE.get(fam, set())
-    order = [w for w in cfg["pairs"] if "Italic" not in w and w not in skip]
+    """6 — weights must increase, and stay distinct unless the source has run out.
+
+    REWRITTEN 2026-08-09, and the old shape is worth stating because it is the
+    trap this file keeps falling into. From 2026-08-06 it carried a
+    LADDER_EXCLUDE list that dropped "Black" from the ladder entirely, because
+    Thai Bold and Thai Black both sit near Bai Jamjuree's counter floor and no
+    ladder containing both can be "distinct". Excluding a weight to keep a check
+    green is asserting the defect: the check stopped being able to see the one
+    part of the ladder that is actually constrained.
+
+    The ten-weight deck makes that untenable — ExtraBold 800 lands BETWEEN the
+    two, so the capped region is now three rungs wide and there is nothing left
+    to exclude. So the rule is stated properly instead:
+
+        a pair may fail the separation bar ONLY IF the heavier face is measured
+        against APERTURE_FLOOR
+
+    which turns "Bai has run out" from a name on an exclusion list into a number
+    the shipped font has to prove every run. If a capped face ever measures
+    clear of the floor, stem was left on the table and the embolden is
+    under-solved — that now fails here instead of passing silently.
+    """
+    order = [w for w in cfg["pairs"] if "Italic" not in w]
     vals = []
     missing = []
     for w in order:
         p = face_path(fam, cfg, w)
         if p.exists():
-            vals.append((w, stem(p, "กทบนผฝพฟ")))
+            vals.append((w, stem(p, "กทบนผฝพฟ"), min_aperture(p)[0]))
         else:
             missing.append(f"{w}: {p.name} is missing — cannot judge the ladder")
     bad = list(missing)
-    rows = [f"{w:<14} Thai stem {s:6.1f}" for w, s in vals]
-    for (wa, a), (wb, b) in zip(vals, vals[1:]):
+    rows = [f"{w:<14} Thai stem {s:6.1f}   aperture {ap:5.1f}"
+            for w, s, ap in vals]
+    for (wa, a, _), (wb, b, ap_b) in zip(vals, vals[1:]):
         if b <= a:
             bad.append(f"{wb} ({b:.1f}) is not heavier than {wa} ({a:.1f})")
-        elif (b - a) / a < 0.04:
-            bad.append(f"{wa} and {wb} differ by only "
-                       f"{(b-a)/a*100:.1f}% — they will look identical")
-    if skip:
-        rows.append(f"({', '.join(sorted(skip))} judged by check 12, not here)")
+            continue
+        gap = (b - a) / a
+        if gap >= LADDER_MIN_GAP:
+            continue
+        if ap_b <= APERTURE_FLOOR + CAP_MARGIN:
+            rows.append(f"  {wa} -> {wb} is only {gap * 100:+.1f}% — allowed: "
+                        f"{wb} is on the aperture floor ({ap_b:.1f} vs "
+                        f"{APERTURE_FLOOR}), so Bai has run out. Latin "
+                        f"separation is judged by check 12.")
+        else:
+            bad.append(f"{wa} and {wb} differ by only {gap * 100:.1f}% and "
+                       f"{wb}'s aperture is {ap_b:.1f}, clear of the "
+                       f"{APERTURE_FLOOR} floor — Bai has NOT run out, so "
+                       f"re-solve the embolden rather than accept the collapse")
     record(f"6. {fam} weight ladder is monotonic and distinct", not bad,
            "\n".join(rows + bad))
 
 
 def check_style_link(fam, cfg):
-    """11 — Word must never have to synthesise a bold.
+    """11 — the shipped family structure, delegated to its one authority.
 
     Synthetic bold double-strikes the outline, which spends counter aperture —
     the exact budget check 10 defends. Until 2026-08-06 four of TH Aeonik's six
@@ -664,74 +702,107 @@ def check_style_link(fam, cfg):
     generators were never exposed (they emit `TH Aeonik` + w:b and get the real
     Bold), which is why this went unseen: it only reached the layer Siwatch
     actually types in.
+
+    From 2026-08-09 th_style_link.check() also asserts that no two shipped faces
+    share a (usWeightClass, slant), which is what lets all ten weights live in
+    one typographic family, and that the two families with no bold slot are
+    exactly Air and Thin — the only two whose counter aperture (113.3 and 97.7
+    against a floor of 46.5) can afford a synthesised one.
+
+    This check is a delegation on purpose. It asserts what the FIELDS say;
+    scripts/fc_family_probe.py asserts what a matcher DOES with them, and both
+    one-card defects of 2026-08-07 were invisible to the first.
     """
     if fam != "TH-Aeonik":
         return
     faults = th_style_link.check(cfg["dir"], verbose=False)
     families = sorted({c["nameID1"] for c in th_style_link.SHIPPED.values()})
+    weights = sorted({c["weightClass"] for c in th_style_link.SHIPPED.values()})
     rows = [f"{len(th_style_link.SHIPPED)} shipped faces, "
             f"{len(th_style_link.FACES)} outline sets, "
-            f"{len(families)} families: {', '.join(families)}"]
-    record(f"11. {fam} every family has a real bold, no duplicate face IDs",
+            f"{len(families)} families: {', '.join(families)}",
+            f"weights: {' '.join(str(w) for w in weights)}",
+            f"no bold slot by design: "
+            f"{', '.join(sorted(th_style_link.NO_BOLD_SLOT))}"]
+    record(f"11. {fam} family structure: unique weights, no duplicate face IDs",
            not faults, "\n".join(rows + faults))
 
 
-def check_promoted_bold(fam, cfg):
-    """12 — the promoted heavy face must beat Bold where it still can.
+def check_capped_top(fam, cfg):
+    """12 — where the Thai cannot separate, the LATIN still must.
 
-    TH Aeonik Medium's bold carries the Black outlines. The Latin separation is
-    the whole reason the face is worth shipping as a distinct bold, so that is
-    the primary assertion.
+    This is check 6's other half. Check 6 lets a pair through when the heavier
+    face is on APERTURE_FLOOR, because Bai Jamjuree genuinely has no more stem to
+    give. That permission is only defensible while the weights remain distinct in
+    the script that CAN still separate — otherwise two selectable weights render
+    identically in every script and one of them should not ship.
+
+    GENERALISED 2026-08-09. It compared exactly two faces, Bold and Black, named
+    in the source. The ten-weight deck puts ExtraBold 800 between them, so the
+    capped region is three rungs wide, and a check that names its faces would
+    have gone on asserting the pair either side of the new weight while saying
+    nothing about the new weight itself. It now derives the capped run by
+    measuring, so a face arriving in or leaving that region is judged either way.
 
     THE THAI EQUALITY WAS NEVER A LAW. From 2026-08-03 to 2026-08-07 this check
     asserted the two Thai stems were identical (134.8 both) and called it Bai's
     counter floor. Half of that was true: Black IS on the floor. Bold was not
     obliged to be — it only got there because its embolden had been solved
     against the ITALIC's Latin stem (150.4 instead of 148.4) and bought stem it
-    was never owed, landing at aperture 46.9. Corrected, Bold sits at 130.9 with
-    aperture 50.8 and the Thai gap opens to +4.5%.
-
-    So the check now asserts the thing that is actually load-bearing: Black must
-    be ON the floor. That is what makes "Thai cannot separate further" a measured
-    limit of the source rather than a number nobody re-derived. If Black ever
-    measures clear of the floor while the Thai gap stays narrow, stem was left on
-    the table and the embolden should be re-solved.
+    was never owed. Corrected, Bold sits at 130.9 with aperture 50.8.
     """
     if fam != "TH-Aeonik":
         return
-    bold, heavy = face_path(fam, cfg, "Bold"), face_path(fam, cfg, "Black")
-    if not (bold.exists() and heavy.exists()):
-        record(f"12. {fam} promoted bold clears Bold in the Latin", False,
-               f"cannot compare: {bold.name} or {heavy.name} is missing — "
-               f"a missing file is not a pass")
+    order = [w for w in cfg["pairs"] if "Italic" not in w]
+    faces = []
+    for w in order:
+        p = face_path(fam, cfg, w)
+        if not p.exists():
+            record(f"12. {fam} the aperture-capped weights still separate in "
+                   f"the Latin", False,
+                   f"cannot judge: {p.name} is missing — a missing file is "
+                   f"not a pass")
+            return
+        faces.append((w, p, probe_stem(p, STEM_LATIN), probe_stem(p, STEM_THAI),
+                      min_aperture(p)))
+
+    # The capped run is every face measured against the floor, plus the face
+    # directly below it — that pair is the one check 6 waved through.
+    capped = {i for i, f in enumerate(faces)
+              if f[4][0] <= APERTURE_FLOOR + CAP_MARGIN}
+    if not capped:
+        record(f"12. {fam} the aperture-capped weights still separate in "
+               f"the Latin", True,
+               f"no face is within {CAP_MARGIN} of the {APERTURE_FLOOR} "
+               f"aperture floor — nothing is source-capped, so check 6 carries "
+               f"the whole ladder on its own")
         return
-    bl, hl = probe_stem(bold, STEM_LATIN), probe_stem(heavy, STEM_LATIN)
-    bt, ht = probe_stem(bold, STEM_THAI), probe_stem(heavy, STEM_THAI)
-    gap = (hl - bl) / bl
-    thai_gap = (ht - bt) / bt
-    h_ap, h_ch = min_aperture(heavy)
-    b_ap, _ = min_aperture(bold)
-    rows = [f"Latin  Bold {bl:6.1f} -> Medium Bold {hl:6.1f}   {gap * 100:+.1f}%",
-            f"Thai   Bold {bt:6.1f} -> Medium Bold {ht:6.1f}   "
-            f"{thai_gap * 100:+.1f}%  (source-capped, not equal)",
-            f"aperture  Bold {b_ap:5.1f}   Medium Bold {h_ap:5.1f} {h_ch}   "
-            f"floor {APERTURE_FLOOR}"]
-    bad = []
-    if gap < 0.04:
-        bad.append(f"the Latin separation is only {gap * 100:.1f}% — the two "
-                   f"bolds will read as one weight in every script")
-    if ht < bt:
-        bad.append(f"the Thai is LIGHTER than Bold ({ht:.1f} vs {bt:.1f}) — the "
-                   f"heavier face must never be the lighter one")
-    # The cap has to stay falsifiable: it is only a real cap while Black is
-    # actually against the floor. Slack there plus a narrow Thai gap means the
-    # embolden is under-solved, not that Bai ran out.
-    if h_ap > APERTURE_FLOOR + 4 and thai_gap < 0.10:
-        bad.append(f"Medium Bold's Thai is only {thai_gap * 100:.1f}% over Bold "
-                   f"while its aperture is {h_ap:.1f}, clear of the {APERTURE_FLOOR} "
-                   f"floor — Bai has not run out, so re-solve the embolden")
-    record(f"12. {fam} promoted bold clears Bold in the Latin", not bad,
-           "\n".join(rows + bad))
+
+    rows, bad = [], []
+    for i in sorted(capped):
+        if i == 0:
+            bad.append(f"{faces[i][0]} is the LIGHTEST weight and it is already "
+                       f"on the aperture floor — the source pairing is wrong, "
+                       f"not capped")
+            continue
+        wa, _, la, ta, _ = faces[i - 1]
+        wb, _, lb, tb, (ap, ch) = faces[i]
+        lat, thai = (lb - la) / la, (tb - ta) / ta
+        rows.append(f"{wa:>10s} -> {wb:<10s} Latin {la:6.1f} -> {lb:6.1f} "
+                    f"{lat * 100:+6.1f}%   Thai {ta:6.1f} -> {tb:6.1f} "
+                    f"{thai * 100:+5.1f}%   aperture {ap:5.1f} ({ch})")
+        if lat < LADDER_MIN_GAP:
+            bad.append(f"{wa} and {wb} separate {lat * 100:.1f}% in the Latin "
+                       f"and {thai * 100:.1f}% in the Thai — neither script "
+                       f"tells them apart, so {wb} is not a weight, it is a "
+                       f"duplicate")
+        if tb < ta:
+            bad.append(f"{wb}'s Thai is LIGHTER than {wa}'s ({tb:.1f} vs "
+                       f"{ta:.1f}) — the heavier face must never be the "
+                       f"lighter one")
+    rows.append(f"floor {APERTURE_FLOOR}, capped within {CAP_MARGIN}")
+    record(f"12. {fam} the aperture-capped weights still separate in the Latin",
+           not bad, "\n".join(rows + bad))
 
 
 def check_uniscribe(fam, cfg):
@@ -850,7 +921,7 @@ def main():
         check_baseline(fam, cfg)
         check_aperture(fam, cfg)
         check_style_link(fam, cfg)
-        check_promoted_bold(fam, cfg)
+        check_capped_top(fam, cfg)
     n = sum(1 for _, ok in results if ok)
     print(f"\n{n}/{len(results)} checks pass")
     return 0 if n == len(results) else 1
