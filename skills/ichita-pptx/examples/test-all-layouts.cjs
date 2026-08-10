@@ -4,7 +4,7 @@
  * Generates a PPTX with every layout type and block component.
  * Use this for visual inspection of brand consistency.
  *
- * Usage:  What the real Ichita template is (from your _ref/ imagesw
+ * Usage:
  *   node skills/ichita-pptx/examples/test-all-layouts.cjs test-output/test-all-layouts.pptx
  */
 

@@ -216,5 +216,7 @@ None.
   - Word/LibreOffice picks `sz` for Latin chars and `szCs` for Thai chars automatically.
   - This means runs do NOT need to be split by language for font sizing to work.
 - `split_run_thai_latin()` is still used in `rebrand_docx.py` for existing documents where runs may have mixed content with wrong fonts.
-- Templates live in `assets/ichita/templates/` in the main oracle repo.
+- This repo's Word template is `assets/templates/ichita-document.dotx`. The PowerPoint and
+  Safety Proposal templates are **not here** — they live in the main oracle repo's
+  `assets/ichita/templates/`. See §13 of `ichita-defaults.md`.
 - Always copy original template and edit XML; never generate DOCX from scratch.

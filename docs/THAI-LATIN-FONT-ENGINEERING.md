@@ -1483,13 +1483,15 @@ Word visible, and check for orphans before and after.
 
 ### Open items
 
-1. **Install on Windows** (Siwatch) — **24** merged faces from
-   `assets/fonts/{th-aeonik,th-slussen}` (20 + 4), plus **16 from
+1. **Install on Windows** (Siwatch) — **26** merged faces from
+   `assets/fonts/{th-aeonik,th-slussen}` (22 + 4), plus **20 from
    `assets/fonts/aeonik` over the current Aeonik** (same family name; `nameID5`
    reads `Version 1.001; ICHITA Greek/math coverage`). §9 for the traps.
-   **Uninstall `TH Aeonik Black` AND `TH Aeonik Thin` first** — both are retired
-   (§4b) and nothing overwrites them, so they would otherwise sit in the dropdown
-   beside their replacements.
+   **Close Office, then delete EVERY installed `TH-Aeonik-*` file first.** The
+   2026-08-06 rename changed the filenames, so a new install does not overwrite an
+   old one — leftovers sit in the dropdown beside their replacements. `Black` and
+   `Thin` are **not** retired: both are shipping weights of the ten-step ladder
+   (Air 100 … Black 900), so install them along with the rest.
 1b. **Then measure the style link in Word** — the acceptance table in §4b. Two
    assertions Linux cannot make: whether Word honours a bold slot whose
    `usWeightClass` (700) disagrees with its outlines, and **whether Word re-parses
@@ -1545,8 +1547,12 @@ Word visible, and check for orphans before and after.
 | `win_latin_parity.py` | Windows rasterisation + the box Word leads off |
 | `win_office_pitch.py` | line pitch in Word, PowerPoint, Excel via COM |
 | `build_th_web.py --verify` | WOFF2 + CSS + headless-browser line box |
-| `build_greek_specimen.py` | specimen sheets for visual review |
+| `build_greek_specimen.py`, `build_font_specimen.py` | specimen sheets for visual review |
+| `build_ab_test_doc.py` → `check_ab_test_pdf.py` | A/B sheet whose control cannot silently become Calibri; run the checker on the export |
+| `build_book_body_proof.py` | is Book 350 the right Thai body weight — the printed proof |
 | `solve_weight_table.py`, `solve_mark_scale.py` | solvers; report tables, edit nothing |
+| `th_mark_scale.py` | mark scaling, imported by `th_thai_prep.py`; not run directly |
+| `install-fonts.sh` | Linux/macOS install. **Windows goes through Settings → Fonts** |
 | `fix-th-fonts.sh --check` | read-only Windows install report |
 
 **Standard sequence after any font change:**
@@ -1555,9 +1561,9 @@ Word visible, and check for orphans before and after.
 python3 scripts/build_aeonik_semibold.py     # BEFORE the merge — it is a Latin source
 python3 scripts/build_th_aeonik.py && python3 scripts/build_th_slussen.py
 python3 scripts/build_aeonik.py
-python3 scripts/th_style_link.py --check     # 24 shipped faces, every family bolds
-python3 scripts/fc_family_probe.py           # and every one of them RESOLVES
-rm -f ~/.local/share/fonts/th-current/TH-Aeonik-{Black,Thin}*.otf   # retired, §4b
+python3 scripts/th_style_link.py --check     # 22 shipped faces, ONE Settings card, 11 styles
+python3 scripts/fc_family_probe.py           # and every one of them RESOLVES, 0 faults
+rm -f ~/.local/share/fonts/th-current/*.otf  # the 08-06 rename orphans old filenames
 cp assets/fonts/{th-aeonik/TH-Aeonik,th-slussen/TH-Slussen}-*.otf \
    ~/.local/share/fonts/th-current/ && fc-cache -f
 python3 scripts/thai_line_pitch.py --check

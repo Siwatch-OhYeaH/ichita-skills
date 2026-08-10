@@ -23,7 +23,7 @@ skills/ichita-convert has the numbers. The short version:
 Usage:
     python html2pdf.py INPUT.html OUTPUT.pdf
     python html2pdf.py INPUT.html OUTPUT.pdf --engine chromium
-    python html2pdf.py INPUT.html OUTPUT.pdf --fonts ../../assets/fonts --dpi 150
+    python html2pdf.py INPUT.html OUTPUT.pdf --fonts ../../../assets/fonts --dpi 150
 """
 
 import argparse

@@ -82,13 +82,24 @@ ICHITA's visual identity is built around **process** and **innovation** — the 
 
 ### Logo Assets
 
-| Variant | File | Dimensions |
+All twelve approved files live in `assets/logos/`. **Use the file — never recreate the
+logo from text, and never recolour one.** `assets/logos/README.md` maps every variant to
+the background it is drawn for.
+
+| Variant | File (in `assets/logos/`) | Dimensions |
 |---------|------|-----------|
-| Wordmark (dark on transparent) | `assets/ichita/logos/ichita-logo-black.png` | 1705x260 |
-| Wordmark (light/gray) | `assets/ichita/logos/ichita-logo-white.png` | 1705x260 |
-| X-mark (white on dark blue, square) | `assets/ichita/logos/ichita-xmark-white-on-blue.png` | 2251x2251 |
-| X-mark (dark on transparent, square) | `assets/ichita/logos/ichita-xmark-dark.png` | 2251x2251 |
-| Wordmark on dark bg (JPEG) | `assets/ichita/logos/ichita-logo-white-on-dark.jpeg` | template bg |
+| Wordmark, dark on white | `ichita-wordmark-dark-on-white.png` | 2251x626 |
+| Wordmark, dark on Blue | `ichita-wordmark-dark-on-blue.png` | 2251x626 |
+| Wordmark, dark on Silver | `ichita-wordmark-dark-on-silver.png` | 2251x626 |
+| Wordmark, dark on Steel | `ichita-wordmark-dark-on-steel.png` | 2251x626 |
+| Wordmark, **white on dark** | `ichita-wordmark-white-on-dark.png` | 2251x626 |
+| Wordmark, white on transparent (photo overlay) | `ichita-wordmark-white-transparent.png` | 411x83 |
+| Wordmark + icon, black on transparent | `ichita-logo-black.png` | 1705x260 |
+| X-mark icon — 5 variants, same five backgrounds | `ichita-icon-{dark-on-white,dark-on-blue,dark-on-silver,dark-on-steel,white-on-dark}.png` | 2251x2251 |
+
+The two white files are the **only** white colourway, and per the rule above they go on
+Blue Grey 03 or Blue Black and nowhere else. `ichita-wordmark-white-transparent.png` is
+small (411x83) — do not upscale it for print; use it at or below its native size.
 
 ---
 
@@ -526,16 +537,26 @@ Before generating any PPTX:
 
 ## 13. Related Assets
 
+### In this repo — paths are relative to the repo root and every one of these resolves
+
 | Asset | Path |
 |-------|------|
-| **Brand Guidelines PDF** | `assets/ichita/brand/Ichita_Brand_Guidelines_V1.0.pdf` |
+| **Brand Guidelines PDF** | `assets/brand/Ichita_Brand_Guidelines_V1.0.pdf` |
 | **Aeonik Font Files** | `assets/fonts/aeonik/` (English-only) and `assets/fonts/th-aeonik/` (Thai or mixed). Linux/macOS: `bash scripts/install-fonts.sh`. **Windows: install through Settings → Fonts, not a script** — see `assets/fonts/README.md` |
-| ICHITA Dark BG | `assets/ichita/brand/ichita-dark-bg.jpg` |
-| ICHITA Content Frame | `assets/ichita/brand/ichita-content-frame.png` |
-| ICHITA Logos | `assets/ichita/logos/` (5 variants) |
-| ICHITA Icons | `assets/ichita/icons/` (water-drop, gear, engineer, thai-flag) |
-| Partner Logos | `assets/ichita/partner-logos/` (DuPont, Toray, CSM, etc.) |
-| Equipment Photos | `assets/ichita/equipment-photos/` (8 photos) |
-| PowerPoint Template | `assets/ichita/templates/powerpoint-template.pptx` |
-| Word Template | `assets/ichita/templates/word-template.docx` |
-| Safety Proposal Template | `assets/ichita/templates/safety-proposal.docx` |
+| ICHITA Logos | `assets/logos/` — 12 files, §2 above |
+| ICHITA Dark BG | `assets/brand/ichita-dark-bg.jpg` |
+| ICHITA Content Frame | `assets/brand/ichita-content-frame.png` |
+| Brand CSS (any HTML output) | `assets/brand/ichita.css` — import it; never re-declare `@font-face`, colours or page geometry in a document |
+| Word template | `assets/templates/ichita-document.dotx` |
+
+### Not in this repo — do not write a path to these, they will not resolve
+
+These live in the main oracle repo, not here. If a deliverable needs one, ask for the
+file rather than guessing a path or substituting a lookalike.
+
+| Asset | Note |
+|-------|------|
+| ICHITA Icons | water-drop, gear, engineer, thai-flag |
+| Partner Logos | DuPont, Toray, CSM, etc. |
+| Equipment Photos | 8 photos |
+| PowerPoint template, Word template, Safety Proposal template | the oracle repo's `assets/ichita/templates/` |

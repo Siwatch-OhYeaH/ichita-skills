@@ -24,7 +24,7 @@ Before generating PPTX:
 
 1. **Install PptxGenJS** (in caller's project): `npm install pptxgenjs` — or globally: `npm install -g pptxgenjs`
 2. **Install Ichita brand fonts** (one-time, system-wide):
-   - Run `bash assets/fonts/install-fonts.sh` from this repo's root, OR
+   - Run `bash scripts/install-fonts.sh` from this repo's root, OR
    - Manually copy `assets/fonts/th-aeonik/*.otf` and `assets/fonts/aeonik/*.otf` to `~/.local/share/fonts/` (Linux), `~/Library/Fonts/` (macOS), or `%LOCALAPPDATA%\Microsoft\Windows\Fonts\` (Windows), then run `fc-cache -fv` (Linux/macOS).
    - Verify with: `fc-list | grep -i "TH Aeonik"` — must list TH-Aeonik-Regular/Bold OTFs.
 

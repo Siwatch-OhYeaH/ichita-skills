@@ -254,28 +254,30 @@ look right. Both are measured in
 
 ### Font Handling
 
-**Option A: System fonts** (recommended for dev):
-```css
-body { font-family: 'Aeonik', 'Calibri', sans-serif; }
+**Link the brand stylesheet. Do not declare `@font-face` in a document.**
+
+```html
+<link rel="stylesheet" href="../../assets/brand/ichita.css">
 ```
 
-**Option B: Embedded fonts** (for portable HTML):
-```css
-@font-face {
-  font-family: 'Aeonik';
-  src: url('fonts/AeonikTH-Regular.ttf') format('truetype');
-  font-weight: 400;
-}
-@font-face {
-  font-family: 'Aeonik';
-  src: url('fonts/AeonikTH-Bold.ttf') format('truetype');
-  font-weight: 700;
-}
-```
+`assets/brand/ichita.css` already declares the full ten-weight ladder for both
+families — `Aeonik` 100–900 and `TH Aeonik` 100–900 — pointing at the `.otf` files in
+`assets/fonts/`. Re-declaring a face in the document is how a brief ends up loading a
+filename that no longer exists and silently rendering in a fallback.
 
-The `html2pdf.py` script supports `--fonts` flag to inject font directory, so templates can use relative paths.
+Pick the family by the **document's language**, not per paragraph:
 
-> **Avoid base64 font embedding** — it bloats HTML to 1MB+. Use file paths instead.
+| Document | `font-family` |
+|---|---|
+| English only | `'Aeonik'` |
+| Thai, or mixed TH/EN | `'TH Aeonik'` |
+
+Never add a system fallback (`'Calibri'`, `sans-serif`) to the stack. A fallback turns a
+missing font into a silent substitution instead of a visible failure — and
+`html2pdf.py` reports the fonts Chromium actually used precisely so that failure is
+visible. Read that line in its output.
+
+> **Avoid base64 font embedding** — it bloats HTML to 1MB+. Link the stylesheet instead.
 
 ---
 

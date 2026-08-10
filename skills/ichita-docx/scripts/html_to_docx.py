@@ -130,7 +130,7 @@ if True:
         print(
             "WARNING: Aeonik font family not detected on system — falling back to "
             "Calibri. DOCX will not be brand-compliant. Install fonts via "
-            "assets/fonts/install-fonts.sh in the ichita-skills repo.",
+            "scripts/install-fonts.sh in the ichita-skills repo.",
             file=sys.stderr,
         )
 
