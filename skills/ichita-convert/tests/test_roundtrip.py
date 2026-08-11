@@ -95,6 +95,117 @@ class DocxRoundTrip(unittest.TestCase):
         self.assertTrue((self.tmp / "a.docx.ichita-convert.json").exists())
 
 
+class InlineCode(unittest.TestCase):
+    """Backticks must not reach the page.
+
+    md_to_docx had no inline-code rule at all, so `#CFD9DB` shipped its ticks
+    literally — and Aeonik draws U+0060 as a grave accent, which put a
+    diacritic on every hex code and filename. Measured 2026-08-10.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import zipfile
+        cls.tmp = Path(tempfile.mkdtemp(prefix="ichita-code-"))
+        src = cls.tmp / "code.md"
+        src.write_text(
+            "# Heading with `code`\n\n"
+            "Prose naming `#CFD9DB` and a **bold `#2978FF` span**.\n\n"
+            "## Level two with `code`\n\n"
+            "Body under the level two.\n\n"
+            "An unpaired ` tick and a `#A0B0B8` paired one.\n\n"
+            "A lone ` tick before a **bold** word.\n\n"
+            "| Token | Value |\n|---|---|\n| Blue | `#2978FF` |\n"
+            "| Stray ` tick | plain |\n",
+            encoding="utf-8")
+        convert(src, cls.tmp / "code.docx")
+        xml = zipfile.ZipFile(cls.tmp / "code.docx").read("word/document.xml")
+        cls.xml = xml.decode("utf-8")
+        cls.text = "".join(
+            re.findall(r"<w:t[^>]*>([^<]*)</w:t>", cls.xml))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _paragraph_containing(self, needle):
+        """(markup, text) for the one <w:p> whose text contains `needle`.
+
+        Asserting against the whole document cannot distinguish "this run is
+        Courier" from "some other run is" — which is how the first version of
+        the heading test below passed while the behaviour it named was absent.
+
+        Both halves are returned because they answer different questions and
+        are not interchangeable: a face lives in the markup, but the visible
+        string spans several runs, so it is only contiguous in the text.
+        """
+        for para in re.findall(r"<w:p>.*?</w:p>", self.xml, re.S):
+            text = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", para))
+            if needle in text:
+                return para, text
+        self.fail(f"no paragraph contains {needle!r}")
+
+    def test_no_backtick_reaches_the_document(self):
+        self.assertNotIn("`", self.text)
+
+    def test_the_code_text_itself_survives(self):
+        for token in ("#CFD9DB", "#2978FF"):
+            self.assertIn(token, self.text, f"{token} lost with its ticks")
+
+    def test_an_unpaired_tick_is_stripped_from_prose(self):
+        # Deliberate deviation from Markdown: pandoc/CommonMark and
+        # python-markdown both keep this tick literal. Aeonik draws U+0060 as a
+        # grave accent, so keeping it renders "#A0B0B8`paired" — a hex code
+        # that looks mistyped. Siwatch's call, 2026-08-11.
+        #
+        # Everything else here IS the CommonMark reading, and the expected
+        # string is pandoc's output minus the tick — verified against
+        #   pandoc -f commonmark -t html
+        # which gives <code>tick and a</code>#A0B0B8` paired one.
+        # Note there is no space before "#A0B0B8": the first tick opened the
+        # code span, so "a" and "#A0B0B8" really are adjacent. Malformed input
+        # stays malformed — the fix removes the accent, it does not invent a
+        # word break.
+        _, text = self._paragraph_containing("An unpaired")
+        self.assertEqual("An unpaired tick and a#A0B0B8 paired one.", text)
+
+    def test_a_lone_tick_ahead_of_another_span_is_stripped(self):
+        # This is the only shape that puts a tick in the text BEFORE a match:
+        # one tick cannot open a code span, so it survives into the `before`
+        # segment of the **bold** match. Without a case like this the strip on
+        # that segment is dead code that no mutation can kill.
+        _, text = self._paragraph_containing("A lone")
+        self.assertEqual("A lone tick before a bold word.", text)
+
+    def test_an_unpaired_tick_takes_its_padding_with_it(self):
+        # A space-flanked tick collapses to one space. Deleting the character
+        # alone would leave "Stray  tick" — a double space is still a visible
+        # defect, just a quieter one.
+        _, text = self._paragraph_containing("Stray")
+        self.assertEqual("Stray tick", text)
+
+    def test_code_inside_bold_is_stripped_too(self):
+        # The bold pattern wins the alternation, so the inner ticks are only
+        # removed by _strip_code_ticks — the branch that regressed first.
+        self.assertIn("bold #2978FF span", self.text)
+
+    def test_prose_code_is_set_in_the_mono_face(self):
+        markup, _ = self._paragraph_containing("Prose naming")
+        self.assertIn("Courier New", markup)
+
+    def test_a_heading_stays_in_the_brand_face(self):
+        # Display type dropping into Courier mid-line is worse than the defect
+        # being fixed, so headings pass code_font=BRAND_FONT.
+        #
+        # This has to be a level TWO heading. A level-1 heading is the title,
+        # and that path never calls add_formatted_text — it flattens the line
+        # into one BRAND_FONT run, so it cannot exercise code_font and cannot
+        # fail. Checking the title is what made the first version vacuous.
+        markup, text = self._paragraph_containing("Level two with")
+        self.assertNotIn("Courier New", markup)
+        self.assertEqual("Level two with code", text)
+
+
 class TableHeavy(unittest.TestCase):
     def test_every_table_survives_the_round_trip(self):
         with tempfile.TemporaryDirectory() as tmp:

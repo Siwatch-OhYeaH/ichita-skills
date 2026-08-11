@@ -521,17 +521,75 @@ def add_kpi_cards(doc, cards, content_width_in=6.3, number_size=26, compact=Fals
     sp.paragraph_format.space_after = Pt(2 if compact else 4)
 
 
+def _strip_code_ticks(text):
+    """Remove inline-code backticks that the code pattern cannot reach.
+
+    Two cases, and the second is a deliberate deviation from Markdown:
+
+    1. Ticks already inside another span (**`x`**, [`x`](url)). The alternation
+       matches the outer span, so the inner ticks are never delimiters.
+
+    2. An UNPAIRED tick left over after the code spans are consumed. Markdown
+       keeps it — pandoc/CommonMark and python-markdown both render
+       "An unpaired ` tick, and a `#2978FF` paired one" as
+       <code>tick, and a</code> followed by a literal U+0060 — so this is us
+       choosing to differ from the spec.
+
+       The reason is the face, not the grammar. A web renderer draws U+0060 in
+       a mono font where it reads as a tick; Aeonik draws it as a grave accent,
+       so the page shows "#2978FF`paired" and a reader sees a typo on a hex
+       code. Nobody writing a proposal means a literal grave accent. Rendered
+       and read 2026-08-11; originally measured 2026-08-10 in
+       test-output/ichita-design-theme.docx.
+
+    A tick with a space on each side collapses to ONE space. Deleting the
+    character alone would leave "Stray  tick" — trading a grave accent for a
+    visible double space is not a fix. A tick that abuts a word is deleted
+    without inserting anything: the input is malformed either way and inventing
+    a word break would be inventing content.
+    """
+    return re.sub(r'[ \t]`[ \t]', ' ', text).replace('`', '')
+
+
+def _code_span_text(content):
+    """The visible text of a `code span`, per CommonMark.
+
+    "If the resulting string both begins and ends with a space character, but
+    does not consist entirely of space characters, a single space character is
+    removed from the front and back." Without this the run keeps its padding
+    and the page shows a double space where it abuts the prose — which is how
+    the unpaired-tick case above first read as a spacing defect rather than a
+    tick one. pandoc and python-markdown both apply the rule.
+    """
+    if len(content) > 1 and content[0] == ' ' and content[-1] == ' ' \
+            and content.strip():
+        return content[1:-1]
+    return content
+
+
 def add_formatted_text(paragraph, text, base_font=None, base_size=Pt(10),
-                       base_color=None, is_blockquote=False):
-    """Parse inline markdown (bold, italic, bold+italic, links) and add runs.
-    Splits Thai/Latin into separate runs with matched visual sizes."""
+                       base_color=None, is_blockquote=False, code_font=None):
+    """Parse inline markdown (code, bold, italic, bold+italic, links) and add
+    runs. Splits Thai/Latin into separate runs with matched visual sizes.
+
+    Inline code is set in MONO_FONT, matching add_code_block(). In
+    TH_AEONIK_MODE _add_split_run ignores font_name, so a Thai document sets
+    inline code in the brand font — the backticks still come off, which is the
+    part that was producing visible defects.
+
+    `code_font` overrides that face. Headings pass BRAND_FONT: display type
+    dropping into Courier mid-line is a worse defect than the one being fixed.
+    """
     if base_font is None:
         base_font = BRAND_FONT
     if base_color is None:
         base_color = ICHITA_BLUE_GREY3
+    if code_font is None:
+        code_font = MONO_FONT
 
     pattern = re.compile(
-        r'(\*\*\*(.+?)\*\*\*)'       # bold+italic
+        r'(`([^`]+)`)'                # inline code
+        r'|(\*\*\*(.+?)\*\*\*)'       # bold+italic
         r'|(\*\*(.+?)\*\*)'           # bold
         r'|(\*(.+?)\*)'               # italic
         r'|(\[([^\]]+)\]\(([^)]+)\))' # link
@@ -539,26 +597,29 @@ def add_formatted_text(paragraph, text, base_font=None, base_size=Pt(10),
 
     last_end = 0
     for match in pattern.finditer(text):
-        before = text[last_end:match.start()]
+        before = _strip_code_ticks(text[last_end:match.start()])
         if before:
             _add_split_run(paragraph, before, base_font, base_size, base_color,
                            italic=is_blockquote)
 
-        if match.group(2):  # ***bold+italic***
-            _add_split_run(paragraph, match.group(2), base_font, base_size,
-                           base_color, bold=True, italic=True)
-        elif match.group(4):  # **bold**
-            _add_split_run(paragraph, match.group(4), base_font, base_size,
-                           base_color, bold=True, italic=is_blockquote)
-        elif match.group(6):  # *italic*
-            _add_split_run(paragraph, match.group(6), base_font, base_size,
-                           base_color, italic=True)
-        elif match.group(8):  # [link](url)
-            _add_split_run(paragraph, match.group(9), base_font, base_size,
-                           ICHITA_BLUE, underline=True)
+        if match.group(2):  # `inline code`
+            _add_split_run(paragraph, _code_span_text(match.group(2)), code_font,
+                           base_size, base_color, italic=is_blockquote)
+        elif match.group(4):  # ***bold+italic***
+            _add_split_run(paragraph, _strip_code_ticks(match.group(4)), base_font,
+                           base_size, base_color, bold=True, italic=True)
+        elif match.group(6):  # **bold**
+            _add_split_run(paragraph, _strip_code_ticks(match.group(6)), base_font,
+                           base_size, base_color, bold=True, italic=is_blockquote)
+        elif match.group(8):  # *italic*
+            _add_split_run(paragraph, _strip_code_ticks(match.group(8)), base_font,
+                           base_size, base_color, italic=True)
+        elif match.group(10):  # [link](url)
+            _add_split_run(paragraph, _strip_code_ticks(match.group(10)), base_font,
+                           base_size, ICHITA_BLUE, underline=True)
         last_end = match.end()
 
-    remaining = text[last_end:]
+    remaining = _strip_code_ticks(text[last_end:])
     if remaining:
         _add_split_run(paragraph, remaining, base_font, base_size, base_color,
                        italic=is_blockquote)
@@ -573,19 +634,23 @@ def add_cell_formatted_text(cell, text, is_header=False, font_name=None, font_si
     paragraph.paragraph_format.space_after = Pt(2)
 
     if is_header:
-        clean = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        clean = _strip_code_ticks(re.sub(r'\*\*(.+?)\*\*', r'\1', text))
         _add_split_run(paragraph, clean, font_name, font_size, WHITE, bold=True)
     else:
-        pattern = re.compile(r'\*\*(.+?)\*\*')
+        pattern = re.compile(r'(`([^`]+)`)|(\*\*(.+?)\*\*)')
         last_end = 0
         for match in pattern.finditer(text):
-            before = text[last_end:match.start()]
+            before = _strip_code_ticks(text[last_end:match.start()])
             if before:
                 _add_split_run(paragraph, before, font_name, font_size, ICHITA_BLUE_GREY3)
-            _add_split_run(paragraph, match.group(1), font_name, font_size,
-                           ICHITA_BLUE_GREY3, bold=True)
+            if match.group(2):  # `inline code`
+                _add_split_run(paragraph, _code_span_text(match.group(2)),
+                               MONO_FONT, font_size, ICHITA_BLUE_GREY3)
+            else:               # **bold**
+                _add_split_run(paragraph, _strip_code_ticks(match.group(4)), font_name,
+                               font_size, ICHITA_BLUE_GREY3, bold=True)
             last_end = match.end()
-        remaining = text[last_end:]
+        remaining = _strip_code_ticks(text[last_end:])
         if remaining:
             _add_split_run(paragraph, remaining, font_name, font_size, ICHITA_BLUE_GREY3)
 
@@ -1037,7 +1102,8 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False,
                 # ── Title: centered, large, Ichita brand ──
                 p = doc.add_heading('', level=1)
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', heading_text)
+                clean_text = _strip_code_ticks(
+                    re.sub(r'\*\*(.+?)\*\*', r'\1', heading_text))
                 _add_split_run(p, clean_text, BRAND_FONT, Pt(26),
                                ICHITA_BLUE_GREY3, bold=True)
                 # Sized for the ACTUAL title size, so a wrapped title keeps its
@@ -1071,7 +1137,8 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False,
                     pPr.append(pBdr)
 
                 add_formatted_text(p, heading_text, base_font=BRAND_FONT,
-                                   base_size=sizes[level], base_color=colors[level])
+                                   base_size=sizes[level], base_color=colors[level],
+                                   code_font=BRAND_FONT)
                 for run in p.runs:
                     run.font.color.rgb = colors[level]
                     run.font.bold = True
