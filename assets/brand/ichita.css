@@ -355,7 +355,19 @@ body {
   .page { margin: 0; box-shadow: none; }
   .print-btn, .no-print { display: none !important; }
   .prose h1, .prose h2, .prose h3 { page-break-after: avoid; }
-  .prose table, .prose figure, .prose pre { page-break-inside: avoid; }
+  .prose figure, .prose pre { page-break-inside: avoid; }
+
+  /* `avoid` on the table itself is worse than no rule at all. weasyprint does
+     not merely ignore an unsatisfiable request: it pushes a table taller than
+     the page onto a fresh page, leaves the gap behind, and then breaks it
+     mid-ROW anyway — one cell's text opening the next page with no row number
+     beside it, which reads as a dropped row. Measured on
+     skills/ichita-convert/tests/fixtures/long-reference-table.md: row 18
+     stranded, plus two pages of gap. `auto` here is what fixes both; the `tr`
+     rule below states the constraint that is actually satisfiable, and holds
+     it on the Chromium path too. */
+  .prose table { page-break-inside: auto; }
+  .prose tr { page-break-inside: avoid; break-inside: avoid; }
 }
 
 /* Screen-only affordance for hand-designed briefs that offer a print button. */

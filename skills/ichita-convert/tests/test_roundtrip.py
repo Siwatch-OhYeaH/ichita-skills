@@ -523,6 +523,49 @@ class HtmlAndPdfOutput(unittest.TestCase):
             self.assertNotIn("@font-face { font-family: 'AeonikTH'", html)
 
 
+    def test_a_table_taller_than_the_page_breaks_between_rows(self):
+        """A row must never be split across a page boundary.
+
+        `@media print` used to say `.prose table { page-break-inside: avoid }`.
+        A table taller than the page cannot honour that, and weasyprint does
+        not simply ignore the request — it pushes the whole table onto a fresh
+        page, leaves the gap behind, and then breaks it mid-ROW anyway. The
+        delivered symptom, measured on this fixture: row 18's number and its
+        three short cells stayed on one page while the citation cell's text
+        opened the next with no row number beside it. Nothing was lost, and it
+        read as a dropped reference. The gap cost two pages on top.
+
+        The fixture is the real 20-row table the defect was found in. A
+        synthetic table of the same height and column count does NOT reproduce
+        it — which is the reason this file carries 6 KB of citations.
+        """
+        import fitz
+        src = FIXTURES / "long-reference-table.md"
+        # row number -> first author's surname, read from the fixture so the
+        # expectations cannot drift away from the table.
+        rows = dict(
+            (int(m.group(1)), m.group(2).strip())
+            for m in (re.match(r"\|\s*(\d+)\s*\|\s*([^,|]+),", line)
+                      for line in src.read_text(encoding="utf-8").splitlines())
+            if m)
+        self.assertEqual(len(rows), 20, rows)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "refs.pdf"
+            convert(src, out)
+            pages = [p.get_text() for p in fitz.open(out)]
+
+        # Guard against a vacuous pass: the table has to cross a boundary.
+        self.assertGreater(len(pages), 1, "fixture no longer spans pages")
+
+        split = []
+        for n, surname in sorted(rows.items()):
+            num = {i for i, t in enumerate(pages) if re.search(r"(?m)^%d$" % n, t)}
+            name = {i for i, t in enumerate(pages) if surname in t}
+            if not num & name:
+                split.append((n, surname, sorted(num), sorted(name)))
+        self.assertEqual(split, [], f"rows split across a page break: {split}")
+
 class Reconcile(unittest.TestCase):
     def test_fast_forward_takes_the_word_edit(self):
         from docx import Document

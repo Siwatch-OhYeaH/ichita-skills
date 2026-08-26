@@ -91,6 +91,19 @@ bottom-right margin box.
 > and without it weasyprint set the page number in FreeSerif and embedded an
 > entire extra font into the PDF for one digit.
 
+**A table breaks between rows, never inside one.** `@media print` used to say
+`page-break-inside: avoid` on `.prose table`. A table taller than the page
+cannot honour it, and weasyprint does not merely ignore the request — it pushes
+the table onto a fresh page, leaves the gap behind, and breaks it mid-row
+anyway, stranding one cell's text at the top of the next page with no row
+number beside it. It reads as a dropped row. The rule now sits on `tr`, where
+it is satisfiable; `thead` already repeats on its own.
+
+> The fixture that proves this is the real 20-row table it was found in
+> (`tests/fixtures/long-reference-table.md`). A synthetic table of the same
+> height, row count and column count does not reproduce it — which is why the
+> test carries 6 KB of citations instead of a generated one.
+
 ---
 
 ## md → pdf, and html → pdf
