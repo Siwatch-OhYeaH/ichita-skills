@@ -12,9 +12,13 @@ Layer 1: document-skills@anthropic-agent-skills (AUTO-UPDATE)
   xlsx    -> Excel processing
 
 Layer 2: ichita-skills@ichita (THIS PLUGIN)
-  ichita-docx  -> Brand DOCX: md_to_docx, rebrand_docx, brand config
-  ichita-pptx  -> Brand PPTX: process diagrams, html2pptx, layout patterns
-  assets/      -> Brand guidelines, fonts, logos
+  ichita-docx      -> Brand DOCX: md_to_docx, rebrand_docx, brand config
+  ichita-pptx      -> Brand PPTX: process diagrams, html2pptx, layout patterns
+  ichita-template  -> Restyle an existing PPTX, or build from the Company Demo base
+  ichita-exe-brief -> Executive briefs: content -> branded HTML -> print-ready PDF
+  ichita-convert   -> docx/md/html/pdf conversion, and merging a hand-edited DOCX back
+  assets/          -> Brand guidelines, fonts, logos, brand CSS
+  scripts/         -> The Thai/Latin font toolchain (see docs/)
 ```
 
 ## Skills
@@ -24,6 +28,8 @@ Layer 2: ichita-skills@ichita (THIS PLUGIN)
 | **ichita-docx** | `/ichita-skills:ichita-docx` | Create Ichita-branded DOCX, convert Markdown, rebrand existing docs |
 | **ichita-pptx** | `/ichita-skills:ichita-pptx` | Create Ichita-branded PPTX, process diagrams, html2pptx |
 | **ichita-template** | `/ichita-skills:ichita-template` | Apply ICHITA template to existing PPTX (restyle fonts/colors), or generate new PPTX from Company Demo base template |
+| **ichita-exe-brief** | `/ichita-skills:ichita-exe-brief` | Executive brief pipeline — content, branded HTML layout, print-ready PDF |
+| **ichita-convert** | `/ichita-skills:ichita-convert` | Convert between docx/md/html/pdf, and reconcile a hand-edited DOCX back into the Markdown record |
 
 ### Trigger Behavior
 
@@ -37,6 +43,9 @@ Layer 2: ichita-skills@ichita (THIS PLUGIN)
 | "Apply ichita template to this PPTX" | `ichita-template` |
 | "Convert this presentation to ichita template" | `ichita-template` |
 | "Generate new PPTX from Company Demo" | `ichita-template` |
+| "Write an executive brief / board memo" | `ichita-exe-brief` |
+| "Read this client RFP / returned DOCX / supplier PDF" | `ichita-convert` |
+| "Merge the edits my colleague made in Word" | `ichita-convert` |
 
 ### DOCX Tools
 
@@ -44,8 +53,13 @@ Layer 2: ichita-skills@ichita (THIS PLUGIN)
 |--------|-------|-------------|
 | `md_to_docx.py` | `python md_to_docx.py INPUT.md OUTPUT.docx` | Convert Markdown to Ichita-branded DOCX |
 | `rebrand_docx.py` | `python rebrand_docx.py INPUT.docx OUTPUT.docx` | Rebrand any existing DOCX to Ichita style |
+| `html_to_docx.py` | `python html_to_docx.py INPUT.html OUTPUT.docx` | Branded DOCX from a designed HTML page |
+| `docx_helpers.py` | imported | Brand config (colors, fonts, geometry) + XML helpers |
 
 Options: `--no-logo`, `--font NAME`, `--margin CM`, `--no-title-page`, `--logo PATH`
+
+> **PDF delivery: Print to PDF, never Save as PDF.** Office cannot embed OpenType-CFF and
+> substitutes Calibri silently. See `skills/ichita-convert/reference/pdf-delivery.md`.
 
 ## Setup
 
@@ -92,73 +106,83 @@ If not using managed settings, install manually:
 
 ### Font Setup
 
-The scripts auto-detect Aeonik font across platforms:
+Two families carry every document. **The face is chosen by the document's language:**
+English-only → `Aeonik`; Thai or mixed TH/EN → `TH Aeonik`.
 
-**Ubuntu/Linux (PC)**:
+**Ubuntu/Linux and macOS** — one command:
 ```bash
-cp assets/fonts/aeonik/*.otf ~/.local/share/fonts/
-cp assets/fonts/bai-jamjuree/*.ttf ~/.local/share/fonts/
-fc-cache -f
+bash scripts/install-fonts.sh
 ```
 
-**macOS (MacBook)**:
-```bash
-cp assets/fonts/aeonik/*.otf ~/Library/Fonts/
-cp assets/fonts/bai-jamjuree/*.ttf ~/Library/Fonts/
-```
+**Windows** — install through **Settings → Fonts**, not a script. Close Office first, and
+delete every previously installed `TH-Aeonik-*` file: the filenames changed, so a new
+install does not overwrite an old one.
 
-**Windows**: Font files are at `assets/fonts/` — right-click > Install for all users.
+Verify: `fc-list | grep -i "TH Aeonik"` should list 22 faces.
+
+> Bilingual work has non-obvious constraints — line pitch, weight, mark clearance, and
+> Word-vs-PowerPoint differences. **Read `docs/THAI-LATIN-FONT-ENGINEERING.md` before
+> touching any of it.**
 
 ### Dependencies
+
+System tools first — none are pip-installable, and each one silently changes what the
+skills can do:
 
 **Ubuntu/Linux**:
 ```bash
 sudo apt-get install pandoc libreoffice poppler-utils
-pip install python-docx defusedxml
 ```
 
 **macOS**:
 ```bash
 brew install pandoc libreoffice poppler
-pip install python-docx defusedxml
 ```
+
+Then per skill, which reports what is still missing rather than assuming:
+```bash
+bash skills/ichita-convert/install.sh    # also needs: python3 -m playwright install chromium
+bash skills/ichita-docx/install.sh
+```
+
+The font toolchain in `scripts/` needs `fontTools`, `fontforge` and `uharfbuzz` on the
+**system** python3 — `fontforge` is not pip-installable (`sudo apt-get install
+python3-fontforge`).
 
 ## Structure
 
 ```
 ichita-skills/
-├── .claude-plugin/        # Plugin metadata
+├── .claude-plugin/         # Plugin metadata
+├── CLAUDE.md               # Art director + marcom role, brand rules, architecture
 ├── skills/
-│   ├── ichita-docx/       # Ichita-branded Word documents
-│   │   ├── SKILL.md
-│   │   └── scripts/
-│   │       ├── docx_helpers.py   # Brand config + XML helpers
-│   │       ├── md_to_docx.py     # Markdown -> branded DOCX
-│   │       ├── rebrand_docx.py   # Rebrand existing DOCX
-│   │       ├── document.py       # OOXML editing library
-│   │       └── utilities.py      # XML utilities
-│   ├── ichita-pptx/       # Ichita-branded presentations
-│   │   ├── SKILL.md
-│   │   ├── process-diagrams.md
-│   │   ├── html2pptx.md
-│   │   ├── layout-patterns.json
-│   │   └── scripts/
-│   │       ├── process-diagram-lib.cjs
-│   │       ├── html2pptx.js
-│   │       ├── extract_positions.py
-│   │       ├── inventory.py
-│   │       ├── replace.py
-│   │       ├── rearrange.py
-│   │       └── thumbnail.py
-│   └── ichita-template/   # Apply/generate ICHITA template PPTX
-│       ├── SKILL.md
-│       └── scripts/
-│           ├── restyle_pptx.py    # Restyle fonts/colors in existing PPTX
-│           └── generate_pptx.py   # Generate new PPTX from Company Demo template
+│   ├── ichita-docx/        # Ichita-branded Word documents
+│   │   └── scripts/        # docx_helpers (brand config), md_to_docx,
+│   │                       #   rebrand_docx, html_to_docx
+│   ├── ichita-pptx/        # Ichita-branded presentations
+│   │   ├── process-diagrams.md, html2pptx.md, layout-patterns.json
+│   │   ├── examples/       # test-all-layouts.cjs — visual QA deck
+│   │   └── scripts/        # ichita-slide-lib.cjs, process-diagram-lib.cjs,
+│   │                       #   html2pptx.js, extract_positions, inventory,
+│   │                       #   replace, rearrange, thumbnail
+│   ├── ichita-template/    # Restyle an existing PPTX, or build from Company Demo
+│   │   └── scripts/        # restyle_pptx, generate_pptx
+│   ├── ichita-exe-brief/   # Executive brief pipeline
+│   │   └── scripts/        # html2pdf.py — reports the fonts Chromium actually used
+│   └── ichita-convert/     # docx/md/html/pdf + reconcile a hand-edited DOCX
+│       ├── reference/      # inbound, outbound, pdf-delivery, reconcile
+│       └── scripts/        # convert, ingest_*, emit_html, reconcile, pdf_bakeoff
 ├── assets/
-│   ├── brand/             # ichita-defaults.md + brand guidelines PDF
-│   ├── fonts/             # Aeonik, Bai Jamjuree, Betatron
-│   └── logos/             # ICHITA logos (wordmark, icon, variants)
+│   ├── brand/              # ichita-defaults.md, docx-standard.md, ichita.css,
+│   │                       #   Ichita_Brand_Guidelines_V1.0.pdf
+│   ├── fonts/              # Aeonik, TH Aeonik, Slussen, TH Slussen,
+│   │                       #   Bai Jamjuree, Betatron (+ web cuts, HELD)
+│   ├── logos/              # 12 approved files — use them, never recreate
+│   └── templates/          # ichita-document.dotx
+├── scripts/                # Thai/Latin font build + QC toolchain
+├── docs/                   # THAI-LATIN-FONT-ENGINEERING.md is the font record
+├── qc/                     # Document-level font QC reference
+└── mcp-server/             # MCP tools: generate_brief, generate_docx, list_templates
 ```
 
 ## License

@@ -188,14 +188,21 @@ def _check_font_installed(font_name):
     return _scan_font_dirs(font_name)
 
 
-def resolve_font(brand=None):
+def resolve_font(brand=None, source_text=None):
     """Check system for brand fonts, return best available name.
 
     Returns (font_name, warnings) where warnings is a list of messages
     for the user about missing/misplaced fonts.
 
-    Checks TH Aeonik first (unified Latin+Thai font). If found, sets
-    brand["fonts"]["th_aeonik_mode"] = True so callers can skip Thai splitting.
+    THE UNIFIED FACE IS SELECTED BY CONTENT, NOT BY INSTALLATION — Siwatch,
+    2026-08-05. `source_text` is the document's own text; any Thai codepoint in it
+    selects TH Aeonik (box 1537), and Latin-only text selects Aeonik (box 1200).
+
+    Pass `source_text` whenever the caller has the document. Without it this
+    returns split-font mode, which is the safe default rather than the right
+    answer: a Latin-only document set in TH Aeonik leads 28% loose, so guessing
+    "unified" from mere availability — which is what this used to do — silently
+    reflows English documents.
     """
     if brand is None:
         brand = ICHITA_BRAND
@@ -204,15 +211,29 @@ def resolve_font(brand=None):
     fallback = fonts["fallback"]
     warnings = []
 
-    # Check TH Aeonik first (unified Latin+Thai — no splitting needed)
-    th_aeonik_found, th_aeonik_loc = _check_font_installed("TH Aeonik")
-    if th_aeonik_found:
-        fonts["_resolved"] = "TH Aeonik"
-        fonts["_thai_resolved"] = "TH Aeonik"
-        fonts["th_aeonik_mode"] = True
-        return "TH Aeonik", warnings
+    # Content-driven, per the docstring. With no source text the answer is split
+    # fonts — which also keeps per-script language tagging, so Word's spell checker
+    # picks en-US for Latin and th-TH for Thai.
+    unified = False
+    if source_text:
+        unified = any('฀' <= c <= '๿' for c in source_text)
+        if unified:
+            found_th, _ = _check_font_installed("TH Aeonik")
+            if not found_th:
+                warnings.append(
+                    "Source contains Thai, so TH Aeonik (line box 1537) is the "
+                    "correct face, but it is not installed. Falling back to split "
+                    "fonts. Install the 18 faces from assets/fonts/ and "
+                    "regenerate.")
+                unified = False
+    fonts["th_aeonik_mode"] = unified
 
-    fonts["th_aeonik_mode"] = False
+    # In unified mode the name that must be resolved and returned is TH Aeonik's,
+    # not Aeonik's. Returning "Aeonik" while th_aeonik_mode is True would set a
+    # font with NO THAI GLYPHS as the single font for both scripts, and every Thai
+    # character in the document would fall back to whatever Word picked.
+    if unified:
+        preferred = "TH Aeonik"
 
     found, location = _check_font_installed(preferred)
 
@@ -318,6 +339,19 @@ def set_font(run_elem, font_name=None, size_pt=None, color_hex=None,
             else:
                 if el is not None:
                     rPr.remove(el)
+
+    # Language tags — set per-script language so Word spell-checker uses
+    # the correct dictionary (en-US for Latin ASCII text, th-TH for Thai
+    # complex-script text). Without these tags, Word uses its default
+    # language for all text and marks the other script as misspelled.
+    lang_el = rPr.find(qn('w:lang'))
+    if lang_el is None:
+        lang_el = parse_xml(
+            f'<w:lang {nsdecls("w")} w:val="en-US" w:bidi="th-TH"/>')
+        rPr.append(lang_el)
+    else:
+        lang_el.set(qn('w:val'), 'en-US')
+        lang_el.set(qn('w:bidi'), 'th-TH')
 
 
 def set_cell_shading(tc_elem, color_hex):
@@ -602,10 +636,13 @@ def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
     )
 
     def _set_thai(run):
-        """Set cs font and szCs on a run.
+        """Set cs font and szCs on a run + language tags for spell-check.
 
         In TH Aeonik mode: sets cs to BRAND_FONT (same font for all scripts)
         and szCs = sz (no scaling). Otherwise: Bai Jamjuree + thai_scale.
+
+        Also sets w:lang with w:val="en-US" (Latin) + w:bidi="th-TH" (Thai)
+        so Word's spell checker uses the correct dictionary per script.
         """
         rPr = run._r.get_or_add_rPr()
         rFonts = rPr.find(qn('w:rFonts'))
@@ -623,6 +660,14 @@ def add_formatted_text(paragraph, text, base_font="Calibri", base_size=Pt(11),
             szCs.set(qn('w:val'), thai_hp)
         else:
             rPr.append(parse_xml(f'<w:szCs {nsdecls("w")} w:val="{thai_hp}"/>'))
+        # Language tags — per-script dictionary for Word spell-check
+        lang_el = rPr.find(qn('w:lang'))
+        if lang_el is None:
+            rPr.append(parse_xml(
+                f'<w:lang {nsdecls("w")} w:val="en-US" w:bidi="th-TH"/>'))
+        else:
+            lang_el.set(qn('w:val'), 'en-US')
+            lang_el.set(qn('w:bidi'), 'th-TH')
 
     last_end = 0
     for match in pattern.finditer(text):

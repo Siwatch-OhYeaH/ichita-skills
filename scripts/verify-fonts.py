@@ -7,7 +7,7 @@ Validates TH-Aeonik fonts meet Ichita production requirements using fontTools.
 Checks per TH-Aeonik font:
   1. Thai glyph coverage   — cmap contains U+0E00–U+0E7F glyphs
   2. OS/2 ulUnicodeRange   — bit 24 set (Thai)
-  3. OS/2 usWinAscent      — >= 1550 (headroom for Thai diacritics)
+  3. OS/2 line box         — usWin == hhea == sTypo (see §3: usWin is not a clip box)
   4. OS/2 ulCodePageRange  — CP874 set (Thai codepage, bit 16)
   5. GPOS table            — present (kerning/positioning)
   6. GDEF table            — present (glyph classification)
@@ -57,8 +57,20 @@ UNICODE_RANGE_THAI_BIT = 24
 # OS/2 Code Page Range bit for CP874 Thai (bit 16)
 CP874_BIT = 16
 
-# Minimum usWinAscent for Thai diacritics
-MIN_WIN_ASCENT = 1550
+# usWin is the LINE BOX, not a clip box sized to the ink.
+#
+# This was `MIN_WIN_ASCENT = 1550`, on the belief that usWin has to contain the
+# tallest Thai stack or the diacritics clip. That belief is falsified — see
+# docs/THAI-LATIN-FONT-ENGINEERING.md §3, "usWin is NOT a clip box": Word leads
+# CFF faces off usWinAscent+usWinDescent, Segoe UI overflows its own by 379
+# units and clips nothing. So the check was asserting the opposite of the design
+# and had been failing on every face for as long as the 1537 box has shipped.
+#
+# What is actually required is that all three metric sets agree, which is what
+# makes the pitch independent of which field a renderer reads. qc_th_fonts
+# checks 3 and 4 own that assertion against the family's declared box; here we
+# only assert internal agreement, which needs no per-family constant.
+MIN_WIN_TOTAL = 1200
 
 # RIBBI name IDs
 NAME_IDS = {
@@ -121,15 +133,23 @@ def check_unicode_range_thai(font: TTFont) -> tuple[str, str]:
 
 
 def check_win_ascent(font: TTFont) -> tuple[str, str]:
-    """Check OS/2 usWinAscent >= 1550."""
-    if "OS/2" not in font:
-        return FAIL, "No OS/2 table"
+    """Check the usWin line box agrees with hhea and sTypo."""
+    if "OS/2" not in font or "hhea" not in font:
+        return FAIL, "No OS/2 or hhea table"
 
-    ascent = font["OS/2"].usWinAscent
-    if ascent >= MIN_WIN_ASCENT:
-        return PASS, f"usWinAscent = {ascent} (>= {MIN_WIN_ASCENT})"
-    else:
-        return FAIL, f"usWinAscent = {ascent} (< {MIN_WIN_ASCENT} — Thai diacritics may clip)"
+    os2, hhea = font["OS/2"], font["hhea"]
+    win = os2.usWinAscent + os2.usWinDescent
+    hh = hhea.ascender - hhea.descender + hhea.lineGap
+    typo = os2.sTypoAscender - os2.sTypoDescender + os2.sTypoLineGap
+
+    if win < MIN_WIN_TOTAL:
+        return FAIL, (f"usWin line box {win} is below {MIN_WIN_TOTAL} — too "
+                      f"tight for two stacked Thai lines")
+    if not (win == hh == typo):
+        return FAIL, (f"line box disagrees across metric sets: usWin {win}, "
+                      f"hhea {hh}, sTypo {typo} — leading will change with the "
+                      f"renderer")
+    return PASS, f"line box {win} (usWin == hhea == sTypo)"
 
 
 def check_cp874(font: TTFont) -> tuple[str, str]:
@@ -209,7 +229,7 @@ def check_bold_consistency(font: TTFont) -> tuple[str, str]:
 TH_AEONIK_CHECKS = [
     ("Thai glyph coverage",         check_thai_coverage),
     ("OS/2 Unicode Range Thai",     check_unicode_range_thai),
-    ("OS/2 usWinAscent >= 1550",    check_win_ascent),
+    ("OS/2 line box == hhea == sTypo", check_win_ascent),
     ("OS/2 CP874 codepage",         check_cp874),
     ("GPOS table",                  check_gpos),
     ("GDEF table",                  check_gdef),
@@ -356,7 +376,7 @@ def main() -> int:
         print("unknown")
 
     # ── TH-Aeonik (full validation) ───────────────────────────────────────────
-    th_aeonik_dir = font_dir / "aeonik-th"
+    th_aeonik_dir = font_dir / "th-aeonik"
     th_aeonik_fonts = sorted(th_aeonik_dir.glob("TH-Aeonik-*.otf")) if th_aeonik_dir.is_dir() else []
 
     print(f"\n{'=' * 80}")

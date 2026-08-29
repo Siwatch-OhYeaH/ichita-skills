@@ -1,0 +1,25 @@
+# Inbound
+pymupdf>=1.24          # pdf -> text and figures; reads the exact character stream
+markdownify>=0.12      # html -> markdown
+beautifulsoup4>=4.12   # html preprocessing before markdownify
+
+# Outbound
+markdown>=3.5          # md -> html
+weasyprint>=60         # html -> pdf, static English-only only (see below)
+playwright>=1.40       # html -> pdf for scripted documents and ANY Thai
+python-docx>=0.8.11    # sidecar hashing and the docx emitter
+
+# playwright needs a browser as well as the package:
+#   python3 -m playwright install chromium      (~150 MB download)
+# Without it, pip succeeds and rendering raises. install.sh checks for both.
+#
+# Both PDF engines are needed. weasyprint cannot execute JavaScript, so it
+# renders a Claude-designed standalone HTML as its loading placeholder and
+# exits 0; and its Thai text layer is wrong even when the glyphs are right.
+# It stays because for static English-only pages it embeds a proper CID-CFF
+# font program and produces a smaller file.
+
+# Not installable with pip — see install.sh:
+#   pandoc     docx -> md, and the only engine that reads Word's revision marks
+#   soffice    LibreOffice headless; the delivery PDF engine, see reference/pdf-delivery.md
+#   pdftoppm   poppler-utils; renders a PDF page to PNG so you can look at it

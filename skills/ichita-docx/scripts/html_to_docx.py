@@ -66,6 +66,26 @@ THAI_SCALE = 0.9
 MONO_FONT  = "Courier New"
 TH_AEONIK_MODE = False
 
+# Thai block, U+0E00-U+0E7F.
+THAI_BLOCK = ('\u0e00', '\u0e7f')
+
+
+def _font_files(font_dir, max_depth=2):
+    """Font filenames under `font_dir`, RECURSIVELY — see the md_to_docx twin.
+
+    Font directories nest in practice: this repo installs to
+    ~/.local/share/fonts/th-current/, which a flat os.listdir() of the parent
+    cannot see.
+    """
+    out = []
+    base_depth = font_dir.rstrip(os.sep).count(os.sep)
+    for root, dirs, files in os.walk(font_dir):
+        if root.count(os.sep) - base_depth >= max_depth:
+            dirs[:] = []
+        out.extend(f.lower() for f in files)
+    return out
+
+
 _font_dirs = [
     os.path.expanduser("~/Library/Fonts"),
     "/Library/Fonts",
@@ -76,19 +96,27 @@ _font_dirs = [
     "/usr/local/share/fonts",
 ]
 
+# THE FONT IS A FUNCTION OF THE DOCUMENT'S LANGUAGE — Siwatch, 2026-08-05.
+#
+# This block used to be INSTALLATION-driven: if TH Aeonik was found anywhere, it
+# became the font for every document. That is a defect under the two-font rule,
+# and a silent one — an English-only brief would have picked up TH Aeonik's 1537
+# box and led 28% loose purely because the font happened to be installed, with
+# nothing in the output saying so.
+#
+# Availability is now recorded here and the CHOICE is made per document, from the
+# source content, by select_fonts_for_source() below.
+_TH_AEONIK_AVAILABLE = False
 for _fd in _font_dirs:
     try:
         if any("th-aeonik" in f.lower() or "thaeonik" in f.lower()
-               for f in os.listdir(_fd)):
-            BRAND_FONT = "TH Aeonik"
-            THAI_FONT = "TH Aeonik"
-            THAI_SCALE = 1.0
-            TH_AEONIK_MODE = True
+               for f in _font_files(_fd)):
+            _TH_AEONIK_AVAILABLE = True
             break
     except OSError:
         pass
 
-if not TH_AEONIK_MODE:
+if True:
     _AEONIK_FOUND = False
     for _fd in _font_dirs:
         try:
@@ -102,9 +130,64 @@ if not TH_AEONIK_MODE:
         print(
             "WARNING: Aeonik font family not detected on system — falling back to "
             "Calibri. DOCX will not be brand-compliant. Install fonts via "
-            "assets/fonts/install-fonts.sh in the ichita-skills repo.",
+            "scripts/install-fonts.sh in the ichita-skills repo.",
             file=sys.stderr,
         )
+
+
+def document_has_thai(text):
+    """True if `text` contains any Thai codepoint."""
+    lo, hi = THAI_BLOCK
+    return any(lo <= c <= hi for c in text)
+
+
+def select_fonts_for_source(text, mode="auto", quiet=False):
+    """Choose the font for this document from its content. Twin of md_to_docx's.
+
+    Sets BRAND_FONT / THAI_FONT / THAI_SCALE / TH_AEONIK_MODE and LOGS the choice.
+    The log line is not optional: an unlogged font decision is how the previous
+    installation-driven behaviour went unnoticed.
+    """
+    global BRAND_FONT, THAI_FONT, THAI_SCALE, TH_AEONIK_MODE
+
+    thai = document_has_thai(text)
+    if mode == "aeonik":
+        want = False
+        why = "forced by --font-mode aeonik"
+    elif mode == "th-aeonik":
+        want = True
+        why = "forced by --font-mode th-aeonik"
+    else:
+        want = thai
+        why = "source contains Thai" if thai else "source is Latin-only"
+
+    if want and not _TH_AEONIK_AVAILABLE and mode == "auto":
+        # Availability downgrades AUTO only. An explicit --font-mode th-aeonik is
+        # a person's decision and is honoured even if the font is absent here —
+        # the document may well be opened on a machine that has it.
+        TH_AEONIK_MODE = False
+        THAI_FONT = "Bai Jamjuree"
+        THAI_SCALE = 0.9
+        if not quiet:
+            print(f"  font: {BRAND_FONT} + {THAI_FONT} (split) — source contains "
+                  f"Thai but TH Aeonik is not installed here, so the merged face "
+                  f"could not be used. Install it and regenerate.")
+        return BRAND_FONT
+
+    TH_AEONIK_MODE = want
+    if want:
+        BRAND_FONT = THAI_FONT = "TH Aeonik"
+        THAI_SCALE = 1.0
+        detail = "TH Aeonik for both scripts, line box 1537"
+    else:
+        THAI_FONT = "Bai Jamjuree"
+        THAI_SCALE = 0.9
+        detail = f"{BRAND_FONT} for Latin + {THAI_FONT} for Thai, line box 1200"
+        if thai:
+            detail += "  (source HAS Thai — split fonts were forced)"
+    if not quiet:
+        print(f"  font: {detail}  [{why}]")
+    return BRAND_FONT
 
 
 # ── Import shared header/footer helpers ─────────────────────────────────────
@@ -895,7 +978,8 @@ def _setup_document_styles(doc, font_name, margin_cm=2.0):
 # ── Main Conversion ───────────────────────────────────────────────────────────
 
 def convert_html_to_docx(html_path, output_path, logo=None, footer_text=None,
-                         font_name=None, no_logo=False, margin=2.5):
+                         font_name=None, no_logo=False, margin=2.5,
+                         font_mode="auto"):
     """Convert an HTML file (or '-' for stdin) to an Ichita-branded DOCX.
 
     Args:
@@ -906,6 +990,8 @@ def convert_html_to_docx(html_path, output_path, logo=None, footer_text=None,
         font_name:   Override detected font.
         no_logo:     If True, skip logo in header.
         margin:      Page margin in cm (default 2.5).
+        font_mode:   "auto" (Thai in the source -> TH Aeonik), "aeonik",
+                     "th-aeonik".
     """
     # Read HTML
     if html_path == '-':
@@ -916,7 +1002,10 @@ def convert_html_to_docx(html_path, output_path, logo=None, footer_text=None,
             html_content = f.read()
         input_dir = os.path.dirname(os.path.abspath(html_path))
 
-    # Font
+    # Font — chosen from the CONTENT, before any style is built from it. The HTML
+    # is scanned as text, so Thai anywhere in it counts: body copy, a table cell,
+    # a heading, an alt attribute.
+    select_fonts_for_source(html_content, font_mode)
     effective_font = font_name or BRAND_FONT
 
     # Logo
@@ -1004,6 +1093,10 @@ def main():
                         help="Override font name (default: auto-detect TH Aeonik → Aeonik → Calibri)")
     parser.add_argument("--no-logo", action="store_true",
                         help="Skip logo in header")
+    parser.add_argument("--font-mode", default="auto",
+                        choices=["auto", "aeonik", "th-aeonik"],
+                        help="auto (default): any Thai in the source selects "
+                             "TH Aeonik, otherwise Aeonik. The choice is printed.")
     parser.add_argument("--margin", type=float, default=2.0,
                         help="Page margin in cm (default: 2.0)")
     args = parser.parse_args()
@@ -1039,6 +1132,7 @@ def main():
         font_name=args.font,
         no_logo=args.no_logo,
         margin=args.margin,
+        font_mode=args.font_mode,
     )
     return 0
 

@@ -1,2 +1,7 @@
 # Source archives — fonts are committed only as installed-format files (OTF/TTF)
 *.zip
+
+# Pristine CoType Aeonik v1.000 — the build input, kept out of the repo on
+# purpose. Two directories both named Aeonik, with identical filenames, is a
+# coin-flip over which one somebody installs. Drop it here locally to build.
+aeonik-v1000/

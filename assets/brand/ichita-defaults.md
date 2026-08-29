@@ -82,13 +82,24 @@ ICHITA's visual identity is built around **process** and **innovation** — the 
 
 ### Logo Assets
 
-| Variant | File | Dimensions |
+All twelve approved files live in `assets/logos/`. **Use the file — never recreate the
+logo from text, and never recolour one.** `assets/logos/README.md` maps every variant to
+the background it is drawn for.
+
+| Variant | File (in `assets/logos/`) | Dimensions |
 |---------|------|-----------|
-| Wordmark (dark on transparent) | `assets/ichita/logos/ichita-logo-black.png` | 1705x260 |
-| Wordmark (light/gray) | `assets/ichita/logos/ichita-logo-white.png` | 1705x260 |
-| X-mark (white on dark blue, square) | `assets/ichita/logos/ichita-xmark-white-on-blue.png` | 2251x2251 |
-| X-mark (dark on transparent, square) | `assets/ichita/logos/ichita-xmark-dark.png` | 2251x2251 |
-| Wordmark on dark bg (JPEG) | `assets/ichita/logos/ichita-logo-white-on-dark.jpeg` | template bg |
+| Wordmark, dark on white | `ichita-wordmark-dark-on-white.png` | 2251x626 |
+| Wordmark, dark on Blue | `ichita-wordmark-dark-on-blue.png` | 2251x626 |
+| Wordmark, dark on Silver | `ichita-wordmark-dark-on-silver.png` | 2251x626 |
+| Wordmark, dark on Steel | `ichita-wordmark-dark-on-steel.png` | 2251x626 |
+| Wordmark, **white on dark** | `ichita-wordmark-white-on-dark.png` | 2251x626 |
+| Wordmark, white on transparent (photo overlay) | `ichita-wordmark-white-transparent.png` | 411x83 |
+| Wordmark + icon, black on transparent | `ichita-logo-black.png` | 1705x260 |
+| X-mark icon — 5 variants, same five backgrounds | `ichita-icon-{dark-on-white,dark-on-blue,dark-on-silver,dark-on-steel,white-on-dark}.png` | 2251x2251 |
+
+The two white files are the **only** white colourway, and per the rule above they go on
+Blue Grey 03 or Blue Black and nowhere else. `ichita-wordmark-white-transparent.png` is
+small (411x83) — do not upscale it for print; use it at or below its native size.
 
 ---
 
@@ -145,6 +156,43 @@ const ICHITA_CHART_COLORS = ["2978FF", "263338", "82B0FF", "788F9C", "34A853", "
 ---
 
 ## 4. Typography
+
+### The two-font rule — pick the face from the document's language
+
+**Brand policy, decided by Siwatch 2026-08-05.** This is not an implementation
+detail; it changes which font a document is set in.
+
+| Document | Face | Line box | Why |
+|---|---|---|---|
+| **English only** | **Aeonik** | 1200 | Aeonik's own leading, unchanged |
+| **Thai, or Thai + English mixed** | **TH Aeonik** | 1537 | Sized to what Thai stacks actually need |
+
+TH Aeonik is Aeonik's Latin merged with a reworked Bai Jamjuree Thai — one font,
+one set of metrics, so Thai and Latin sit on a shared baseline at a matched weight.
+
+**Thai needs a taller line than Latin, and one font can only have one line
+height.** Thai stacks a base consonant, an upper vowel and a tone above the
+ascender, then hangs a below-vowel under the baseline. Measured, the worst
+combinations need 1537/1000 em against Aeonik's 1200 — so a font that leads like
+Aeonik cannot keep two Thai lines apart, and a font that keeps Thai apart cannot
+lead like Aeonik. Choosing the face per document is what resolves it.
+
+**The consequence, accepted deliberately:** in a mixed document, English-only
+paragraphs also lead ~28% wider than the same text in an English-only document.
+That is the price of one line height, and it is now paid only by documents that
+contain Thai. It is not a defect — do not "fix" it by forcing Aeonik onto a Thai
+document, which collides consecutive Thai lines.
+
+The generators decide this automatically from the source text (any Thai codepoint
+→ TH Aeonik) and print which font they chose. Override with `--font-mode` only
+when a person genuinely needs to.
+
+> **Never mix the two in one document.** A paragraph in Aeonik beside a paragraph
+> in TH Aeonik reflows at the boundary, because the two have different line boxes.
+
+**Coverage is identical between them.** Both carry Δ μ Ω Σ ⌀ — added 2026-08-05,
+because a character present in one and absent in the other would fall back to a
+system font depending only on whether the document happens to contain Thai.
 
 ### Font Family: Aeonik
 
@@ -489,16 +537,26 @@ Before generating any PPTX:
 
 ## 13. Related Assets
 
+### In this repo — paths are relative to the repo root and every one of these resolves
+
 | Asset | Path |
 |-------|------|
-| **Brand Guidelines PDF** | `assets/ichita/brand/Ichita_Brand_Guidelines_V1.0.pdf` |
-| **Aeonik Font Files** | `assets/fonts/aeonik/` and `assets/fonts/aeonik-th/` (install via `bash assets/fonts/install-fonts.sh` — see `assets/fonts/README.md`) |
-| ICHITA Dark BG | `assets/ichita/brand/ichita-dark-bg.jpg` |
-| ICHITA Content Frame | `assets/ichita/brand/ichita-content-frame.png` |
-| ICHITA Logos | `assets/ichita/logos/` (5 variants) |
-| ICHITA Icons | `assets/ichita/icons/` (water-drop, gear, engineer, thai-flag) |
-| Partner Logos | `assets/ichita/partner-logos/` (DuPont, Toray, CSM, etc.) |
-| Equipment Photos | `assets/ichita/equipment-photos/` (8 photos) |
-| PowerPoint Template | `assets/ichita/templates/powerpoint-template.pptx` |
-| Word Template | `assets/ichita/templates/word-template.docx` |
-| Safety Proposal Template | `assets/ichita/templates/safety-proposal.docx` |
+| **Brand Guidelines PDF** | `assets/brand/Ichita_Brand_Guidelines_V1.0.pdf` |
+| **Aeonik Font Files** | `assets/fonts/aeonik/` (English-only) and `assets/fonts/th-aeonik/` (Thai or mixed). Linux/macOS: `bash scripts/install-fonts.sh`. **Windows: install through Settings → Fonts, not a script** — see `assets/fonts/README.md` |
+| ICHITA Logos | `assets/logos/` — 12 files, §2 above |
+| ICHITA Dark BG | `assets/brand/ichita-dark-bg.jpg` |
+| ICHITA Content Frame | `assets/brand/ichita-content-frame.png` |
+| Brand CSS (any HTML output) | `assets/brand/ichita.css` — import it; never re-declare `@font-face`, colours or page geometry in a document |
+| Word template | `assets/templates/ichita-document.dotx` |
+
+### Not in this repo — do not write a path to these, they will not resolve
+
+These live in the main oracle repo, not here. If a deliverable needs one, ask for the
+file rather than guessing a path or substituting a lookalike.
+
+| Asset | Note |
+|-------|------|
+| ICHITA Icons | water-drop, gear, engineer, thai-flag |
+| Partner Logos | DuPont, Toray, CSM, etc. |
+| Equipment Photos | 8 photos |
+| PowerPoint template, Word template, Safety Proposal template | the oracle repo's `assets/ichita/templates/` |

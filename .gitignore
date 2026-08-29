@@ -1,4 +1,28 @@
 __pycache__/
+.pytest_cache/
 venv_fonts/
 tmp/
 *.pyc
+
+# Generated artifacts. All of these are rebuilt by scripts/ in one command, and
+# committing them only produces binary diff noise on every font change.
+#   test-output/ is declared scratch in CLAUDE.md — regenerate, never treat as a fixture
+test-output/*.pdf
+test-output/*.docx
+test-output/*.png
+#   the specimen is 5.3 MB of generated HTML — build_font_specimen.py rebuilds it
+test-output/*.html
+#   scratch Markdown and ichita-convert sidecars land here too
+test-output/*.md
+test-output/*.json
+test-output/*.pptx
+# build intermediate: build_th_font_qc.py writes it before pandoc reads it
+qc/qc-reference.docx
+# build_th_web.py --verify writes a throwaway probe dir per run
+assets/fonts/th-aeonik-web/th-web-*/
+
+# Large source material and prototype archives — kept locally, not in git.
+# The .7z/.zip font archives are redundant: the .otf/.ttf they contain are tracked.
+assets/sample PDF/
+assets/fonts/**/*.7z
+assets/fonts/**/*.zip

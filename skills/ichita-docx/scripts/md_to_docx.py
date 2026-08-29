@@ -24,9 +24,10 @@ import argparse
 import re
 import os
 import sys
+import math
 from docx import Document
 from docx.shared import Pt, Inches, Cm, RGBColor, Emu
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.section import WD_ORIENT
 from docx.oxml.ns import qn, nsdecls
@@ -68,8 +69,70 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BRAND_FONT = "Avenir Next"  # Closest system match to Aeonik
 THAI_FONT  = "Bai Jamjuree" # Thai font with matched metrics to geometric sans-serif
 THAI_SCALE = 0.9             # Thai 9pt / English 10pt — Bai Jamjuree one size down for visual balance
+
+# ── Thai line spacing ────────────────────────────────────────────────────────
+# Minimum baseline-to-baseline pitch, as a multiple of the *Thai* point size,
+# that keeps the below-vowel of one line clear of the upper vowel + tone of the
+# next. Siwatch's acceptance test, 2026-08-03: `สูง` on one line, `ซึ่ง` directly
+# below, "ต้องเว้นวรรคมากพอแบบชัดเจน".
+#
+# Bai Jamjuree does not clear this at its own line box — 1.639 needed against a box
+# of 1.250 — and this repo does not build Bai, so in SPLIT mode the paragraph
+# property is the only thing holding two Thai lines apart. Keep it.
+#
+# The claim that used to sit here — "the clearance has to come from the document,
+# because the alternative is to break the rule that the merged line box equals the
+# Latin source's" — is FALSIFIED. That rule was one day's trade, not a principle,
+# and it is gone: since 2026-08-05 the merged font carries its own clearance
+# (TH_LINE_RATIO below). The document layer is belt and braces there, and load-
+# bearing only for Bai.
+#
+# Regenerate after any font rebuild — the mark-clearance pass moves these:
+#     python3 scripts/thai_line_pitch.py --check
+THAI_LINE_RATIO = 1.64       # Bai Jamjuree worst face, × Thai pt (= 0.9 × Latin pt)
+
+# TH-Aeonik's OWN line box, as a multiple of the Latin point size. 1.63 -> 1.537
+# on 2026-08-05, and the change is not a tweak: at 1.63 this would have ADDED 6%
+# of leading on top of a font that already carries its clearance.
+#
+# Until 2026-08-05 the merged font's box was Aeonik's 1200, too small for two Thai
+# lines, and this ratio was the only thing holding them apart — so it had to
+# exceed the box. The font is now sized to what the Thai needs (1537), so
+# `atLeast` at exactly 1.537 is a deliberate NO-OP: it matches the box, adds
+# nothing, and still fails safe if the font is missing and Word substitutes.
+#
+# Regenerate after any font rebuild — the mark-clearance pass moves this:
+#     python3 scripts/thai_line_pitch.py --check
+TH_LINE_RATIO   = 1.537      # TH-Aeonik's own box, 1537/1000 em
+
+# `atLeast`, never `Exactly`. Exactly is a fixed box and is where Word genuinely
+# clips marks; atLeast lets the line grow instead. The previous 1.46 ratio was
+# derived from one stack in isolation and paired with Exactly, so it both sat
+# ~2pt too tight and clipped when it was exceeded.
+# docs/THAI-LATIN-FONT-ENGINEERING.md (§3); the original is docs/archive/2026-08-02-th-font-line-box-overcorrection.md
 MONO_FONT  = "Courier New"
-TH_AEONIK_MODE = False       # True when TH Aeonik (unified Latin+Thai) is installed
+
+# THE FONT IS A FUNCTION OF THE DOCUMENT'S LANGUAGE — Siwatch, 2026-08-05.
+#
+#     no Thai anywhere  ->  Aeonik      box 1200, native leading
+#     any Thai at all   ->  TH Aeonik   box 1537, one font for both scripts
+#
+# Set per document by select_fonts_for_source(), not hardcoded. False here is only
+# the value that applies before a source has been read.
+#
+# Why the generator decides and not a human: the generator has the whole document
+# in front of it, and a human declaring "this one is English-only" is a claim that
+# is wrong the moment somebody pastes a Thai place name into a table. `--font-mode`
+# exists for the case where the answer really is a person's call.
+#
+# This is also the change that makes any of the font work reach generated output.
+# `TH_AEONIK_MODE = False` was hardcoded until 2026-08-05, so every generated DOCX
+# used split fonts and none of the merged-font engineering touched them.
+TH_AEONIK_MODE = False
+
+# Thai block, U+0E00-U+0E7F. Detection is on the SOURCE TEXT, so it sees content
+# the reader will see, including Thai inside tables, headings and link labels.
+THAI_BLOCK = ('฀', '๿')
 
 # Check system font dirs + bundled Aeonik-Essentials-Web for Aeonik
 _font_dirs = [
@@ -83,26 +146,117 @@ _font_dirs = [
     "/usr/local/share/fonts",
 ]
 
-# Check TH Aeonik first (unified Latin+Thai font — no script splitting needed)
+# Aeonik detection for Latin script
 for _fd in _font_dirs:
-    try:
-        if any("th-aeonik" in f.lower() or "thaeonik" in f.lower()
-               for f in os.listdir(_fd)):
-            BRAND_FONT = "TH Aeonik"
-            THAI_FONT = "TH Aeonik"
-            THAI_SCALE = 1.0
-            TH_AEONIK_MODE = True
+    if os.path.isdir(_fd):
+        if any("aeonik" in f.lower() for f in os.listdir(_fd)):
+            BRAND_FONT = "Aeonik"
             break
-    except OSError:
-        pass
 
-# Then existing Aeonik detection as fallback
-if not TH_AEONIK_MODE:
-    for _fd in _font_dirs:
-        if os.path.isdir(_fd):
-            if any("aeonik" in f.lower() for f in os.listdir(_fd)):
-                BRAND_FONT = "Aeonik"
-                break
+# The name that must resolve on the target machine for unified mode to be honest.
+# If it is not installed, Word substitutes and the document leads off whatever it
+# picked — so selection checks for it rather than assuming.
+TH_AEONIK_FAMILY = "TH Aeonik"
+
+
+def _font_files(font_dir, max_depth=2):
+    """Font filenames under `font_dir`, RECURSIVELY.
+
+    Recursive because font directories are nested in practice: this repo installs
+    to ~/.local/share/fonts/th-current/, and a flat os.listdir() of the parent
+    sees only the directory name. A non-recursive check reported TH Aeonik as
+    missing while 18 faces sat one level down.
+    """
+    out = []
+    base_depth = font_dir.rstrip(os.sep).count(os.sep)
+    for root, dirs, files in os.walk(font_dir):
+        if root.count(os.sep) - base_depth >= max_depth:
+            dirs[:] = []
+        out.extend(f.lower() for f in files)
+    return out
+
+
+def _has_th_aeonik():
+    """Is TH Aeonik installed? Checked, because unified mode depends on it."""
+    for fd in _font_dirs:
+        if os.path.isdir(fd):
+            if any("th-aeonik" in n or "th aeonik" in n
+                   for n in _font_files(fd)):
+                return True
+    return False
+
+
+def document_has_thai(text):
+    """True if `text` contains any Thai codepoint."""
+    lo, hi = THAI_BLOCK
+    return any(lo <= c <= hi for c in text)
+
+
+def select_fonts_for_source(text, mode="auto", quiet=False):
+    """Choose the font for this document and return the name chosen.
+
+    THE DECISION IS LOGGED, ALWAYS. A silent font choice is how
+    `TH_AEONIK_MODE = False` sat hardcoded for days while five days of font
+    engineering never reached a single generated document — nothing in the output
+    said which font it had used, so there was nothing to notice.
+
+    mode:
+      auto        any Thai in the source -> TH Aeonik, otherwise Aeonik
+      aeonik      force split fonts (Aeonik + Bai Jamjuree per script)
+      th-aeonik   force the unified merged face
+    """
+    global TH_AEONIK_MODE, BRAND_FONT
+
+    thai = document_has_thai(text)
+    if mode == "aeonik":
+        TH_AEONIK_MODE = False
+        why = "forced by --font-mode aeonik"
+    elif mode == "th-aeonik":
+        TH_AEONIK_MODE = True
+        why = "forced by --font-mode th-aeonik"
+    else:
+        TH_AEONIK_MODE = thai
+        why = ("source contains Thai" if thai else "source is Latin-only")
+
+    if TH_AEONIK_MODE:
+        if not _has_th_aeonik():
+            # Reported, not fixed by silently falling back. A fallback here would
+            # produce a document that looks right on this machine and reflows on
+            # Siwatch's, which is worse than a warning.
+            if not quiet:
+                print(f"  !! font: {TH_AEONIK_FAMILY} is not installed on this "
+                      f"machine. The DOCX will still request it — Word on a "
+                      f"machine that has it renders correctly, and one that does "
+                      f"not will substitute and reflow.")
+        BRAND_FONT = TH_AEONIK_FAMILY
+        detail = f"{TH_AEONIK_FAMILY} for both scripts, line box 1537"
+    else:
+        detail = (f"{BRAND_FONT} for Latin + {THAI_FONT} for Thai, "
+                  f"line box 1200")
+        if thai:
+            detail += "  (source HAS Thai — split fonts were forced)"
+
+    if not quiet:
+        print(f"  font: {detail}  [{why}]")
+    return BRAND_FONT
+
+
+def thai_line_pt(latin_pt):
+    """Smallest `atLeast` line spacing that keeps two Thai lines visibly apart.
+
+    Takes the run's *Latin* size, since that is what every caller already has,
+    and applies the ratio to whichever size the Thai actually renders at — the
+    same size in unified mode, one step down in split mode.
+    """
+    if TH_AEONIK_MODE:
+        # NOT rounded up, unlike the split branch. This ratio IS the font's own
+        # box, so the exact value makes `atLeast` a no-op; ceil() to whole points
+        # would add up to a point of leading the font does not need — 15.37 pt
+        # becomes 16 pt at a 10 pt body size, which is the 4% nobody asked for.
+        return Pt(latin_pt * TH_LINE_RATIO)
+    # Rounded UP in split mode, where this property is the only thing keeping two
+    # Thai lines apart and erring generous is the safe direction.
+    return Pt(math.ceil(latin_pt * THAI_SCALE * THAI_LINE_RATIO))
 
 # ── Import shared header/footer helpers ─────────────────────────────────────
 try:
@@ -188,23 +342,64 @@ def _add_split_run(paragraph, text, font_name, base_size, color, bold=False,
         run.font.name = THAI_FONT if is_thai else font_name
         run.font.size = thai_size if is_thai else base_size
         run.font.color.rgb = color
-        # Set language tag so Word doesn't spellcheck Thai as English
-        rPr = run._r.get_or_add_rPr()
-        lang = rPr.find(qn('w:lang'))
-        if lang is None:
-            lang = parse_xml(f'<w:lang {nsdecls("w")}/>')
-            rPr.append(lang)
-        if is_thai:
-            lang.set(qn('w:bidi'), 'th-TH')
-        else:
-            lang.set(qn('w:val'), 'en-US')
         if bold:
             run.font.bold = True
         if italic:
             run.font.italic = True
         if underline:
             run.font.underline = True
+        if is_thai:
+            _mark_thai_run(run, THAI_FONT, thai_size, bold=bold, italic=italic)
+        else:
+            _set_run_lang(run, val='en-US')
     return run if text else None
+
+
+def _set_run_lang(run, val=None, bidi=None):
+    """Set <w:lang> on a run (created in schema-valid position — lang is among
+    the last rPr children, so appending is correct)."""
+    rPr = run._r.get_or_add_rPr()
+    lang = rPr.find(qn('w:lang'))
+    if lang is None:
+        lang = parse_xml(f'<w:lang {nsdecls("w")}/>')
+        rPr.append(lang)
+    if val is not None:
+        lang.set(qn('w:val'), val)
+    if bidi is not None:
+        lang.set(qn('w:bidi'), bidi)
+    return lang
+
+
+def _mark_thai_run(run, thai_font, thai_size, bold=False, italic=False):
+    """Tag a run as Thai complex-script so Word proofs it with the Thai
+    dictionary instead of English.
+
+    A run carrying only Latin-category properties (w:rFonts ascii/hAnsi, w:b,
+    w:sz) is spell-checked against the *default* (Latin / inherited en-US)
+    language — which flags every Thai word. Thai is a complex script, so the run
+    must also declare the complex-script font (w:cs), bold (w:bCs), size (w:szCs)
+    and language (w:lang/@w:bidi). We also set w:lang/@w:val to th-TH so the
+    run's default proofing language is Thai too. Child order follows the CT_RPr
+    schema (rFonts → b → bCs → … → sz → szCs → … → lang)."""
+    rPr = run._r.get_or_add_rPr()
+    # complex-script font
+    rFonts = rPr.get_or_add_rFonts()
+    rFonts.set(qn('w:cs'), thai_font)
+    # complex-script bold (order-safe helper inserts right after <w:b>)
+    if bold:
+        rPr.get_or_add_bCs()
+    # complex-script size — insert right after <w:sz> (no get_or_add helper)
+    szCs = rPr.find(qn('w:szCs'))
+    if szCs is None:
+        szCs = parse_xml(f'<w:szCs {nsdecls("w")}/>')
+        sz_el = rPr.find(qn('w:sz'))
+        if sz_el is not None:
+            sz_el.addnext(szCs)
+        else:
+            rPr.append(szCs)
+    szCs.set(qn('w:val'), str(int(round(thai_size.pt * 2))))
+    # proofing language: Thai for both the default and complex-script slots
+    _set_run_lang(run, val='th-TH', bidi='th-TH')
 
 def set_cell_shading(cell, color_hex):
     """Apply background shading to a table cell."""
@@ -229,17 +424,172 @@ def set_table_borders(table, color="788F9C"):
     tblPr.append(borders)
 
 
+def set_cell_top_border(cell, color_hex=HEX_BLUE, size=22):
+    """Add only a top accent border to a cell (used by KPI stat cards)."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcPr.append(parse_xml(
+        f'<w:tcBorders {nsdecls("w")}>'
+        f'  <w:top w:val="single" w:sz="{size}" w:space="0" w:color="{color_hex}"/>'
+        f'</w:tcBorders>'
+    ))
+
+
+def set_cell_margins(cell, top=120, bottom=100, left=160, right=160):
+    """Set internal padding (twips) for a single table cell."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcPr.append(parse_xml(
+        f'<w:tcMar {nsdecls("w")}>'
+        f'  <w:top w:w="{top}" w:type="dxa"/>'
+        f'  <w:bottom w:w="{bottom}" w:type="dxa"/>'
+        f'  <w:start w:w="{left}" w:type="dxa"/>'
+        f'  <w:end w:w="{right}" w:type="dxa"/>'
+        f'</w:tcMar>'
+    ))
+
+
+def add_kpi_cards(doc, cards, content_width_in=6.3, number_size=26, compact=False):
+    """Render a row of KPI 'stat cards' — a big Ichita-blue number with a grey
+    label beneath, each card carrying a blue top accent rule and a light
+    background. `cards` = list of (number, label) tuples.
+
+    Numbers are Latin → BRAND_FONT (Aeonik). Labels go through _add_split_run so
+    Thai segments keep Bai Jamjuree + th-TH language tagging (editable + spell-
+    checkable, same as the rest of the document). SINGLE line spacing lets the
+    number grow with its line box so it never clips the top accent rule.
+    """
+    n = len(cards)
+    if n == 0:
+        return
+    if compact:
+        number_size = min(number_size, 21)
+    if n >= 3:                              # narrower columns → smaller number
+        number_size = min(number_size, 17)
+    cols = 2 * n - 1                        # cards interleaved with spacer gutters
+    gutter_in = 0.18
+    card_w = (content_width_in - gutter_in * (n - 1)) / n if n else content_width_in
+
+    table = doc.add_table(rows=1, cols=cols)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = False
+    # Fixed layout so LibreOffice/Word honour the column widths
+    tblPr = table._tbl.tblPr
+    tblPr.append(parse_xml(f'<w:tblLayout {nsdecls("w")} w:type="fixed"/>'))
+
+    for idx, cell in enumerate(table.rows[0].cells):
+        if idx % 2 == 1:                   # spacer column — empty gutter
+            cell.width = Inches(gutter_in)
+            continue
+        value, unit, label = cards[idx // 2]
+        cell.width = Inches(card_w)
+        set_cell_shading(cell, "F8FAFB")
+        set_cell_top_border(cell, HEX_BLUE, size=22)
+        set_cell_margins(cell,
+                         top=70 if compact else 120,
+                         bottom=60 if compact else 100,
+                         left=160, right=160)
+
+        # Big number — Latin, never clips (SINGLE line spacing)
+        pnum = cell.paragraphs[0]
+        pnum.paragraph_format.space_before = Pt(1 if compact else 2)
+        pnum.paragraph_format.space_after = Pt(0)
+        pnum.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        rnum = pnum.add_run(value)
+        rnum.font.name = BRAND_FONT
+        rnum.font.size = Pt(number_size)
+        rnum.font.bold = True
+        rnum.font.color.rgb = ICHITA_BLUE
+        if unit:
+            # unit on its own small line beneath the value (Thai-aware, blue)
+            punit = cell.add_paragraph()
+            punit.paragraph_format.space_before = Pt(0)
+            punit.paragraph_format.space_after = Pt(0)
+            punit.paragraph_format.line_spacing = thai_line_pt(9.5)
+            punit.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
+            _add_split_run(punit, unit, BRAND_FONT, Pt(9.5), ICHITA_BLUE, bold=True)
+
+        # Label — grey, Thai-aware (Bai Jamjuree + th-TH tag)
+        plabel = cell.add_paragraph()
+        plabel.paragraph_format.space_before = Pt(1)
+        plabel.paragraph_format.space_after = Pt(2)
+        plabel.paragraph_format.line_spacing = thai_line_pt(8.5)
+        plabel.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST   # clears Thai marks at label size
+        _add_split_run(plabel, label, BRAND_FONT, Pt(8.5), ICHITA_BLUE_GREY2)
+
+    # Small spacing after the card row
+    sp = doc.add_paragraph()
+    sp.paragraph_format.space_before = Pt(1 if compact else 2)
+    sp.paragraph_format.space_after = Pt(2 if compact else 4)
+
+
+def _strip_code_ticks(text):
+    """Remove inline-code backticks that the code pattern cannot reach.
+
+    Two cases, and the second is a deliberate deviation from Markdown:
+
+    1. Ticks already inside another span (**`x`**, [`x`](url)). The alternation
+       matches the outer span, so the inner ticks are never delimiters.
+
+    2. An UNPAIRED tick left over after the code spans are consumed. Markdown
+       keeps it — pandoc/CommonMark and python-markdown both render
+       "An unpaired ` tick, and a `#2978FF` paired one" as
+       <code>tick, and a</code> followed by a literal U+0060 — so this is us
+       choosing to differ from the spec.
+
+       The reason is the face, not the grammar. A web renderer draws U+0060 in
+       a mono font where it reads as a tick; Aeonik draws it as a grave accent,
+       so the page shows "#2978FF`paired" and a reader sees a typo on a hex
+       code. Nobody writing a proposal means a literal grave accent. Rendered
+       and read 2026-08-11; originally measured 2026-08-10 in
+       test-output/ichita-design-theme.docx.
+
+    A tick with a space on each side collapses to ONE space. Deleting the
+    character alone would leave "Stray  tick" — trading a grave accent for a
+    visible double space is not a fix. A tick that abuts a word is deleted
+    without inserting anything: the input is malformed either way and inventing
+    a word break would be inventing content.
+    """
+    return re.sub(r'[ \t]`[ \t]', ' ', text).replace('`', '')
+
+
+def _code_span_text(content):
+    """The visible text of a `code span`, per CommonMark.
+
+    "If the resulting string both begins and ends with a space character, but
+    does not consist entirely of space characters, a single space character is
+    removed from the front and back." Without this the run keeps its padding
+    and the page shows a double space where it abuts the prose — which is how
+    the unpaired-tick case above first read as a spacing defect rather than a
+    tick one. pandoc and python-markdown both apply the rule.
+    """
+    if len(content) > 1 and content[0] == ' ' and content[-1] == ' ' \
+            and content.strip():
+        return content[1:-1]
+    return content
+
+
 def add_formatted_text(paragraph, text, base_font=None, base_size=Pt(10),
-                       base_color=None, is_blockquote=False):
-    """Parse inline markdown (bold, italic, bold+italic, links) and add runs.
-    Splits Thai/Latin into separate runs with matched visual sizes."""
+                       base_color=None, is_blockquote=False, code_font=None):
+    """Parse inline markdown (code, bold, italic, bold+italic, links) and add
+    runs. Splits Thai/Latin into separate runs with matched visual sizes.
+
+    Inline code is set in MONO_FONT, matching add_code_block(). In
+    TH_AEONIK_MODE _add_split_run ignores font_name, so a Thai document sets
+    inline code in the brand font — the backticks still come off, which is the
+    part that was producing visible defects.
+
+    `code_font` overrides that face. Headings pass BRAND_FONT: display type
+    dropping into Courier mid-line is a worse defect than the one being fixed.
+    """
     if base_font is None:
         base_font = BRAND_FONT
     if base_color is None:
         base_color = ICHITA_BLUE_GREY3
+    if code_font is None:
+        code_font = MONO_FONT
 
     pattern = re.compile(
-        r'(\*\*\*(.+?)\*\*\*)'       # bold+italic
+        r'(`([^`]+)`)'                # inline code
+        r'|(\*\*\*(.+?)\*\*\*)'       # bold+italic
         r'|(\*\*(.+?)\*\*)'           # bold
         r'|(\*(.+?)\*)'               # italic
         r'|(\[([^\]]+)\]\(([^)]+)\))' # link
@@ -247,26 +597,29 @@ def add_formatted_text(paragraph, text, base_font=None, base_size=Pt(10),
 
     last_end = 0
     for match in pattern.finditer(text):
-        before = text[last_end:match.start()]
+        before = _strip_code_ticks(text[last_end:match.start()])
         if before:
             _add_split_run(paragraph, before, base_font, base_size, base_color,
                            italic=is_blockquote)
 
-        if match.group(2):  # ***bold+italic***
-            _add_split_run(paragraph, match.group(2), base_font, base_size,
-                           base_color, bold=True, italic=True)
-        elif match.group(4):  # **bold**
-            _add_split_run(paragraph, match.group(4), base_font, base_size,
-                           base_color, bold=True, italic=is_blockquote)
-        elif match.group(6):  # *italic*
-            _add_split_run(paragraph, match.group(6), base_font, base_size,
-                           base_color, italic=True)
-        elif match.group(8):  # [link](url)
-            _add_split_run(paragraph, match.group(9), base_font, base_size,
-                           ICHITA_BLUE, underline=True)
+        if match.group(2):  # `inline code`
+            _add_split_run(paragraph, _code_span_text(match.group(2)), code_font,
+                           base_size, base_color, italic=is_blockquote)
+        elif match.group(4):  # ***bold+italic***
+            _add_split_run(paragraph, _strip_code_ticks(match.group(4)), base_font,
+                           base_size, base_color, bold=True, italic=True)
+        elif match.group(6):  # **bold**
+            _add_split_run(paragraph, _strip_code_ticks(match.group(6)), base_font,
+                           base_size, base_color, bold=True, italic=is_blockquote)
+        elif match.group(8):  # *italic*
+            _add_split_run(paragraph, _strip_code_ticks(match.group(8)), base_font,
+                           base_size, base_color, italic=True)
+        elif match.group(10):  # [link](url)
+            _add_split_run(paragraph, _strip_code_ticks(match.group(10)), base_font,
+                           base_size, ICHITA_BLUE, underline=True)
         last_end = match.end()
 
-    remaining = text[last_end:]
+    remaining = _strip_code_ticks(text[last_end:])
     if remaining:
         _add_split_run(paragraph, remaining, base_font, base_size, base_color,
                        italic=is_blockquote)
@@ -281,19 +634,23 @@ def add_cell_formatted_text(cell, text, is_header=False, font_name=None, font_si
     paragraph.paragraph_format.space_after = Pt(2)
 
     if is_header:
-        clean = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        clean = _strip_code_ticks(re.sub(r'\*\*(.+?)\*\*', r'\1', text))
         _add_split_run(paragraph, clean, font_name, font_size, WHITE, bold=True)
     else:
-        pattern = re.compile(r'\*\*(.+?)\*\*')
+        pattern = re.compile(r'(`([^`]+)`)|(\*\*(.+?)\*\*)')
         last_end = 0
         for match in pattern.finditer(text):
-            before = text[last_end:match.start()]
+            before = _strip_code_ticks(text[last_end:match.start()])
             if before:
                 _add_split_run(paragraph, before, font_name, font_size, ICHITA_BLUE_GREY3)
-            _add_split_run(paragraph, match.group(1), font_name, font_size,
-                           ICHITA_BLUE_GREY3, bold=True)
+            if match.group(2):  # `inline code`
+                _add_split_run(paragraph, _code_span_text(match.group(2)),
+                               MONO_FONT, font_size, ICHITA_BLUE_GREY3)
+            else:               # **bold**
+                _add_split_run(paragraph, _strip_code_ticks(match.group(4)), font_name,
+                               font_size, ICHITA_BLUE_GREY3, bold=True)
             last_end = match.end()
-        remaining = text[last_end:]
+        remaining = _strip_code_ticks(text[last_end:])
         if remaining:
             _add_split_run(paragraph, remaining, font_name, font_size, ICHITA_BLUE_GREY3)
 
@@ -446,19 +803,86 @@ def add_title_page_band(doc):
 
 # ── Main Conversion ──────────────────────────────────────────────────────────
 
-def convert_md_to_docx(input_path, output_path, logo_path=None):
+def _brand_the_bullets(doc):
+    """Draw list bullets in the brand font instead of Symbol.
+
+    python-docx's default template sets every bullet level to U+F0B7 in the
+    `Symbol` font — a Private Use Area codepoint that only means "bullet" if
+    that exact font resolves. It does not travel: LibreOffice substitutes
+    OpenSymbol and embeds it, so a delivered PDF carries a non-brand font for
+    nothing but the bullets.
+
+    U+2022 is a real bullet and TH Aeonik and Aeonik both have it, so the
+    glyph comes from the same face as the text beside it.
+    """
+    try:
+        numbering = doc.part.numbering_part.element
+    except (AttributeError, KeyError, NotImplementedError):
+        return 0
+
+    w = nsdecls("w").split('"')[1]
+    changed = 0
+    for lvl_text in numbering.iter(f'{{{w}}}lvlText'):
+        # U+F0B7 Symbol bullet, U+F0A7 Wingdings square, U+F075 diamond —
+        # the three PUA markers python-docx's template ships with.
+        if lvl_text.get(f'{{{w}}}val') not in ('\uf0b7', '\uf0a7', '\uf075'):
+            continue
+        lvl_text.set(f'{{{w}}}val', '•')
+        lvl = lvl_text.getparent()
+        rpr = lvl.find(f'{{{w}}}rPr')
+        if rpr is None:
+            rpr = parse_xml(f'<w:rPr {nsdecls("w")}/>')
+            lvl.append(rpr)
+        for old in rpr.findall(f'{{{w}}}rFonts'):
+            rpr.remove(old)
+        rpr.insert(0, parse_xml(
+            f'<w:rFonts {nsdecls("w")} w:ascii="{BRAND_FONT}" '
+            f'w:hAnsi="{BRAND_FONT}" w:cs="{BRAND_FONT}"/>'))
+        changed += 1
+    return changed
+
+
+def _starts_block(line):
+    """True if `line` opens a new Markdown block rather than continuing a paragraph.
+
+    Must stay in step with the branches of the main loop below — anything the
+    loop handles before its "Regular paragraph" case belongs here, or a soft-wrap
+    join would swallow it.
+    """
+    s = line.strip()
+    if not s:
+        return True
+    return bool(
+        re.match(r'^---+\s*$', s)          # horizontal rule
+        or s.startswith(':::')             # KPI card fence, open or close
+        or s.startswith('```')             # code fence
+        or (s.startswith('|') and '|' in s[1:])   # table row
+        or s.startswith('#')               # heading
+        or s.startswith('>')               # blockquote
+        or re.match(r'^\d+\.\s+', s)       # numbered list item
+        or re.match(r'^[-*+]\s+', s)       # bullet list item
+    )
+
+
+def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False,
+                       font_mode="auto"):
     """Convert a Markdown file to an Ichita-branded DOCX.
 
     Args:
         input_path: Path to source .md file
         output_path: Path to write .docx output
         logo_path: Path to logo PNG for header (default: bundled Ichita wordmark)
+        font_mode: "auto" (Thai in the source -> TH Aeonik), "aeonik", "th-aeonik"
     """
     if logo_path is None:
         logo_path = DEFAULT_LOGO
 
     with open(input_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
+
+    # BEFORE anything reads BRAND_FONT or thai_line_pt(). Every style below is
+    # built from the answer, so the decision has to be made first.
+    select_fonts_for_source("".join(lines), font_mode)
 
     doc = Document()
 
@@ -468,8 +892,14 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
     font.name = BRAND_FONT
     font.size = Pt(10)
     font.color.rgb = ICHITA_BLUE_GREY3
-    style.paragraph_format.space_after = Pt(5)
-    style.paragraph_format.space_before = Pt(2)
+    style.paragraph_format.space_after = Pt(3 if compact else 5)
+    style.paragraph_format.space_before = Pt(1 if compact else 2)
+    # Line spacing: Thai stacks base + upper vowel + tone above the ascent, and
+    # hangs a below-vowel under the baseline, so a Latin line box cannot hold two
+    # consecutive Thai lines apart. Sized from the fonts by scripts/thai_line_pitch.py.
+    # Per-size, so headings/labels/numbers set their own value below.
+    style.paragraph_format.line_spacing = thai_line_pt(10)
+    style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
     # Set Complex Script font + scaled size on default style
     from docx.oxml import OxmlElement
     rPr = style.element.get_or_add_rPr()
@@ -495,19 +925,32 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
         szCs_el = OxmlElement('w:szCs')
         szCs_el.set(qn('w:val'), scaled_hp)
         rPr.append(szCs_el)
+    # Default proofing language: English for Latin text, Thai for complex script.
+    # Inherited by every run, so even untagged runs (KPI numbers, etc.) proof Thai
+    # with the Thai dictionary instead of English.
+    lang_el = rPr.find(qn('w:lang'))
+    if lang_el is None:
+        lang_el = OxmlElement('w:lang')
+        rPr.append(lang_el)
+    lang_el.set(qn('w:val'), 'en-US')
+    lang_el.set(qn('w:bidi'), 'th-TH')
 
     # ── Heading styles (Ichita branding) ──
     heading_configs = [
-        (1, 22, ICHITA_BLUE_GREY3),     # H1: large, dark
-        (2, 15, ICHITA_BLUE_GREY3),     # H2: section headers
-        (3, 12, ICHITA_BLUE),           # H3: subsections in brand blue
-        (4, 10.5, ICHITA_BLUE),         # H4: minor subsections
+        (1, 18 if compact else 22, ICHITA_BLUE_GREY3),   # H1: large, dark
+        (2, 13 if compact else 15, ICHITA_BLUE_GREY3),   # H2: section headers
+        (3, 11 if compact else 12, ICHITA_BLUE),         # H3: subsections in brand blue
+        (4, 10.5, ICHITA_BLUE),                          # H4: minor subsections
     ]
     for level, size, color in heading_configs:
         hs = doc.styles[f'Heading {level}']
         hs.font.name = BRAND_FONT
         hs.font.size = Pt(size)
         hs.font.color.rgb = color
+        # Measured Thai clearance ratio at this heading's actual size, so a
+        # wrapped heading keeps its two lines apart.
+        hs.paragraph_format.line_spacing = thai_line_pt(size)
+        hs.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
         hs.font.bold = True
         # Set Complex Script font + scaled size on heading style
         h_rPr = hs.element.get_or_add_rPr()
@@ -533,17 +976,17 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
             h_szCs.set(qn('w:val'), h_scaled_hp)
             h_rPr.append(h_szCs)
         if level == 1:
-            hs.paragraph_format.space_before = Pt(20)
-            hs.paragraph_format.space_after = Pt(8)
+            hs.paragraph_format.space_before = Pt(10 if compact else 20)
+            hs.paragraph_format.space_after = Pt(5 if compact else 8)
         elif level == 2:
-            hs.paragraph_format.space_before = Pt(16)
-            hs.paragraph_format.space_after = Pt(6)
+            hs.paragraph_format.space_before = Pt(9 if compact else 16)
+            hs.paragraph_format.space_after = Pt(4 if compact else 6)
         elif level == 3:
-            hs.paragraph_format.space_before = Pt(12)
-            hs.paragraph_format.space_after = Pt(5)
+            hs.paragraph_format.space_before = Pt(7 if compact else 12)
+            hs.paragraph_format.space_after = Pt(3 if compact else 5)
         else:
-            hs.paragraph_format.space_before = Pt(8)
-            hs.paragraph_format.space_after = Pt(4)
+            hs.paragraph_format.space_before = Pt(5 if compact else 8)
+            hs.paragraph_format.space_after = Pt(3 if compact else 4)
 
     # ── List Bullet style ──
     if 'List Bullet' in doc.styles:
@@ -552,12 +995,18 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
         lb.font.size = Pt(10)
         lb.font.color.rgb = ICHITA_BLUE_GREY3
 
+    _brand_the_bullets(doc)
+
     # ── Page margins ──
+    v_margin = Cm(1.4) if compact else Cm(2.5)
+    h_margin = Cm(1.6) if compact else Cm(2.5)
     for section in doc.sections:
-        section.top_margin = Cm(2.5)
-        section.bottom_margin = Cm(2.5)
-        section.left_margin = Cm(2.5)
-        section.right_margin = Cm(2.5)
+        section.top_margin = v_margin
+        section.bottom_margin = v_margin
+        section.left_margin = h_margin
+        section.right_margin = h_margin
+    # Content width (inches) for full-bleed elements like KPI cards (A4 = 21cm wide)
+    content_width_in = (21.0 - 2 * (1.6 if compact else 2.5)) / 2.54
 
     # ── Header and footer are added before doc.save() below ──
 
@@ -581,6 +1030,28 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
             )
             pPr.append(pBdr)
             i += 1
+            continue
+
+        # ── KPI stat-card block (::: kpi … :::) ──
+        if re.match(r'^:::\s*kpi\b', stripped.strip(), re.I):
+            i += 1
+            cards = []
+            while i < len(lines):
+                row = lines[i].rstrip('\n').strip()
+                if row.startswith(':::'):
+                    i += 1
+                    break
+                if row and '|' in row:
+                    number_part, label = row.split('|', 1)
+                    # optional unit after "::" → "value :: unit | label"
+                    if '::' in number_part:
+                        value, unit = number_part.split('::', 1)
+                    else:
+                        value, unit = number_part, ''
+                    cards.append((value.strip(), unit.strip(), label.strip()))
+                i += 1
+            if cards:
+                add_kpi_cards(doc, cards, content_width_in=content_width_in, compact=compact)
             continue
 
         # ── Code block (```) ──
@@ -631,9 +1102,14 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
                 # ── Title: centered, large, Ichita brand ──
                 p = doc.add_heading('', level=1)
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', heading_text)
+                clean_text = _strip_code_ticks(
+                    re.sub(r'\*\*(.+?)\*\*', r'\1', heading_text))
                 _add_split_run(p, clean_text, BRAND_FONT, Pt(26),
                                ICHITA_BLUE_GREY3, bold=True)
+                # Sized for the ACTUAL title size, so a wrapped title keeps its
+                # two lines apart (e.g. ต้น over a below-vowel).
+                p.paragraph_format.line_spacing = thai_line_pt(26)
+                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
                 first_h1 = False
                 i += 1
 
@@ -661,10 +1137,15 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
                     pPr.append(pBdr)
 
                 add_formatted_text(p, heading_text, base_font=BRAND_FONT,
-                                   base_size=sizes[level], base_color=colors[level])
+                                   base_size=sizes[level], base_color=colors[level],
+                                   code_font=BRAND_FONT)
                 for run in p.runs:
                     run.font.color.rgb = colors[level]
                     run.font.bold = True
+                # Matched to the heading's ACTUAL run size (sizes[level]) — the
+                # Heading style default is computed from a different size.
+                p.paragraph_format.line_spacing = thai_line_pt(sizes[level].pt)
+                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
 
             i += 1
             continue
@@ -741,11 +1222,26 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
             continue
 
         # ── Regular paragraph ──
+        #
+        # A Markdown paragraph runs until a blank line or the next block, so
+        # soft-wrapped source lines are ONE paragraph. Emitting one Word
+        # paragraph per source line put a paragraph break mid-sentence — every
+        # document wrapped at 90 columns came out with the breaks baked in, and
+        # Word then refused to reflow across them.
+        para_lines = [stripped.strip()]
+        j = i + 1
+        while j < len(lines):
+            nxt = lines[j].rstrip('\n')
+            if not nxt.strip() or _starts_block(nxt):
+                break
+            para_lines.append(nxt.strip())
+            j += 1
+
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(2)
         p.paragraph_format.space_after = Pt(5)
-        add_formatted_text(p, stripped)
-        i += 1
+        add_formatted_text(p, " ".join(para_lines))
+        i = j
 
     # ── ICHITA branded header + footer ──
     if _HAS_BRANDED_HEADER_FOOTER:
@@ -764,9 +1260,10 @@ def convert_md_to_docx(input_path, output_path, logo_path=None):
     print(f"  Size: {size:,} bytes ({size/1024:.1f} KB)")
     print(f"  Paragraphs: {para_count}, Tables: {table_count}")
     if TH_AEONIK_MODE:
-        print(f"  Font: {BRAND_FONT} (unified Latin+Thai)")
+        print(f"  Font: {BRAND_FONT} (unified Latin+Thai, line box 1537)")
     else:
-        print(f"  Font: {BRAND_FONT} + {THAI_FONT} (Thai, {THAI_SCALE}x)")
+        print(f"  Font: {BRAND_FONT} + {THAI_FONT} (Thai, {THAI_SCALE}x), "
+              f"line box 1200")
     print(f"  Brand: ICHITA -- Separation Technologies")
 
 
@@ -784,6 +1281,15 @@ def main():
     parser.add_argument("--logo", default=None,
                         help="Path to logo PNG for header "
                              "(default: bundled Ichita wordmark)")
+    parser.add_argument("--compact", action="store_true",
+                        help="Tighter margins, spacing and heading sizes "
+                             "(for dense one-page briefs)")
+    parser.add_argument("--font-mode", default="auto",
+                        choices=["auto", "aeonik", "th-aeonik"],
+                        help="auto (default): any Thai in the source selects "
+                             "TH Aeonik, otherwise Aeonik. aeonik: force split "
+                             "Aeonik + Bai Jamjuree. th-aeonik: force the unified "
+                             "merged face. The choice is printed either way.")
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
@@ -801,7 +1307,8 @@ def main():
 
     print(f"Converting: {os.path.basename(args.input)}")
     print(f"Brand style: ICHITA")
-    convert_md_to_docx(args.input, output, logo_path=logo)
+    convert_md_to_docx(args.input, output, logo_path=logo, compact=args.compact,
+                       font_mode=args.font_mode)
 
 
 if __name__ == "__main__":

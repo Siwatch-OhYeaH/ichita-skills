@@ -1,0 +1,4 @@
+# Conversion outputs. Regenerate; do not commit.
+*.intermediate.md
+*-media/
+*.ichita-convert.json

@@ -49,7 +49,6 @@ def _find_logo(repo_root):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.path.join(repo_root, "assets/logos/ichita-wordmark-dark-on-white.png"),
-        os.path.join(repo_root, "assets/ichita/logos/ichita-wordmark-dark-on-white.png"),
         os.path.normpath(os.path.join(script_dir, "..", "..", "..", "assets", "logos", "ichita-wordmark-dark-on-white.png")),
     ]
     for c in candidates:

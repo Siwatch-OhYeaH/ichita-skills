@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!--
+  The shape every Claude-designed standalone deliverable has: a shell whose
+  static markup is a placeholder, with the real document built by script on
+  DOMContentLoaded. weasyprint renders the placeholder and exits 0.
+-->
+<html lang="en">
+<head><meta charset="UTF-8"><title>JS-built document</title></head>
+<body>
+<div id="__bundler_loading">This page requires JavaScript to display.</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var payload = [
+    ['h1', 'RO Recycle Mass Balance'],
+    ['p',  'Feed 1,000.00 m3/day into the recycle loop.'],
+    ['p',  'Permeate 805.71 m3/day, concentrate 928.94 m3/day.'],
+    ['p',  'Annualised recovery 6,318.37 m3 for Beer Thai.']
+  ];
+  var root = document.createElement('div');
+  payload.forEach(function (row) {
+    var el = document.createElement(row[0]);
+    el.textContent = row[1];
+    root.appendChild(el);
+  });
+  document.getElementById('__bundler_loading').remove();
+  document.body.appendChild(root);
+});
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 ---
 name: ichita-pptx
-description: "Use when creating Ichita-branded presentations, process diagrams, html2pptx conversions, or applying Ichita visual identity to slides. For general PPTX editing, reading, or creating non-branded presentations, use the base pptx skill instead."
+description: "Use when creating Ichita-branded presentations, process diagrams, html2pptx conversions, or applying Ichita visual identity to slides — in JavaScript (PptxGenJS) or Python (python-pptx). For general PPTX editing, reading, or creating non-branded presentations, use the base pptx skill instead."
 ---
 
 # Ichita PPTX — Branded Presentation Creation
@@ -8,14 +8,24 @@ description: "Use when creating Ichita-branded presentations, process diagrams, 
 > This skill extends the base `pptx` skill with Ichita brand identity.
 > For general PPTX editing, reading, template workflows, and PptxGenJS reference, use the base `document-skills:pptx` skill.
 
+## Language Choice
+
+| Language | Library | When to use |
+|----------|---------|-------------|
+| **JavaScript** | `ichita-slide-lib.cjs` (PptxGenJS) | Default. Full slide catalog (cover, section, content, kpi, grid, comparison, timeline, closing). |
+| **Python** | `ichita_slide_lib.py` (python-pptx) | When integrating with existing Python tooling (proposal generators, QA pipelines, batch processors). Master-level backgrounds, OhYeaH title style, numbered cards, scope tables, process flows. |
+| **HTML→PNG** | `assets/html-template/` chrome image | When each slide is a full-bleed custom composition (diagram-heavy decks): slides authored as HTML, rendered to PNG, assembled to PPTX. |
+
+**Iron rule (all three paths):** The Ichita slide chrome — dark navy `#263338` field, white floating content card, top-left ICHITA logo notch, bottom-left chamfer — is a **fixed asset, never hand-drawn.** PptxGenJS/python-pptx: set it at the MASTER/LAYOUT level, never as per-slide pictures. HTML→PNG: use `assets/html-template/ichita-content-bg.png` as the slide background — see [`assets/html-template/README.md`](assets/html-template/README.md). Do not reconstruct the chrome in CSS from a screenshot; that inverts to a white-background slide and deletes the Ichita identity (TNCC sweetener incident, 2026-05-22).
+
 ## Setup
 
 Before generating PPTX:
 
 1. **Install PptxGenJS** (in caller's project): `npm install pptxgenjs` — or globally: `npm install -g pptxgenjs`
 2. **Install Ichita brand fonts** (one-time, system-wide):
-   - Run `bash assets/fonts/install-fonts.sh` from this repo's root, OR
-   - Manually copy `assets/fonts/aeonik-th/*.otf` and `assets/fonts/aeonik/*.otf` to `~/.local/share/fonts/` (Linux), `~/Library/Fonts/` (macOS), or `%LOCALAPPDATA%\Microsoft\Windows\Fonts\` (Windows), then run `fc-cache -fv` (Linux/macOS).
+   - Run `bash scripts/install-fonts.sh` from this repo's root, OR
+   - Manually copy `assets/fonts/th-aeonik/*.otf` and `assets/fonts/aeonik/*.otf` to `~/.local/share/fonts/` (Linux), `~/Library/Fonts/` (macOS), or `%LOCALAPPDATA%\Microsoft\Windows\Fonts\` (Windows), then run `fc-cache -fv` (Linux/macOS).
    - Verify with: `fc-list | grep -i "TH Aeonik"` — must list TH-Aeonik-Regular/Bold OTFs.
 
 Without fonts installed, PowerPoint/LibreOffice will fall back to system defaults and the deck will not be brand-compliant.
@@ -48,6 +58,7 @@ pres.writeFile({ fileName: "output.pptx" });
 | **Create branded PPTX** | Use `ichita-slide-lib.cjs` (see API below) |
 | Process flow diagrams | Read [process-diagrams.md](process-diagrams.md) + use `process-diagram-lib.cjs` |
 | HTML to PPTX | Read [html2pptx.md](html2pptx.md) + use `html2pptx.js` |
+| Full-bleed html→png slides | Use [`assets/html-template/`](assets/html-template/) — real chrome as background image, never redrawn |
 | Edit existing PPTX | Use `replace.py` / `rearrange.py` / `inventory.py` |
 | Brand reference | Read [`ichita-defaults.md`](../../assets/brand/ichita-defaults.md) |
 | Layout patterns | See [layout-patterns.json](layout-patterns.json) |
@@ -292,7 +303,8 @@ Check for:
 
 | Script | Purpose |
 |--------|---------|
-| **`ichita-slide-lib.cjs`** | **Slide builder library — layouts, blocks, brand constants** |
+| **`ichita-slide-lib.cjs`** | **JS slide builder library — layouts, blocks, brand constants (PptxGenJS)** |
+| **`ichita_slide_lib.py`** | **Python slide builder — master/layout BG, title, cards, scope tables, process flows (python-pptx)** |
 | `process-diagram-lib.cjs` | Process flow diagram library (unit operations, streams) |
 | `html2pptx.js` | HTML to PPTX via Playwright |
 | `extract_positions.py` | Extract element positions from unpacked PPTX (EMU) |
@@ -300,6 +312,72 @@ Check for:
 | `replace.py` | Replace text in PPTX from JSON |
 | `rearrange.py` | Rearrange/duplicate slides |
 | `thumbnail.py` | Generate slide thumbnail grids |
+
+---
+
+## Python (`ichita_slide_lib.py`) — Quick Start
+
+```python
+import sys, os
+sys.path.insert(0, "/path/to/ichita-skills/skills/ichita-pptx/scripts")
+from ichita_slide_lib import (
+    create_ichita_presentation, add_content_slide, add_dark_slide,
+    add_slide_title, numbered_card, scope_table, process_flow_arrows,
+    COLORS, FONTS, SIZES, CONTENT_LAYOUT, DARK_LAYOUT,
+)
+
+# BG applied to layouts — every slide inherits, no per-slide picture management
+prs = create_ichita_presentation()
+
+# Dark cover (cover/closing use DARK_LAYOUT)
+cover = add_dark_slide(prs)
+# ... position title text on cover ...
+
+# Content slide — frame BG inherited from CONTENT_LAYOUT
+s = add_content_slide(prs, "Project Background & Requirements")
+# add cards / tables / etc. — body content starts at y=1.35
+
+# Numbered card with rich text body
+numbered_card(s, x=Inches(0.6), y=Inches(1.35),
+              w=Inches(6.05), h=Inches(1.83),
+              num="1", title="The Guarantee",
+              body_runs=[
+                  {"text": "ICHITA warrants the supplied system shall meet "},
+                  {"text": "production capacity and quality", "bold": True},
+                  {"text": " during the Acceptance Test."},
+              ])
+
+# Scope table — left column auto-bold, ICHITA Supplies column auto-tinted
+scope_table(s, x=Inches(0.6), y=Inches(3.2),
+            w=Inches(12.13), h=Inches(3.55),
+            headers=["Category", "ICHITA Supplies", "SMS Supplies"],
+            rows=[
+                ["Equipment Supply", "Complete set", "Spray Dryer"],
+                # ...
+            ])
+
+prs.save("deck.pptx")
+```
+
+### Python API at a glance
+
+| Function | Purpose |
+|----------|---------|
+| `create_ichita_presentation(frame_bg=None, dark_bg=None)` | Build a Presentation with master-level BGs |
+| `add_content_slide(prs, title, section_num=None)` | Frame BG slide + OhYeaH title style |
+| `add_dark_slide(prs)` | Dark BG slide (cover/closing) |
+| `add_slide_title(slide, text, section_num=None, size=None)` | Title only (if you build the slide manually) |
+| `numbered_card(slide, x, y, w, h, num, title, body_runs, accent=None, highlight=False)` | Card with number tag |
+| `scope_table(slide, x, y, w, h, headers, rows, ichita_col=1)` | Two/three-column scope table with proven emphasis |
+| `process_flow_arrows(slide, steps, ...)` | Numbered boxes + chunky gray arrows |
+| `set_layout_bg_picture(layout, image_path)` | Low-level: set a layout's BG (use sparingly) |
+
+**`section_num` rule:** Drop it when the meeting may skip slides — visible "01 → 03" numbers expose the gap. Keep numbers for structured walkthroughs.
+
+**Title style** (proven on SMS R2 deck, confirmed by OhYeaH!):
+- 32pt Aeonik Bold #263338 (auto-drops to 24pt for titles > ~45 chars)
+- Positioned at x=4.14" y=0.30 (clears the frame's top-left ICHITA notch)
+- Blue accent line UNDER the title (x=3.80, y=1.05, 8.47" wide, 0.05" tall)
 
 ---
 
