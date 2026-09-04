@@ -33,7 +33,7 @@ to it.
 6. **A comment asserting a property is a test that was never written.** Three times a
    comment stated the correct invariant directly above code violating it.
 7. **Siwatch's visual reports are measurements to explain, not claims to verify.**
-   Every one has been correct. When his report and a passing test disagree, the test
+   On this project every report was reproduced by measurement (as of 2026-08-09). When his report and a passing test disagree, the test
    is wrong.
 8. **Rebuild all faces from one code state before running QC.** Committed fonts
    disagree with the committed builder, and a stale `~/.local/share/fonts` silently

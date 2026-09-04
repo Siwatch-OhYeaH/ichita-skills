@@ -136,7 +136,7 @@ The seven things most likely to cost a day if you skip the document:
    `--check` measures the band against the base. Do not re-target a weight to
    compensate for a shrink — that is what shipped Book 2.7% short for two days.
 7. **Siwatch's visual defect reports are measurements to explain, not claims to verify.**
-   Every one has been correct. **Never prescribe `fix-th-fonts.sh --apply-system
+   On this project every report was reproduced by measurement (as of 2026-08-09). **Never prescribe `fix-th-fonts.sh --apply-system
    --restart`** — he installs via Windows Settings; `--check` is a fine read-only report.
 
 ## Working agreements
