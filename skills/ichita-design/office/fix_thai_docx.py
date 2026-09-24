@@ -10,9 +10,12 @@ and breaks/justifies lines between Thai words instead of stretching letters.
 
 Standard library only. What it does, in every text part (body, headers, footers,
 footnotes, endnotes, comments, numbering) and in styles.xml:
-  1. <w:lang w:bidi="th-TH"/> on every run, style and docDefaults (the root cause:
-     generators ship bidi="ar-SA" or none, so Word has no Thai dictionary and no
-     Thai word-break points).
+  1. <w:lang w:bidi="th-TH"/> on every run, style and docDefaults (generators ship
+     bidi="ar-SA" or none, so Word has no Thai dictionary and no Thai word breaks).
+  1a. Runs split at the Thai/Latin boundary, and <w:cs/> on every Thai piece — the
+     complex-script flag, which is what Word itself writes on Thai runs. Without it
+     Word 16 proofs Thai with the run's Latin language (en-US): measured 2026-09-24 on
+     Windows Word, 119 Thai words flagged with bidi="th-TH" alone, 0 with <w:cs/>.
   2. Complex-script font slot w:cs set, w:cstheme removed (theme wins over explicit).
   3. <w:bCs/> <w:iCs/> <w:szCs/> mirrored from <w:b/> <w:i/> <w:sz/> — Thai uses the
      complex-script versions; without them Thai loses bold and size.
@@ -20,6 +23,8 @@ footnotes, endnotes, comments, numbering) and in styles.xml:
   5. Text clean-up: NBSP -> space, ZWSP/soft hyphen removed (TH Aeonik has no glyphs),
      decomposed SARA AM (U+0E4D U+0E32) -> U+0E33.
   6. settings.xml themeFontLang bidi -> th-TH.
+  7. Children of every <w:rPr> put back in schema order — Word may ignore an element
+     that is out of place, and python-docx callers append bCs/szCs at the end.
 Soft line breaks (<w:br/>) inside Thai justified paragraphs are reported — they make
 Word stretch the line before them; replace them with real paragraph breaks.
 """
@@ -65,12 +70,75 @@ def fix_rpr(inner):
     at = tail.start() if tail else len(inner)
     return inner[:at] + new + inner[at:]
 
+RPR_ORDER = ("ins del moveFrom moveTo rStyle rFonts b bCs i iCs caps smallCaps strike dstrike outline "
+             "shadow emboss imprint noProof snapToGrid vanish webHidden color spacing w kern position sz "
+             "szCs highlight u effect bdr shd fitText vertAlign rtl cs em lang eastAsianLayout specVanish "
+             "oMath").split()
+
+def children(inner):
+    """Top-level elements of an XML fragment, as strings (text between them is dropped)."""
+    out, depth, start = [], 0, 0
+    for m in re.finditer(r"<(/?)[\w:]+[^>]*?(/?)>", inner):
+        if m.group(1):                    # </x>
+            depth -= 1
+            if depth == 0:
+                out.append(inner[start:m.end()])
+        elif m.group(2):                  # <x/>
+            if depth == 0:
+                out.append(m.group(0))
+        else:                             # <x>
+            if depth == 0:
+                start = m.start()
+            depth += 1
+    return out
+
+def order_rpr(inner):
+    kids = children(inner)
+    if "".join(kids) != inner:
+        return inner                      # not plain elements — leave untouched
+    def key(e):
+        name = re.match(r"<([\w:]+)", e).group(1)
+        local = name.split(":", 1)[1] if name.startswith("w:") else None
+        if local == "rPrChange":
+            return len(RPR_ORDER) + 1     # always last
+        return RPR_ORDER.index(local) if local in RPR_ORDER else len(RPR_ORDER)
+    return "".join(sorted(kids, key=key))
+
+# a Thai piece keeps the brackets and closing punctuation that touch it, so a line never
+# breaks between "(เฉลี่ย" and ")"
+THAI_SEG = re.compile("([(\\[\u201C\u2018\"']*[\u0E00-\u0E7F]+(?:\\s+[\u0E00-\u0E7F]+)*"
+                      "[)\\]\u201D\u2019\"'.,:;!?%]*\\s*)")
+
+def split_thai_runs(xml):
+    """<w:cs/> on Thai text, which means one run per script."""
+    def run(m):
+        open_tag, rpr, body = m.group(1), m.group(2) or "", m.group(3)
+        if not THAI.search(body) or "<w:cs/>" in rpr:
+            return m.group(0)
+        parts = children(body)
+        if "".join(parts) != body:
+            return m.group(0)
+        thai_rpr = re.sub(r"(<w:(?:em|lang|eastAsianLayout|specVanish|oMath)\b|</w:rPr>)", r"<w:cs/>\1", rpr, count=1) \
+            if rpr else "<w:rPr><w:cs/></w:rPr>"
+        out = []
+        for part in parts:
+            t = re.fullmatch(r"<w:t(?:\s[^>]*)?>(.*)</w:t>", part, re.S)
+            if not t or not THAI.search(t.group(1)):
+                out.append(open_tag + rpr + part + "</w:r>")
+                continue
+            for i, seg in enumerate(THAI_SEG.split(t.group(1))):
+                if seg:
+                    out.append(open_tag + (thai_rpr if i % 2 else rpr) +
+                               '<w:t xml:space="preserve">' + seg + "</w:t></w:r>")
+        return "".join(out)
+    return re.sub(r"(<w:r(?:\s[^>]*)?>)(<w:rPr>.*?</w:rPr>)?(.*?)</w:r>", run, xml, flags=re.S)
+
 def fix_runs(xml):
     xml = re.sub(r"<w:rPr>(.*?)</w:rPr>", lambda m: "<w:rPr>" + fix_rpr(m.group(1)) + "</w:rPr>", xml, flags=re.S)
     xml = re.sub(r"<w:rPr/>", "<w:rPr>" + fix_rpr("") + "</w:rPr>", xml)
     # runs with no rPr at all
     xml = re.sub(r"(<w:r(?:\s[^>]*)?>)(?!<w:rPr)", lambda m: m.group(1) + "<w:rPr>" + fix_rpr("") + "</w:rPr>", xml)
-    return xml
+    return re.sub(r"<w:rPr>(.*?)</w:rPr>", lambda m: "<w:rPr>" + order_rpr(m.group(1)) + "</w:rPr>", xml, flags=re.S)
 
 def clean_text(xml):
     def t(m):
@@ -149,6 +217,7 @@ def main(src, dst):
                 xml = fix_runs(data.decode("utf-8"))
                 if not item.filename.endswith(("styles.xml", "numbering.xml")):
                     xml = clean_text(xml)
+                    xml = split_thai_runs(xml)
                     xml = fix_paragraphs(xml, resolve, default_style, warnings, item.filename)
                 data = xml.encode("utf-8")
             elif item.filename == "word/settings.xml":
