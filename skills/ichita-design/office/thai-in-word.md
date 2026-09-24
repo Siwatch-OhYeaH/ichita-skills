@@ -5,9 +5,12 @@ Every Thai word underlined red, and justified lines stretched letter-by-letter
 (`ใ น โ อ ก า ส`) while Latin is fine.
 
 ## The cause
-The characters are correct. The **language tag** is wrong. python-docx, docx.js and most
-generators ship `<w:lang w:val="en-US" w:bidi="ar-SA"/>` (or nothing). Thai is a
-*complex script* in Word, so it reads the `w:bidi` slot — Word thinks the Thai is Arabic.
+The characters are correct. The run is not **marked as Thai**. python-docx, docx.js and most
+generators ship `<w:lang w:val="en-US" w:bidi="ar-SA"/>` (or nothing), and no `<w:cs/>`.
+Word needs both: `<w:cs/>` on the run says "this is complex-script text", and `w:bidi`
+names that language. Without `<w:cs/>`, Word 16 proofs the Thai in the run's *Latin*
+language — measured 2026-09-24 on Windows Word: 119 Thai words flagged with
+`w:bidi="th-TH"` on every run, 0 once the Thai runs also carried `<w:cs/>`.
 Result:
 - **Red underline** — no Thai dictionary is applied.
 - **Stretched letters** — Thai has no spaces between words; Word finds word boundaries
@@ -16,6 +19,9 @@ Result:
 
 ## Required on every Thai-containing .docx
 
+0. **Complex-script flag** — `<w:cs/>` on every run of Thai text, and only on Thai: split a
+   mixed run at the Thai/Latin boundary (Word itself writes `การเตรียม ` and `Ecosorb ` as two
+   runs). `<w:cs/>` on a Latin run would proof it as Thai. Place it after `szCs` and before `lang`.
 1. **Language** — docDefaults *and* every run:
    `<w:lang w:val="en-US" w:bidi="th-TH"/>`; settings: `<w:themeFontLang w:val="en-US" w:bidi="th-TH"/>`.
 2. **Complex-script font slot** — `<w:rFonts w:ascii="TH Aeonik Book" w:hAnsi="TH Aeonik Book" w:cs="TH Aeonik Book"/>`.
@@ -27,9 +33,19 @@ Result:
    box, so any Multiple ≥ 1.0 clears the marks; the 1.75 em Thai body is Multiple 1.14 (`w:line="273"`).
    Never *Exactly* below 1.536 × the size. (PowerPoint is different: fixed 1.2 em, so Thai there
    needs Multiple ≥ 1.3.)
-6. **Text** — one paragraph per paragraph: no `<w:br/>` inside running Thai; no NBSP, ZWSP or soft hyphen (TH Aeonik has no glyphs); no manual spaces to fake word breaks.
+6. **Order** — children of `<w:rPr>` in schema order (`rFonts b bCs i iCs … color … sz szCs … cs lang`);
+   an element appended out of place may be ignored.
+7. **Text** — one paragraph per paragraph: no `<w:br/>` inside running Thai; no NBSP, ZWSP or soft hyphen (TH Aeonik has no glyphs); no manual spaces to fake word breaks.
 
 ## python-docx
+
+Whatever the generator, finish with `fix_thai_docx.py` — it does 0 (run splitting), which the
+snippets below do not:
+
+```python
+doc.save(OUT)
+from fix_thai_docx import fix_file; fix_file(OUT)   # skills/ichita-docx/scripts on sys.path
+```
 
 ```python
 from docx import Document
@@ -79,7 +95,7 @@ new Document({
 ## Already have a broken file?
 
 - **One click in Word:** import `office/FixThai.bas` once (Alt+F11 → File → Import File, into *Normal*), add the `FixThai` macro to the Quick Access Toolbar. It does what "paste as plain text" does — resets the language tag to Thai — but keeps formatting and fixes alignment too.
-- **Script:** `python office/fix_thai_docx.py letter.docx` → `letter.fixed.docx` (applies 1–4 and 6).
+- **Script:** `python office/fix_thai_docx.py letter.docx` → `letter.fixed.docx` (applies 0–4, 6 and 7).
 - **By hand in Word:** Ctrl+A → Review → Language → Set Proofing Language → **Thai** → OK;
   then Home → **Thai Distributed** (Ctrl+Shift+J). Replace any Shift+Enter inside paragraphs with Enter.
 - If Thai is still flagged after tagging, install the Thai proofing tools:
