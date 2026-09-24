@@ -86,6 +86,18 @@ it back and `convert.py reconcile` it.
 Brand CSS for any HTML output lives in `assets/brand/ichita.css`. Import it;
 never re-declare `@font-face`, colours or page geometry in a document.
 
+## Thai — mandatory final step for EVERY .docx
+
+Whatever produced the file (these scripts, the base docx skill, docx.js, python-docx,
+LibreOffice), finish with:
+
+    python skills/ichita-docx/scripts/fix_thai_docx.py OUTPUT.docx --inplace
+
+Without it Word underlines every Thai word red and stretches justified lines letter by
+letter (runs are tagged ar-SA, so Word has no Thai dictionary or word breaks).
+Never hand over a .docx that has not been through it. `md_to_docx.py`, `html_to_docx.py`
+and `rebrand_docx.py` already run it after saving. Rules: `skills/ichita-design/office/thai-in-word.md`.
+
 ## Bilingual Thai/Latin work
 
 > **Read `docs/THAI-LATIN-FONT-ENGINEERING.md` before touching weights, metrics, line
@@ -109,6 +121,11 @@ The seven things most likely to cost a day if you skip the document:
    Thai or mixed → TH Aeonik (box 1537). Siwatch, 2026-08-05. The accepted cost is that
    English-only paragraphs inside a mixed document lead ~28% wider; **do not "fix" it**,
    fixing it is what produced the 08-04 defect.
+   **Superseded 2026-09-24 (Siwatch):** the 10-Aug *weight* rule governs — one family, TH Aeonik;
+   English-only → *TH Aeonik* Regular 400, Thai or mixed → *TH Aeonik Book* 350. A4 documents
+   take the Design standard, 25 mm margins. See `skills/ichita-design/SKILL.md` *Decisions*.
+   `docx-standard.md`, `ichita-defaults.md` §4 and the `ichita-docx` generators are not yet
+   updated to it.
 4. **Rebuild every face from one code state**, copy to `~/.local/share/fonts/th-current/`,
    `fc-cache -f`, *then* run QC. Committed fonts disagree with the committed builder.
    Expected state is **22/22** — check 6 stopped being red-on-purpose on 2026-08-06,

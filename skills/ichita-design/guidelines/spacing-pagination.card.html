@@ -1,0 +1,54 @@
+<!-- @dsCard group="Spacing" viewport="960x660" name="Pagination — when to break the page" subtitle="Long docs: new chapter, new page, always · short docs may share a sheet · never split a coherent block" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-canvas);padding:28px;box-sizing:border-box;font-family:"TH Aeonik","Trebuchet MS",sans-serif;color:var(--text-primary)}
+.eyebrow{font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--text-muted)}
+.pane{background:#fff;padding:16px 18px}
+li{margin-bottom:6px}
+ul,ol{font-size:12.5px;line-height:1.6;margin:0;padding-left:16px}
+.sheet{background:#fff;border:1px solid #A0B0B8;width:74px;height:104px;padding:7px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px}
+.bar{background:var(--ich-blue-grey-01);height:4px}.bar.t{background:var(--ich-blue);height:7px;width:70%}.bar.s{width:55%}
+.gapnote{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-top:6px}
+</style></head><body>
+<div style="display:grid;grid-template-columns:1.15fr 1fr;gap:34px;align-items:start">
+<div>
+<div class="eyebrow" style="margin-bottom:12px">Decide by document length</div>
+<div class="pane" style="margin-bottom:14px">
+<div style="font-size:13px;font-weight:700;margin-bottom:8px">Long — proposal, manual, textbook, tender (8+ pp)</div>
+<ul><li><b>New chapter, new page. Always</b> — even if the last one ended two lines down.</li>
+<li>The opener carries its number, title and lead, and nothing that could have started earlier.</li>
+<li>Front matter and each appendix get their own page.</li></ul>
+<div style="display:flex;gap:8px;margin-top:12px">
+<div class="sheet"><div class="bar t"></div><div class="bar"></div><div class="bar s"></div></div>
+<div class="sheet"><div class="bar"></div><div class="bar s"></div><div style="flex:1"></div></div>
+<div class="sheet"><div class="bar t"></div><div class="bar"></div><div class="bar"></div></div>
+</div>
+<div class="gapnote">Sheet 2 ends short — correct, not a defect</div>
+</div>
+<div class="pane">
+<div style="font-size:13px;font-weight:700;margin-bottom:8px">Short — report, memo, datasheet (2–6 pp)</div>
+<ul style="margin-bottom:0"><li>A section may continue on the page it starts; two sections on one sheet is correct here.</li>
+<li>There is no long-range navigation to protect, so the trade is allowed.</li></ul>
+</div>
+</div>
+<div>
+<div class="eyebrow" style="margin-bottom:12px">Never split these</div>
+<div class="pane" style="margin-bottom:14px">
+<ul style="margin-bottom:0"><li>A table or figure and its caption</li>
+<li>A heading and the first two lines under it</li>
+<li>A lead-in sentence and its list</li>
+<li>A callout, pull quote or metadata grid</li>
+<li>A row of a comparison table</li>
+<li>Fewer than two lines of a paragraph either side of the break</li></ul>
+<div class="gapnote">Enforce with break-inside:avoid on the group — never by nudging margins</div>
+</div>
+<div class="eyebrow" style="margin-bottom:10px">If it won't fit — in this order</div>
+<ol style="padding-left:18px"><li>Move the whole block to the next page and let this one end short.</li>
+<li>Cut copy.</li>
+<li>Re-flow to two columns if the content suits it.</li>
+<li>Split at a natural sub-head and carry a running head over.</li></ol>
+<div class="pane" style="margin-top:14px;border-left:4px solid var(--ich-error)">
+<div class="eyebrow" style="color:var(--ich-error-text);margin-bottom:8px">Never to buy a line</div>
+<div style="font-size:12.5px;line-height:1.6">Shrink the type below its floor · squeeze the leading · reduce the margin · tighten the rhythm ladder. A page ending 40 mm short reads better than one crammed to the edge.</div>
+</div>
+</div>
+</div></body></html>

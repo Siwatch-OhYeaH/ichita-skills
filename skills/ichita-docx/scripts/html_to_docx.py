@@ -1048,6 +1048,7 @@ def convert_html_to_docx(html_path, output_path, logo=None, footer_text=None,
             fr.font.name = effective_font
 
     doc.save(output_path)
+    from fix_thai_docx import fix_file; fix_file(output_path)
 
     # ── Summary ──
     size = os.path.getsize(output_path)

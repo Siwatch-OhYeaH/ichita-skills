@@ -1,0 +1,39 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Comparison matrix" subtitle="The mark carries the answer — legible printed in greyscale. Every figure is illustrative, not ICHITA data" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comparison matrix</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, Matrix} = window.ICHITADesignSystem_106280;
+
+/* One highlighted column — the recommendation — and marks that survive a greyscale print.
+   Above 5 columns or 8 rows this stops being a figure and becomes a DataTable. */
+function App(){return (
+<Figure eyebrow="Figure 09 · Comparison matrix" title="Decolorisation routes compared"
+  subtitle="Illustrative figures — same feed: 65 °Bx, 1 200 IU — recommended route highlighted"
+  desc="Comparison matrix of four decolorisation routes against six criteria, with adsorbent resin highlighted as the recommended route."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'dot',tone:'ichita',label:'Recommended'},
+    {mark:'dot',tone:'success',label:'Meets the criterion'},
+    {mark:'dot',tone:'warning',label:'Partly'},
+    {mark:'dot',tone:'subtle',label:'Does not apply'}
+  ]}>
+  <Matrix x={48} y={182} width={1184} labelWidth={400} rowHeight={54} headHeight={76}
+    columns={[
+      {label:'Adsorbent resin', sub:'Rose family', highlight:true},
+      {label:'Ion exchange', sub:'Resin family'},
+      {label:'Activated carbon', sub:'Consumable'},
+      {label:'Chromatography', sub:'SMB · pilot'}
+    ]}
+    rows={[
+      {label:'Colour removal',   detail:'to < 250 IU', cells:['best','partial','yes','yes']},
+      {label:'Ash removal',      detail:'to < 0.05 %', cells:['no','yes','no','partial']},
+      {label:'Regenerable',      detail:'on site',     cells:['yes','yes','no','yes']},
+      {label:'Operating cost',   detail:'THB / m³',    cells:[{text:'2.10',bold:true},{text:'3.40',bold:true},{text:'4.80',bold:true},{text:'6.20',bold:true}]},
+      {label:'Footprint',        detail:'m² per 100 m³/h', cells:[{text:'18',bold:true},{text:'26',bold:true},{text:'22',bold:true},{text:'34',bold:true}]},
+      {label:'Reference plants', detail:'illustrative count', cells:[{text:'11',bold:true},{text:'7',bold:true},{text:'4',bold:true},{text:'Pilot'}]}
+    ]}/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

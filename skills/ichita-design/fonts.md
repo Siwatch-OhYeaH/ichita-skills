@@ -137,8 +137,10 @@ where marks begin to touch descenders** — visible, not theoretical.
 
 **The declared line box is 1.536 and does not change with weight.** Two consequences:
 
-- **Word and PowerPoint:** keep Thai at **Multiple 1.55** or looser. Line spacing set to
-  *Exactly* anything below 1.536 clips the tone marks, because Office honours the declared box.
+- **Word:** Single already gives the declared 1.536 box — Multiple *m* is *m* × 1.536 em, so
+  the 1.75 em Thai body is Multiple 1.14. **PowerPoint** ignores the font and lays out at 1.2 em:
+  Thai there needs Multiple 1.3 or more (1.536 ÷ 1.2 = 1.28). *Exactly* below 1.536 × the size
+  clips the tone marks in both. Measured: `ichita-skills/docs/THAI-LATIN-FONT-ENGINEERING.md` §7.
 - **Web:** never inherit `line-height: normal`. It resolves to **1.536** where TH Aeonik is
   installed and **1.200** where it falls back to Aeonik — a 28% difference in block height from
   the same stylesheet. Always set a `--leading-*` token.

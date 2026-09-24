@@ -1,0 +1,117 @@
+<!-- @dsCard group="Schematics" viewport="1280x1560" name="Schematic drawing — the rules" subtitle="Six connector rules, node vocabulary, type ramp and budget" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Schematic drawing — the rules</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);padding:48px 48px 56px;box-sizing:border-box}
+h1{font-size:44px;font-weight:700;letter-spacing:-.02em;margin:0 0 6px}
+.eyebrow{font-size:18px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px}
+.lede{font-size:24px;color:var(--text-muted);max-width:980px;margin:0 0 8px;line-height:1.45}
+.bar{width:48px;height:4px;background:var(--ich-blue);margin:18px 0 26px}
+h2{font-size:18px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin:40px 0 0;padding-top:18px;border-top:1px solid var(--border-subtle)}
+.rule{display:grid;grid-template-columns:400px 1fr 1fr;gap:32px;align-items:center;padding:20px 0;border-bottom:1px solid var(--border-subtle)}
+.rule h3{font-size:24px;font-weight:600;margin:0 0 6px;display:flex;gap:12px}
+.rule h3 span{color:var(--ich-blue-text);font-variant-numeric:tabular-nums}
+.rule p{font-size:20px;color:var(--text-muted);margin:0;line-height:1.5}
+.mini{position:relative}
+.tag{position:absolute;top:0;left:0;font-size:18px;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+.ok{color:var(--ich-success-text)}.bad{color:var(--ich-error-text)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:24px}
+table{width:100%;border-collapse:collapse;font-size:20px}
+th{text-align:left;font-size:18px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);padding:0 0 10px;border-bottom:1px solid var(--border-strong)}
+td{padding:11px 0;border-bottom:1px solid var(--border-subtle);vertical-align:top;line-height:1.4}
+td:first-child{width:210px;padding-right:24px}
+th:first-child{width:210px;padding-right:24px}
+td:last-child{color:var(--text-muted)}
+td b{font-weight:600;color:var(--text-primary)}
+.num{font-variant-numeric:tabular-nums;letter-spacing:-.035em;font-weight:700}
+a{color:var(--link)}a:hover{color:var(--link-hover)}
+</style></head><body>
+<div class="eyebrow">Schematics</div>
+<h1>Schematic drawing</h1>
+<p class="lede">A figure is not a drawing of the plant; it is an argument about the plant. These rules are what
+keep one legible from the back of a room — adapted from the editorial diagram grammar, re-set in ICHITA
+type sizes, ICHITA scope colour and ICHITA's square-cornered geometry.</p>
+<div class="bar"></div>
+
+<h2>Six connector rules — each one is an automatic fail</h2>
+<div id="rules"></div>
+
+<h2>What a node is drawn as</h2>
+<div class="cols">
+<table><thead><tr><th>Node</th><th>Drawn as</th></tr></thead><tbody>
+<tr><td><b>Real equipment</b></td><td><b>Unit</b> — a ProcessGlyph, never a labelled rectangle. A boxes-and-arrows flow reads as a consultant's slide; glyphs read as an equipment maker's.</td></tr>
+<tr><td><b>System, role, document, decision, scope owner</b></td><td><b>Block</b> — square corners, 1px stroke, no shadow.</td></tr>
+<tr><td><b>Plant area, department, boundary</b></td><td><b>Zone</b> — drawn first, so a label mask may cross it.</td></tr>
+<tr><td><b>Stream specification</b></td><td><b>StreamSpec</b> with <code>at</code> — pinned beside the point where that stream exists.</td></tr>
+</tbody></table>
+<table><thead><tr><th>Block kind</th><th>Field / border</th></tr></thead><tbody>
+<tr><td><b>ichita</b></td><td>Pale blue field, Ichita Blue border — ICHITA's supply</td></tr>
+<tr><td><b>client</b></td><td>White, Blue Grey 03 border — the client's own</td></tr>
+<tr><td><b>third</b></td><td>Off-white, hairline — a third party</td></tr>
+<tr><td><b>store</b> · <b>input</b></td><td>Blue Grey 01 field — records, feeds</td></tr>
+<tr><td><b>optional</b></td><td>Dashed hairline — proposed, future phase</td></tr>
+<tr><td><b>decision</b> · <b>document</b></td><td>Diamond · folded sheet</td></tr>
+</tbody></table>
+</div>
+
+<h2>Type ramp on the 1280 × 720 frame — nothing below 18px</h2>
+<div class="cols">
+<table><thead><tr><th>Role</th><th>Size</th></tr></thead><tbody>
+<tr><td>Figure title</td><td><span class="num">36</span> px / 700</td></tr>
+<tr><td>Sub-title</td><td><span class="num">26</span> px / 400</td></tr>
+<tr><td>Node name</td><td><span class="num">24–26</span> px / 600</td></tr>
+<tr><td>Sublabel, duty, detail</td><td><span class="num">20</span> px / 400</td></tr>
+<tr><td>Arrow label · eyebrow · legend · zone label</td><td><span class="num">18</span> px / 500, tracked 0.14em</td></tr>
+<tr><td>Quantity on a connector</td><td><span class="num">20</span> px / 700, tabular, tracking −0.035em</td></tr>
+</tbody></table>
+<table><thead><tr><th>Budget per figure</th><th>Ceiling</th></tr></thead><tbody>
+<tr><td>Nodes at full treatment</td><td><span class="num">12</span> — the 24px type floor binds before the count does</td></tr>
+<tr><td>Nodes as zoned chips</td><td><span class="num">24</span>, every one inside a labelled Zone, plus an overview figure</td></tr>
+<tr><td>Zones</td><td><span class="num">2–4</span></td></tr>
+<tr><td>Connectors</td><td><span class="num">16</span></td></tr>
+<tr><td>Secondary hues on one canvas</td><td><span class="num">1</span> — and only where it encodes a technology family</td></tr>
+<tr><td>Betatron</td><td><span class="num">0</span> — chapter numerals only, never in a figure</td></tr>
+</tbody></table>
+</div>
+
+<h2>Colour does one job per figure</h2>
+<p class="lede" style="font-size:20px;max-width:none">Ichita Blue marks <b>ICHITA scope</b>. A secondary hue marks a <b>technology family</b> — cyan membrane,
+bronze ion exchange, rose adsorbent, violet chromatography — and only one of them may appear on a canvas, with a
+legend. Functional colour marks <b>state</b>: Success within spec, Warning threshold, Error off-spec, Attention the
+milestone or callout. Never mix the two vocabularies, never set type in a core, and never colour the product
+stream — it is the output of all four families, so it stays Ichita Blue or Blue Grey.</p>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script>
+<script type="text/babel">const {Block, Connector} = window.ICHITADesignSystem_106280;
+const W = 340, H = 132;
+const Frame = ({children}) => <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:'block'}} aria-hidden="true">{children}</svg>;
+const Bad = (p) => <path {...p} fill="none" stroke="var(--ich-error)" strokeWidth="1.5"/>;
+
+const RULES = [
+  {n:'01', t:'Orthogonal, r=8', p:'Every bend is a quarter-arc. A diagonal between nodes that share neither x nor y is a fail.',
+   ok:<Connector points={[{x:16,y:44},{x:170,y:44},{x:170,y:104},{x:324,y:104}]} weight={2}/>,
+   bad:<Bad d="M16 44L324 104"/>},
+  {n:'02', t:'Label off its own stroke', p:'6–10px of visible gap between the mask and the line. A label that hides its arrow is a fail.',
+   ok:<Connector from={{x:16,y:88}} to={{x:324,y:88}} weight={2} label="Filtrate"/>,
+   bad:<Connector from={{x:16,y:88}} to={{x:324,y:88}} weight={2} label="Filtrate" gap={-14} tone="error"/>},
+  {n:'03', t:'No overlapping runs', p:'Two connectors never share a path. Parallel runs stay 12px apart end to end.',
+   ok:<><Connector from={{x:16,y:56}} to={{x:324,y:56}} weight={2}/><Connector from={{x:16,y:92}} to={{x:324,y:92}} weight={2} tone="subtle"/></>,
+   bad:<><Bad d="M16 74h308"/><Bad d="M16 76h308"/></>},
+  {n:'04', t:'Fan the attach points', p:'Several connectors on one edge each get their own point, 12px apart or more.',
+   ok:<><Connector from={{x:16,y:40}} to={{x:180,y:40}} weight={2}/><Connector from={{x:16,y:74}} to={{x:180,y:74}} weight={2}/><Connector from={{x:16,y:108}} to={{x:180,y:108}} weight={2}/><Block x={192} y={36} width={132} height={76} name="Column" kind="client" nameSize={20}/></>,
+   bad:<><Bad d="M16 40L180 74"/><Bad d="M16 74h164"/><Bad d="M16 108L180 74"/><Block x={192} y={36} width={132} height={76} name="Column" kind="client" nameSize={20}/></>},
+  {n:'05', t:'Never transit behind a node', p:'Reroute. Where a crossing is unavoidable the stroke is dashed and the label sits at the visible end.',
+   ok:<><Connector points={[{x:16,y:44},{x:324,y:44}]} weight={2} dash="6,5" label="Transit" labelAt={0.5}/><Block x={120} y={74} width={120} height={48} name="Utility" kind="store" nameSize={20}/></>,
+   bad:<><Bad d="M16 98h308"/><Block x={120} y={74} width={120} height={48} name="Utility" kind="store" nameSize={20}/></>},
+  {n:'06', t:'Mask never under a later node', p:'Nodes paint after labels, so a mask that strays onto one is clipped and the text breaks.',
+   ok:<><Connector from={{x:16,y:88}} to={{x:190,y:88}} weight={2} label="Feed" labelAt={0.42}/><Block x={202} y={56} width={122} height={64} name="Tank" kind="client" nameSize={20}/></>,
+   bad:<><Connector from={{x:16,y:88}} to={{x:264,y:88}} weight={2} label="Feed" labelAt={0.72} tone="error"/><Block x={202} y={56} width={122} height={64} name="Tank" kind="client" nameSize={20}/></>}
+];
+
+function App(){return <div>{RULES.map(r =>
+  <div className="rule" key={r.n}>
+    <div><h3><span>{r.n}</span>{r.t}</h3><p>{r.p}</p></div>
+    <div className="mini"><div className="tag ok">Do</div><Frame>{r.ok}</Frame></div>
+    <div className="mini"><div className="tag bad">Never</div><Frame>{r.bad}</Frame></div>
+  </div>)}</div>;}
+ReactDOM.createRoot(document.getElementById('rules')).render(<App/>);</script></body></html>

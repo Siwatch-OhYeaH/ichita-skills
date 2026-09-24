@@ -1,0 +1,52 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Plant block diagram" subtitle="Four areas, zoned — above 9 nodes every node belongs to a zone" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Plant block diagram</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, Zone, Unit, Block, Connector, Geometry} = window.ICHITADesignSystem_106280;
+const {port} = Geometry;
+
+/* Zoning is what lets a figure carry more than nine nodes: the reader counts four areas,
+   not seven boxes. Areas are drawn first, so the stream labels may sit over a zone field —
+   they may never sit over a node. */
+const u = [
+  {x:64,  y:250, width:240, size:96, glyph:'clarifier',   label:'Clarifier',     detail:'Lime + CO₂'},
+  {x:368, y:250, width:240, size:96, glyph:'sand-filter', label:'Sand filter',   detail:'Client scope'},
+  {x:672, y:250, width:240, size:96, glyph:'ix-column',   label:'Decolorisation',detail:'Adsorbent resin', scope:'ichita'},
+  {x:976, y:250, width:240, size:96, glyph:'carbon-column', label:'Odour polish', detail:'Activated carbon', scope:'ichita'}
+];
+const zones = [
+  {x:48,  label:'Clarification', tag:'01'},
+  {x:352, label:'Filtration',    tag:'02'},
+  {x:656, label:'Purification',  tag:'03'},
+  {x:960, label:'Polishing',     tag:'04'}
+];
+
+function App(){return (
+<Figure eyebrow="Figure 02 · Plant block diagram" title="Refinery water plant — areas and duty"
+  subtitle="300 m³/h · four areas · ICHITA scope in areas 03 and 04"
+  desc="Plant block diagram: four process areas in series — clarification, filtration, purification and polishing — over a shared utilities area."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'arrow',tone:'default',label:'Process stream'},
+    {mark:'box',tone:'subtle',fill:'var(--ich-off-white)',label:'Plant area'},
+    {mark:'box',tone:'ichita',fill:'var(--chart-seq-1)',label:'ICHITA scope'},
+    {mark:'box',tone:'store',fill:'var(--ich-alt-row)',label:'Shared utility'}
+  ]}>
+
+  {zones.map(z => <Zone key={z.tag} x={z.x} y={190} width={272} height={270} label={z.label} tag={z.tag}/>)}
+  <Zone x={48} y={500} width={1184} height={96} label="Utilities · shared" ground="grey"/>
+
+  <Connector from={{x:port(u[0],'right').x, y:296}} to={{x:port(u[1],'left').x, y:296}} weight={2} label="Clear liquor"/>
+  <Connector from={{x:port(u[1],'right').x, y:296}} to={{x:port(u[2],'left').x, y:296}} weight={2} label="Filtrate"/>
+  <Connector from={{x:port(u[2],'right').x, y:296}} to={{x:port(u[3],'left').x, y:296}} weight={2} label="Decoloured"/>
+
+  {u.map((c,i) => <Unit key={i} {...c}/>)}
+
+  <Block x={420} y={520} width={240} height={56} name="CIP skid"      kind="store" nameSize={24}/>
+  <Block x={700} y={520} width={240} height={56} name="Dosing"        kind="store" nameSize={24}/>
+  <Block x={980} y={520} width={240} height={56} name="Instrument air" kind="store" nameSize={24}/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

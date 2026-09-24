@@ -1,0 +1,44 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Scope diagram" subtitle="ICHITA · client · third party — the one distinction a client needs" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Scope diagram</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, Zone, Unit, Block, Connector, Geometry} = window.ICHITADesignSystem_106280;
+const {port} = Geometry;
+
+/* Scope is the one thing a quotation drawing must never leave ambiguous. Ichita Blue is
+   ICHITA's supply, Blue Grey 03 the client's own, off-white hairline a third party — and
+   the battery limits are named on the connectors that cross the boundary. */
+const col = {x:344, y:250, width:260, size:96, glyph:'ix-column'};
+const pol = {x:640, y:250, width:260, size:96, glyph:'carbon-column'};
+
+function App(){return (
+<Figure eyebrow="Figure 05 · Scope" title="Two-bed decolorisation — scope of supply"
+  subtitle="Battery limits named at both interfaces"
+  desc="Scope diagram: ICHITA supplies the decolorisation and polishing columns and their control panel; the client provides feed and takes product; a third party does piping and installation."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'box',tone:'ichita',fill:'var(--chart-seq-1)',label:'ICHITA supply'},
+    {mark:'box',tone:'client',label:'Client'},
+    {mark:'box',tone:'third',fill:'var(--ich-off-white)',label:'Third party'},
+    {mark:'arrow',tone:'default',label:'Battery limit'}
+  ]}>
+
+  <Zone x={320} y={190} width={620} height={290} label="ICHITA scope of supply" tag="Two-bed · skid-mounted"/>
+
+  <Connector from={{x:288, y:298}} to={port(col,'left')} weight={2} label="Battery limit" labelAt={0.62}/>
+  <Connector from={port(col,'right')} to={port(pol,'left')} weight={2} label="Decoloured"/>
+  <Connector from={port(pol,'right')} to={{x:982, y:298}} weight={2} label="To client"/>
+
+  <Block x={48} y={230} width={230} name="Clarified liquor" sub="Client battery limit" tag="Client" kind="client"/>
+  <Block x={992} y={230} width={240} name="To evaporation" sub="Client battery limit" tag="Client" kind="client"/>
+
+  <Unit {...col} label="Decolorisation" detail="Adsorbent resin" scope="ichita"/>
+  <Unit {...pol} label="Odour polish"   detail="Activated carbon" scope="ichita"/>
+  <Block x={360} y={400} width={540} height={64} name="Control panel · PLC and instruments" kind="ichita" nameSize={24}/>
+
+  <Block x={320} y={500} width={620} height={96} name="Piping, civil and installation" sub="Client's contractor" tag="Third party" kind="third" nameSize={24} subSize={18}/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

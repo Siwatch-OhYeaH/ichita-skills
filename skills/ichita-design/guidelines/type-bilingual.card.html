@@ -1,0 +1,23 @@
+<!-- @dsCard group="Type" viewport="700x430" name="Bilingual layout" subtitle="Thai leads, English follows — three sanctioned patterns, set at Book 350" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);padding:20px;box-sizing:border-box}
+h4{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px;font-weight:500}
+/* Both header and body cells carry Thai, so both take the Thai leading floor. */
+table{width:100%;border-collapse:collapse;font-size:13px}th{background:var(--ich-blue-grey-03);color:#fff;text-align:left;padding:6px 9px;line-height:var(--leading-thai-tight)}
+td{padding:6px 9px;border-bottom:1px solid var(--border-default);line-height:var(--leading-thai-tight)}
+</style></head><body>
+<div style="display:grid;gap:18px">
+<div><h4>1 · Stacked pair — headings, labels, captions</h4>
+<div class="ich-bi"><span class="th" style="font-size:22px;font-weight:700">รายงานผลการทดสอบ</span><span class="en" style="font-size:14px">Pilot Test Report</span></div></div>
+<div><h4>2 · Slash pair — captions and table headers, inline</h4>
+<div style="font-size:13px" class="ich-th">ตารางที่ 1. ขั้นตอนการฟื้นฟู <span style="color:var(--text-muted)">/ Table 1. Regeneration sequence</span></div></div>
+<div><h4>3 · Parallel columns — body copy in both languages</h4>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;border-top:2px solid var(--ich-blue);padding-top:10px">
+<p class="ich-th" style="margin:0;font-size:13px">สารดูดซับประสิทธิภาพสูงที่ออกแบบมาสำหรับกระบวนการฟอกสีน้ำเชื่อมโดยเฉพาะ สามารถฟื้นฟูสภาพเพื่อนำกลับมาใช้ใหม่ได้</p>
+<p style="margin:0;font-size:13px;line-height:1.5;color:var(--text-muted)">A high-efficiency adsorbent designed specifically for syrup decolorisation, and regenerable for repeated service.</p>
+</div></div>
+<table><thead><tr><th>ขั้นตอน / Step</th><th>ตัวกลาง / Medium</th><th style="text-align:right">เวลา / Time</th></tr></thead>
+<tbody><tr style="background:var(--surface-alt-row)"><td class="ich-th">ล้างย้อน / Backwash</td><td>Softened water</td><td style="text-align:right">20 min</td></tr></tbody></table>
+</div>
+<p style="margin:14px 0 0;font-size:12px;color:var(--text-muted);line-height:1.5">Thai always leads. Never machine-mix languages inside one sentence — switch at the clause, the field or the column. Thai runs at <code>--leading-thai</code> 1.75, looser than Latin, because vowels and tone marks stack. A bilingual file is <strong>Book 350</strong> throughout (<code>data-typeset="mixed"</code>) with emphasis and headings at <strong>SemiBold 600</strong> — Thai's bold is capped, so 700 shouts in the Latin and barely moves in the Thai.</p>
+</body></html>

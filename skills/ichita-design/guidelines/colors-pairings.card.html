@@ -1,0 +1,25 @@
+<!-- @dsCard group="Colors" viewport="960x460" name="Grounds and pairings" subtitle="Every legal background → text pair, and the four that are banned" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);padding:24px;box-sizing:border-box;font-family:var(--font-sans)}h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);font-weight:500;margin:0 0 10px}.g{padding:16px;min-height:104px}.g b{font-size:19px;display:block;letter-spacing:-.02em}.g span{font-size:13px;display:block;margin-top:7px;color:var(--text-muted)}.g i{font-size:13px;font-style:normal;display:block;margin-top:3px;color:var(--text-accent);font-weight:700}.row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.bad{position:relative;padding:16px;min-height:64px;font-size:15px;font-weight:700;border:1px solid var(--ich-error)}.bad em{position:absolute;left:16px;bottom:10px;font-style:normal;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ich-error-text);background:#fff;padding:1px 5px}</style>
+</head><body>
+<h3>Use a ground — it sets the background and the text colour together</h3>
+<div class="row" style="margin-bottom:10px">
+<div class="g" data-ground="white" style="border:1px solid var(--border-subtle)"><b>White</b><span>muted caption</span><i>accent link</i></div>
+<div class="g" data-ground="off-white"><b>Off White</b><span>muted caption</span><i>accent link</i></div>
+<div class="g" data-ground="grey-01"><b>Blue Grey 01</b><span>muted caption</span><i>accent link</i></div>
+<div class="g" data-ground="steel"><b>Blue Grey 02</b><span>no muted tint — dark type only</span><i>emphasis is Bold, not blue</i></div>
+</div>
+<div class="row" style="margin-bottom:26px">
+<div class="g" data-ground="dark"><b>Blue Grey 03</b><span>muted caption</span><i>accent link</i></div>
+<div class="g" data-ground="darkest"><b>Blue Black</b><span>muted caption</span><i>accent link</i></div>
+<div class="g" data-ground="accent"><b>Ichita Blue</b><span>display only — 24 px+ Bold</span><i>never body copy</i></div>
+<div style="padding:16px;background:var(--surface-card);border-left:6px solid var(--ich-blue);font-size:13px;line-height:1.5">Write <code>data-ground="grey-01"</code>, not <code>background:#CFD9DB;color:#fff</code>. Children written against <code>--text-primary</code> / <code>--text-muted</code> flip with the ground.</div>
+</div>
+<h3 style="color:var(--ich-error-text)">Banned — these are the failures that keep happening</h3>
+<div class="row">
+<div class="bad" style="background:#FFFFFF;color:#FFFFFF;-webkit-text-stroke:.6px var(--ich-rule)">White on White<em>1.0 : 1</em></div>
+<div class="bad" style="background:#CFD9DB;color:#FFFFFF">White on Blue Grey 01<em>1.4 : 1</em></div>
+<div class="bad" style="background:#788F9C;color:#FFFFFF">White on Blue Grey 02<em>3.0 : 1</em></div>
+<div class="bad" style="background:#2978FF;color:#263338">Blue Grey 03 on Ichita Blue<em>2.5 : 1</em></div>
+</div>
+</body></html>

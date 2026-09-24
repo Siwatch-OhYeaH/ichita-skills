@@ -1,0 +1,52 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Branching process flow" subtitle="A recycle loop: fanned attach points, ink-edge ports, labels off the stroke" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Branching process flow</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, Unit, Connector, Geometry} = window.ICHITADesignSystem_106280;
+const {port} = Geometry;
+
+/* A recycle loop is the one thing a linear train cannot draw: the regenerant returns to
+   the column it came from, so the feed and the return share the column's left edge —
+   `port(col,'left',10,i,2)` fans them 32px apart (rule 4). Every connector ends at the
+   glyph's INK edge, not its cell edge, so no arrowhead floats in empty air. */
+const raw = {x:110, y:200, width:220, size:112, glyph:'tank'};
+const col = {x:530, y:200, width:220, size:112, glyph:'ix-column'};
+const out = {x:950, y:200, width:220, size:112, glyph:'tank'};
+const rec = {x:740, y:420, width:220, size:96,  glyph:'nf-module'};
+const reg = {x:320, y:420, width:220, size:96,  glyph:'vessel'};
+const feed = port(col, 'left', 10, 0, 2);
+const back = port(col, 'left', 10, 1, 2);
+const up = port(reg, 'top');
+
+function App(){return (
+<Figure eyebrow="Figure 01 · Process flow" title="Decolorisation with regenerant recovery"
+  subtitle="Liquid sugar · 18 m³/h · 65 °Bx — ICHITA scope in blue"
+  desc="Process flow: raw syrup is decoloured to product liquid sugar, while spent regenerant is recovered by nanofiltration, made up, and returned to the decolorisation column."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'arrow',tone:'default',label:'Product stream'},
+    {mark:'arrow',tone:'subtle',dash:'6,5',label:'Regenerant recycle'},
+    {mark:'box',tone:'ichita',fill:'var(--chart-seq-1)',label:'ICHITA scope'},
+    {mark:'box',tone:'client',label:'Client scope'}
+  ]}>
+
+  {/* Connectors first — z-order then puts every line behind the glyphs. */}
+  <Connector from={{x:port(raw,'right').x, y:feed.y}} to={feed} weight={2} label="Syrup" value="1 200 IU"/>
+  <Connector from={port(col,'right')} to={port(out,'left')} weight={2} label="Decoloured" value="240 IU"/>
+
+  <Connector points={[{x:850, y:256}, port(rec,'top')]} tone="subtle" dash="6,5"
+    label="Spent brine" labelAt={0.25} side="left"/>
+  <Connector from={port(rec,'left')} to={port(reg,'right')} tone="subtle" dash="6,5" label="Recovered"/>
+  <Connector points={[up, {x:up.x, y:back.y}, back]} tone="subtle" dash="6,5"
+    label="Regenerant" labelSeg={0} labelAt={0.08} side="left"/>
+
+  <Unit {...raw} label="Raw syrup"      detail="Client storage"  scope="client"/>
+  <Unit {...col} label="Decolorisation" detail="Adsorbent resin" scope="ichita"/>
+  <Unit {...out} label="Liquid sugar"   detail="To bottling"     scope="client"/>
+  <Unit {...rec} label="Brine recovery" detail="Nanofiltration"  scope="ichita"/>
+  <Unit {...reg} label="Regeneration"   detail="Brine make-up"   scope="ichita"/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

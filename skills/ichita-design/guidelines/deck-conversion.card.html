@@ -1,0 +1,92 @@
+<!-- @dsCard group="Narrative" viewport="1280x2180" name="Converting an existing deck" subtitle="Measured drift in eleven real ICHITA decks, and the swap table" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Converting an existing deck</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);font-family:var(--font-sans);color:var(--text-primary);padding:36px 40px 44px;box-sizing:border-box}
+h2{font-size:var(--text-xl);font-weight:700;margin:0 0 4px;letter-spacing:var(--tracking-tight)}
+.eyebrow{font-size:var(--text-2xs);letter-spacing:.16em;text-transform:uppercase;color:var(--text-muted-decorative);font-weight:700;margin:0 0 6px}
+.lede{font-size:var(--text-md);line-height:var(--leading-normal);color:var(--text-muted);max-width:72ch;margin:0}
+section{margin-top:32px}
+.sechead{display:flex;align-items:baseline;gap:14px;border-top:2px solid var(--border-strong);padding-top:10px;margin-bottom:16px}
+.sechead h3{font-size:var(--text-lg);margin:0;font-weight:700}
+.sechead p{margin:0;font-size:var(--text-sm);color:var(--text-muted);line-height:var(--leading-normal);max-width:60ch}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat{background:var(--surface-card);padding:16px 18px}
+.stat b{display:block;font-size:40px;font-weight:700;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{display:block;font-size:var(--text-xs);color:var(--text-muted);margin-top:8px;line-height:1.35}
+table{border-collapse:collapse;width:100%}
+th{font-size:var(--text-2xs);letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);text-align:left;font-weight:700;padding:0 12px 8px;border-bottom:2px solid var(--ich-blue-grey-03)}
+td{font-size:var(--text-sm);padding:11px 12px;border-bottom:1px solid var(--ich-rule);vertical-align:top;line-height:1.4}
+tr:nth-child(even) td{background:var(--surface-alt-row)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono,ui-monospace,monospace);font-size:11px;border:1px solid var(--ich-rule);padding:2px 6px 2px 3px;white-space:nowrap}
+.chip i{width:13px;height:13px;display:block}
+.to{font-weight:700;color:var(--text-primary)}
+.tok{font-family:var(--font-mono,ui-monospace,monospace);font-size:12px}
+.note{font-size:var(--text-xs);color:var(--text-muted);line-height:var(--leading-normal);margin-top:12px;max-width:80ch}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.rule{border-left:3px solid var(--border-accent);padding:2px 0 2px 12px;font-size:var(--text-sm);line-height:var(--leading-normal);color:var(--text-muted)}
+.rule b{color:var(--text-primary);font-weight:700}
+.rule--no{border-left-color:var(--ich-error-text)}
+ol{margin:0;padding-left:22px}
+ol li{font-size:var(--text-sm);line-height:var(--leading-normal);color:var(--text-muted);margin-bottom:7px}
+ol li b{color:var(--text-primary)}
+</style></head><body>
+<p class="eyebrow">Audit — eleven real decks, read out of the files</p>
+<h2>Converting an existing deck</h2>
+<p class="lede">Every presentation in <code>uploads/</code> was opened and its <b>embedded fonts and fill colours read out of the PDF</b>, not eyeballed. The drift is measurable, and it is the same drift every time: the Office theme, plus one person's hand-picked cyan. This card is the swap table. The long form is <code>deck-audit.md</code>.</p>
+
+<div class="stats" style="margin-top:26px">
+<div class="stat"><b>11</b><span>decks measured, all on a 960×540 frame</span></div>
+<div class="stat"><b>0</b><span>uses of Aeonik or TH Aeonik across all of them</span></div>
+<div class="stat"><b>4</b><span>different Thai faces in circulation</span></div>
+<div class="stat"><b>24</b><span>distinct non-brand hexes; one brand hex, in one deck</span></div>
+</div>
+
+<section>
+<div class="sechead"><h3>Colour</h3><p>Left column measured in a real ICHITA deck. Fills keep brand colour; type takes the darkened text token beside it.</p></div>
+<table>
+<thead><tr><th style="width:31%">Found in the decks</th><th style="width:27%">Where it came from</th><th>Replace with</th></tr></thead>
+<tbody>
+<tr><td><div class="chips"><span class="chip"><i style="background:#4472C4"></i>#4472C4</span><span class="chip"><i style="background:#5B9BD5"></i>#5B9BD5</span><span class="chip"><i style="background:#0070C0"></i>#0070C0</span><span class="chip"><i style="background:#1428F0"></i>#1428F0</span></div></td><td>Office <code>accent1</code> and hand-picked blues</td><td><span class="chip"><i style="background:#2978FF"></i>#2978FF</span> <span class="tok">--ich-blue</span> for fills · <span class="tok">--ich-blue-text</span> for type</td></tr>
+<tr><td><div class="chips"><span class="chip"><i style="background:#66CCFF"></i>#66CCFF</span><span class="chip"><i style="background:#29B8FF"></i>#29B8FF</span><span class="chip"><i style="background:#00B0F0"></i>#00B0F0</span><span class="chip"><i style="background:#CDEEFF"></i>#CDEEFF</span><span class="chip"><i style="background:#B4C7E7"></i>#B4C7E7</span></div></td><td>someone approximating brand blue, then tinting it</td><td><span class="chip"><i style="background:#82B0FF"></i>#82B0FF</span> <span class="tok">--ich-blue-light</span>, or <span class="tok">--chart-seq-1…5</span> when it is an intensity ramp</td></tr>
+<tr><td><div class="chips"><span class="chip"><i style="background:#44546A"></i>#44546A</span><span class="chip"><i style="background:#333F50"></i>#333F50</span><span class="chip"><i style="background:#203864"></i>#203864</span></div></td><td>Office <code>dk2</code> and its shades</td><td><span class="chip"><i style="background:#263338"></i>#263338</span> <span class="tok">--ich-blue-grey-03</span></td></tr>
+<tr><td><div class="chips"><span class="chip"><i style="background:#8497B0"></i>#8497B0</span><span class="chip"><i style="background:#A5A5A5"></i>#A5A5A5</span><span class="chip"><i style="background:#AFABAB"></i>#AFABAB</span><span class="chip"><i style="background:#767171"></i>#767171</span><span class="chip"><i style="background:#595959"></i>#595959</span></div></td><td>Office <code>accent3</code> and the grey ladder</td><td><span class="chip"><i style="background:#788F9C"></i>#788F9C</span> <span class="tok">--ich-blue-grey-02</span> · <span class="tok">--ich-rule</span> for hairlines</td></tr>
+<tr><td><div class="chips"><span class="chip"><i style="background:#ED7D31"></i>#ED7D31</span><span class="chip"><i style="background:#FF822D"></i>#FF822D</span><span class="chip"><i style="background:#F4B183"></i>#F4B183</span><span class="chip"><i style="background:#C55A11"></i>#C55A11</span></div></td><td>Office <code>accent2</code> orange family</td><td><span class="chip"><i style="background:#F08C00"></i>#F08C00</span> <span class="tok">--chart-2</span> in charts · <span class="tok">--ich-warning</span> only when it means <i>watch this</i></td></tr>
+<tr><td><div class="chips"><span class="chip"><i style="background:#FFD966"></i>#FFD966</span><span class="chip"><i style="background:#FFF2CC"></i>#FFF2CC</span><span class="chip"><i style="background:#FDFADC"></i>#FDFADC</span></div></td><td>yellow tints used as a highlighter</td><td class="to">Delete. Emphasis is <b>Bold</b> or one Ichita Blue keyword — never a wash.</td></tr>
+<tr><td><div class="chips"><span class="chip"><i style="background:#FF0000"></i>#FF0000</span><span class="chip"><i style="background:#FF7C80"></i>#FF7C80</span><span class="chip"><i style="background:#FFB9B9"></i>#FFB9B9</span></div></td><td>red for the problem — <b>right idea</b></td><td><span class="chip"><i style="background:#D64545"></i>#D64545</span> <span class="tok">--ich-error</span> for marks · <span class="tok">--ich-error-text</span> #A43E3C for type</td></tr>
+<tr><td><div class="chips"><span class="chip"><i style="background:#00B050"></i>#00B050</span><span class="chip"><i style="background:#92D050"></i>#92D050</span></div></td><td>green for the achieved figure — <b>right idea</b></td><td><span class="chip"><i style="background:#2EA885"></i>#2EA885</span> <span class="tok">--ich-success</span> · <span class="tok">--ich-success-text</span> #07765B for type</td></tr>
+<tr><td><div class="chips"><span class="chip"><i style="background:#7030A0"></i>#7030A0</span><span class="chip"><i style="background:#D1196C"></i>#D1196C</span></div></td><td>ad-hoc extra chart series</td><td><span class="tok">--chart-5</span> #7A5AF8 · <span class="tok">--chart-6</span> #00857A</td></tr>
+</tbody></table>
+<p class="note">Semantic red and green are the one thing the existing decks get right: red means off-spec or lost, green means achieved. Keep the meaning, change the value — and keep both out of the categorical chart sequence.</p>
+</section>
+
+<section>
+<div class="sechead"><h3>Type</h3><p>Calibri is in all eleven decks. The brand face is in none of them.</p></div>
+<table>
+<thead><tr><th style="width:46%">Found in the decks</th><th>Replace with</th></tr></thead>
+<tbody>
+<tr><td>Calibri · Calibri Bold · Arial · Aptos Narrow · Poppins</td><td><b>TH Aeonik</b> — Regular for body, Bold for headings and every figure</td></tr>
+<tr><td>TH Sarabun New · Angsana New · Browallia UPC</td><td><b>TH Aeonik</b> — it carries Thai itself as of the 2026-08-05 build</td></tr>
+<tr><td>Cambria Math · Courier New</td><td>TH Aeonik. Formulae set inline, not in a maths face</td></tr>
+<tr><td>Wingdings ✓ · Wingdings 3 ➢ · Symbol •</td><td><code>Icon</code> <span class="tok">check</span> / <span class="tok">chevron-right</span>, or a plain disc bullet</td></tr>
+<tr><td>Betatron</td><td><i>Absent from all eleven — and it should stay that way except as the numeral on a chapter divider.</i></td></tr>
+</tbody></table>
+</section>
+
+<section>
+<div class="sechead"><h3>Order of operations</h3><p>Converting a 30-slide deck takes about an hour if it is done in this order. Doing colour before type doubles the work.</p></div>
+<ol>
+<li><b>Set the theme font to TH Aeonik</b> for Latin and Thai, on the master. Most of the deck fixes itself.</li>
+<li><b>Replace the theme colours</b> with the seven brand colours plus the three functional ones, using the table above. Nothing should reference a theme colour by index.</li>
+<li><b>Convert the cover</b> to the dark Blue Grey 03 standard — white title, one keyword in Ichita Blue, 6 px blue band on the top edge. Add the presenter's name and role; these are personal talks.</li>
+<li><b>Raise every type size to the floor</b> — 18 px absolute, 24 px for running text, 36 px slide titles, at 1280×720. If a slide will not fit, split it.</li>
+<li><b>Replace boxed rectangles with equipment glyphs</b> (<code>ProcessGlyph</code>, <code>ProcessFlow</code>), and pin the stream specs with <code>StreamSpec</code>.</li>
+<li><b>Rebuild pasted chart images</b> with <code>Chart</code>. A screenshot of Excel is the single most visible tell.</li>
+<li><b>Add the money slide</b> if it is missing — cost of the problem, then saving derived on screen, then payback. Six of the eight seminar decks have it; the proposals mostly do not.</li>
+<li><b>Fix the footer</b> to <code>www.ichita.co.th</code>, and the page number bottom-right.</li>
+</ol>
+<div class="rules">
+<div class="rule"><b>Start from <i>Derivative Production Technology</i>.</b> It is the only deck already carrying #2978FF, and its structure is closest to the system.</div>
+<div class="rule rule--no"><b>Don't</b> convert colour by eye slide-by-slide. Change the theme once, then walk the deck for the hand-set exceptions — they are what the table above catalogues.</div>
+</div>
+</section>
+</body></html>

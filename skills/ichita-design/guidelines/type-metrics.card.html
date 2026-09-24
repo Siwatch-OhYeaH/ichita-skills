@@ -1,0 +1,25 @@
+<!-- @dsCard group="Type" viewport="720x730" name="Metrics & leading floors" subtitle="Measured on the final build, 2026-08-10 — leading floors, figures, and the two coverage gaps" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);padding:18px 20px;box-sizing:border-box;font-size:13px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{text-align:left;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:500;padding:0 8px 6px 0;border-bottom:2px solid var(--ich-blue)}
+td{padding:5px 8px 5px 0;border-bottom:1px solid var(--border-subtle);line-height:1.4}
+td.f{font-weight:700;letter-spacing:-.035em}
+.k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);font-weight:500;margin:14px 0 6px}</style></head><body>
+<div class="k" style="margin-top:0">Leading — where the ink actually collides</div>
+<table><thead><tr><th>Content</th><th>Ink extent</th><th>Hard floor</th><th>Use</th><th>Token</th></tr></thead><tbody>
+<tr><td>Thai body, worst-case stack ปั๊ญฐฎ</td><td class="f">1.315</td><td class="f">1.40</td><td class="f">1.75</td><td>--leading-thai</td></tr>
+<tr><td>Thai heading, 2+ lines</td><td class="f">1.315</td><td class="f">1.40</td><td class="f">1.55</td><td>--leading-thai-tight</td></tr>
+<tr><td>Mixed line — Thai + Latin + figures</td><td class="f">1.290</td><td class="f">1.40</td><td class="f">1.55–1.75</td><td>--leading-thai*</td></tr>
+<tr><td>Latin only (Hpjgy)</td><td class="f">0.915</td><td class="f">1.05</td><td class="f">1.50</td><td>--leading-normal</td></tr>
+<tr><td>Latin display, one line</td><td class="f">0.915</td><td class="f">1.05</td><td class="f">1.08</td><td>--leading-tight</td></tr>
+</tbody></table>
+<div style="margin-top:10px;background:var(--surface-card);border-left:4px solid var(--ich-attention);padding:10px 14px;font-size:12px;line-height:1.6">The declared line box is <strong>1.536</strong> and does not change with weight. Word sets a line from the font's own box, so Single already gives TH Aeonik's 1.536 em and clears every Thai stack; Multiple <i>m</i> gives <i>m</i> × 1.536 em (the 1.75 em Thai body is Multiple 1.14). PowerPoint ignores the font and lays out every line at 1.2 em, so Thai there needs Multiple 1.3 or more (1.536 ÷ 1.2 = 1.28; the 1.75 em body is 1.46). Never <i>Exactly</i> below 1.536 × the point size — it clips the tone marks. Measured in Word and PowerPoint, <code>ichita-skills/docs/THAI-LATIN-FONT-ENGINEERING.md</code> §7. On the web, never inherit <code>line-height:normal</code>: it resolves to 1.536 where TH Aeonik is installed and 1.20 where it is not.</div>
+<div class="k">Known gaps</div>
+<div style="font-size:12px;line-height:1.6;background:var(--surface-card);border-left:4px solid var(--ich-error);padding:10px 14px">No <strong>NBSP</strong> in the family (nor thin, figure or narrow space, ZWSP, soft hyphen) — <code>&amp;nbsp;</code> renders from a fallback font, so use a normal space inside <code>.ich-nowrap</code>. Greek is <strong>Δ Σ Ω μ π only</strong>: α β γ λ σ fall back mid-word. Thai is complete, 87/87. Full audit in <code>fonts.md</code>.</div>
+<div class="k">Figures</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+<div style="font-size:12px;line-height:1.6;color:var(--text-muted)">tnum is present in all 22 faces and holds a digit at ~0.600em in <em>every</em> weight (0.594–0.606), so a figure column keeps its width when the weight changes. Proportional figures move a lot — a "1" is 0.268em at Air and 0.393em at Black. Any figure the reader compares: <code>.ich-figure</code> — Bold, tabular, −0.035em.</div>
+<div><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:500;margin-bottom:4px">Tabular · correct</div><div class="ich-figure" style="font-size:23px;line-height:1.3">1,118<br>92.4%<br>0.011</div><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ich-error);font-weight:500;margin:8px 0 4px">Proportional · wrong in a column</div><div style="font-size:26px;line-height:1.3;font-variant-numeric:proportional-nums;font-weight:700;font-size:23px">1,118<br>92.4%<br>0.011</div></div>
+</div>
+</body></html>
