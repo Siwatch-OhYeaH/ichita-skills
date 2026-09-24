@@ -1,6 +1,6 @@
 {
   "name": "ichita-skills",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "ICHITA brand extension layer — ichita-docx, ichita-pptx, ichita-template, ichita-exe-brief, ichita-convert (branded documents, presentations, executive briefs and conversion). Requires document-skills@anthropic-agent-skills for base capabilities.",
   "author": {
     "name": "ICHITA Technology",
