@@ -1,0 +1,54 @@
+<!-- @dsCard group="Spacing" viewport="960x680" name="Page composition (จัดหน้ากระดาษ)" subtitle="6pt rhythm ladder · space separates, rules decorate · label grid over inline run" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-canvas);padding:28px;box-sizing:border-box;font-family:"TH Aeonik","Trebuchet MS",sans-serif;color:var(--text-primary)}
+.eyebrow{font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--text-muted)}
+th,td{text-align:left;padding:6px 10px 6px 0;font-size:13px;line-height:1.5;border-bottom:1px solid var(--ich-blue-grey-01)}
+th{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid #A0B0B8}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.pane{background:#fff;padding:16px 18px}
+.tag{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
+</style>
+</head><body>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:start">
+<div>
+<div class="eyebrow" style="margin-bottom:12px">Vertical rhythm — A4, 10pt body</div>
+<table style="width:100%;border-collapse:collapse">
+<thead><tr><th>Block</th><th>Space above</th><th>Space below</th></tr></thead>
+<tbody>
+<tr><td>Letterhead rule → title</td><td class="n">26 pt</td><td class="n">—</td></tr>
+<tr><td>Title → 3pt blue rule</td><td class="n">12 pt</td><td class="n">16 pt</td></tr>
+<tr><td>Section head (H2)</td><td class="n">34 pt</td><td class="n">10 pt</td></tr>
+<tr><td>Sub-head (H3)</td><td class="n">24 pt</td><td class="n">8 pt</td></tr>
+<tr><td>Run-in head (H4)</td><td class="n">18 pt</td><td class="n">6 pt</td></tr>
+<tr><td>Paragraph → paragraph</td><td class="n">—</td><td class="n">8 pt</td></tr>
+<tr><td>Lead-in → its own list</td><td class="n">—</td><td class="n">6 pt</td></tr>
+<tr><td>List item → item</td><td class="n">—</td><td class="n">5 pt</td></tr>
+<tr><td>Table → caption</td><td class="n">—</td><td class="n">6 pt</td></tr>
+<tr><td>Callout / pull quote</td><td class="n">20 pt</td><td class="n">20 pt</td></tr>
+</tbody></table>
+<p style="font-size:12.5px;line-height:1.6;color:var(--text-muted);margin:14px 0 0;max-width:44ch">Everything is a multiple of 2 pt off a 6 pt base. A gap between groups is always larger than any gap inside one — that difference, not a rule, is what tells the reader where a section ends.</p>
+</div>
+<div>
+<div class="eyebrow" style="margin-bottom:12px">Space, don't run it in line</div>
+<div class="pane" style="margin-bottom:14px">
+<div class="tag" style="color:var(--ich-error-text)">Wrong — one crammed line</div>
+<div style="font-size:12.5px;line-height:1.5;font-weight:700">Prepared: 2026-08-06 · Status: Desk assessment (public sources) — site data pending · Purpose: Map the client's process streams against ICHITA's technologies.</div>
+</div>
+<div class="pane" style="margin-bottom:18px">
+<div class="tag" style="color:var(--ich-success-text)">Right — label grid, 8 pt rows</div>
+<div style="display:grid;grid-template-columns:64px 1fr;column-gap:12px;row-gap:8px">
+<div class="eyebrow">Prepared</div><div style="font-size:12.5px;line-height:1.5;font-variant-numeric:tabular-nums">2026-08-06</div>
+<div class="eyebrow">Status</div><div style="font-size:12.5px;line-height:1.5">Desk assessment (public sources) — site data pending</div>
+<div class="eyebrow">Purpose</div><div style="font-size:12.5px;line-height:1.5">Map the client's process streams against ICHITA's technologies.</div>
+</div>
+</div>
+<div class="eyebrow" style="margin-bottom:10px">The rule</div>
+<ul style="font-size:12.5px;line-height:1.6;margin:0;padding-left:16px;max-width:46ch">
+<li style="margin-bottom:6px"><b>Break to its own row</b> when the items carry different labels, when any value can wrap, or when there are three or more.</li>
+<li style="margin-bottom:6px"><b>Keep in line</b> only when the run reads as one sentence of the same kind — a date, a document number, a byline.</li>
+<li style="margin-bottom:6px"><b>Space separates; rules decorate.</b> One hairline under the letterhead and one 3 pt rule under the title. Never a rule above a section head that already has 34 pt of air and a blue bar.</li>
+<li>Margins are 25 mm all round (the document standard). Never buy space by shrinking the type.</li>
+</ul>
+</div>
+</div>
+</body></html>

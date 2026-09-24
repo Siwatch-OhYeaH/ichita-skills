@@ -3,6 +3,18 @@ name: ichita-docx
 description: "Use when creating Ichita-branded documents, converting Markdown to branded DOCX, or rebranding existing documents to Ichita style. For general DOCX editing, tracked changes, or creating non-branded documents, use the base docx skill instead."
 ---
 
+## Thai — mandatory final step for EVERY .docx
+
+Whatever produced the file (these scripts, the base docx skill, docx.js, python-docx,
+LibreOffice), finish with:
+
+    python skills/ichita-docx/scripts/fix_thai_docx.py OUTPUT.docx --inplace
+
+Without it Word underlines every Thai word red and stretches justified lines letter by
+letter (runs are tagged ar-SA, so Word has no Thai dictionary or word breaks).
+Never hand over a .docx that has not been through it. `md_to_docx.py`, `html_to_docx.py`
+and `rebrand_docx.py` already run it after saving. Rules: `skills/ichita-design/office/thai-in-word.md`.
+
 # Ichita DOCX — Branded Document Creation
 
 > This skill extends the base `docx` skill with Ichita brand identity.

@@ -1,0 +1,40 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Sankey" subtitle="Band width IS the quantity — use it only when the split is the story" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sankey</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, Sankey} = window.ICHITADesignSystem_106280;
+
+/* Thickness is proportional across the whole figure, so two bands of equal width are equal
+   flows wherever they sit. Cyan is the one secondary here because the subject IS the
+   membrane family; nothing else on the canvas carries a hue. */
+function App(){return (
+<Figure eyebrow="Figure 04 · Sankey" title="Where the water goes"
+  subtitle="Per 100 m³/h of pretreated feed"
+  desc="Sankey diagram: of 100 cubic metres per hour of feed, 75 leaves as permeate and 25 as reject; nanofiltration returns 19 of the reject to product, leaving 6 to drain."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'band',tone:'default',label:'Product path'},
+    {mark:'band',tone:'cyan',label:'Membrane recovery'},
+    {mark:'band',tone:'error',label:'To drain'}
+  ]}>
+  <Sankey x={220} y={250} width={780} height={280} unit="m³/h"
+    stages={['Feed','Separation','Disposition']}
+    nodes={[
+      {id:'feed', stage:0, label:'Pretreated feed', value:100, display:'100'},
+      {id:'perm', stage:1, label:'RO permeate',     value:75,  display:'75'},
+      {id:'rej',  stage:1, label:'RO reject',       value:25,  display:'25', hue:'cyan'},
+      {id:'prod', stage:2, label:'Process water',   value:94,  display:'94'},
+      {id:'drain',stage:2, label:'To drain',        value:6,   display:'6', tone:'subtle'}
+    ]}
+    flows={[
+      {from:'feed', to:'perm', value:75},
+      {from:'feed', to:'rej',  value:25, tone:'cyan'},
+      {from:'perm', to:'prod', value:75},
+      {from:'rej',  to:'prod', value:19, tone:'cyan'},
+      {from:'rej',  to:'drain',value:6,  tone:'error', opacity:0.28}
+    ]}/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

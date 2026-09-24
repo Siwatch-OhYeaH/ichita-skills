@@ -1,0 +1,54 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Mass balance" subtitle="StreamSpec blocks at both ends — before → after read off the drawing" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mass balance</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, Unit, Connector, StreamSpec, Geometry} = window.ICHITADesignSystem_106280;
+const {port} = Geometry;
+
+/* On a balance the quantity rides the connector — label above, figure below, one mask —
+   and the StreamSpec block pins the full specification beside the point in the drawing
+   where that stream exists. The same rows at both ends: before → after is read off the
+   drawing, never out of a separate table. */
+const feed = {x:48,  y:190, width:240, size:100, glyph:'tank'};
+const ro   = {x:420, y:190, width:280, size:100, glyph:'ro-skid'};
+const prod = {x:836, y:190, width:240, size:100, glyph:'tank'};
+const nf   = {x:420, y:420, width:280, size:88,  glyph:'nf-module'};
+
+function App(){return (
+<Figure eyebrow="Figure 03 · Mass balance" title="Brine recovery on RO reject"
+  subtitle="100 m³/h feed · 75% first-pass recovery · 94% overall"
+  desc="Mass balance: 100 cubic metres per hour of pretreated water gives 75 of permeate; nanofiltration recovers 19 of the 25 reject, taking overall recovery to 94 per cent."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'arrow',tone:'default',label:'Feed and permeate'},
+    {mark:'arrow',tone:'cyan',label:'Reject and recovered'},
+    {mark:'box',tone:'error',fill:'var(--ich-error-tint)',label:'Before'},
+    {mark:'box',tone:'success',fill:'var(--ich-success-tint)',label:'After'}
+  ]}>
+
+  <Connector from={{x:port(feed,'right').x, y:228}} to={{x:port(ro,'left',10,0,2).x, y:228}} weight={2} label="Feed" value="100 m³/h"/>
+  <Connector from={{x:port(ro,'right').x, y:240}} to={{x:port(prod,'left').x, y:240}} weight={2} label="Permeate" value="75 m³/h"/>
+  <Connector from={port(ro,'bottom')} to={port(nf,'top')} tone="cyan" weight={2} label="Reject" value="25 m³/h" labelAt={0.9} side="right"/>
+  <Connector points={[port(nf,'left'), {x:344, y:port(nf,'left').y}, {x:344, y:264}, {x:port(ro,'left',10,1,2).x, y:264}]}
+    tone="cyan" weight={2} dash="6,5" label="Recovered" value="19 m³/h" labelSeg={1} labelAt={0.15} side="left"/>
+
+  <Unit {...feed} label="Pretreated water" detail="Client storage" scope="client"/>
+  <Unit {...ro}   label="RO system"        detail="2 stages · 75%" scope="ichita"/>
+  <Unit {...prod} label="Process water"    detail="To utility"     scope="client"/>
+  <Unit {...nf}   label="Brine recovery"   detail="Nanofiltration" hue="cyan"/>
+
+  <StreamSpec at={{x:48, y:472}} width={380} label="RO reject — before" tone="before" labelSize={18} rows={[
+    {label:'Flow', value:'25', unit:'m³/h'},
+    {label:'Conductivity', value:'1 460', unit:'µS/cm'},
+    {label:'To drain', value:'25', unit:'m³/h'}
+  ]}/>
+  <StreamSpec at={{x:820, y:472}} width={364} label="After recovery" tone="after" labelSize={18} rows={[
+    {label:'Recovered', value:'19', unit:'m³/h'},
+    {label:'Conductivity', value:'290', unit:'µS/cm'},
+    {label:'To drain', value:'6', unit:'m³/h'}
+  ]}/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

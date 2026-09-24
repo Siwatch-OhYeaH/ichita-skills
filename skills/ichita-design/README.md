@@ -53,8 +53,8 @@ resulted. It does not sell in adjectives.
   (0.14em) for eyebrows, topic labels, table headers and captions — never for headlines.
   The wordmark is the only place ICHITA is set in all caps as a word.
 - **Numbers carry the argument.** Where a claim can be a figure, it is a figure, and the
-  figure is set large in Betatron: `80%`, `15-20%`, `2.4 BV/h`, `02`. Units stay in TH Aeonik
-  beside the numeral. Ranges use an en-dash-style hyphen as in the source: `15-20%`.
+  figure is set large in TH Aeonik Bold, tabular (`.ich-figure`): `80%`, `15-20%`, `2.4 BV/h`.
+  Units stay in TH Aeonik beside the numeral; Betatron is only the chapter numeral (`02`). Ranges use an en-dash-style hyphen as in the source: `15-20%`.
 - **Bilingual by default.** Thai leads, English follows, in the same field:
   "ตารางที่ 1. ขั้นตอนการฟื้นฟู / Table 1. Regeneration sequence". Never machine-mix
   inside a sentence — switch at the clause or the caption.
@@ -106,7 +106,7 @@ arc**, **The carried diagram**, **The technical teaching deck**.
     filterability", "No carbon leakage" — with the mechanism diagram, photograph or curve
     as its evidence. A feature list alone reads as selling.
 11. **Operating technique.** Numbered modes, each a schematic plus its dosing profile, the
-    active mode in Warning amber; close with a three-up "which one for your case".
+    active mode in Attention orange; close with a three-up "which one for your case".
 12. **Application — close the loop.** One case per challenge from act 5, in the same order,
     plus one they did not ask for. Same diagram, the change at a different position, before
     in red and after in green.
@@ -121,7 +121,7 @@ arc**, **The carried diagram**, **The technical teaching deck**.
 one place each time, with the figures underneath carrying the argument. Position, size and
 glyph set are fixed for the whole deck. Annotation colour is the entire vocabulary:
 **Blue Grey 03** baseline and third-party scope · **Ichita Blue** ICHITA scope · **Error
-red** the problem and its cost · **Success green** the achieved figure · **Warning amber**
+red** the problem and its cost · **Success green** the achieved figure · **Attention orange**
 the mode or keyword in focus. Figures sit under the glyph they describe, TH Aeonik Bold
 tabular, never in a legend. Two changes on one slide and the audience cannot tell which one
 is the point.
@@ -198,7 +198,7 @@ ground. See the **Grounds and pairings** card.
 > `#FFFFFF`. All other CMYK/PMS values on that page are authoritative and are recorded in
 > `tokens/colors.css`.
 
-Functional colours (Success #34A853, Error #E83E3E, Warning #FFA000) and surface
+Functional colours (Success #2EA885, Warning #E6A100, Error #D64545, Attention #E87033) and surface
 utilities (Off White #F8FAFB, Alt Row #F0F4F5, Rule #A0B0B8) come from ICHITA's document
 tooling rather than the printed guidelines; they exist to make tables and status states
 work and should never be used decoratively.
@@ -259,9 +259,9 @@ as they are for fills, bars, chart series and graphics**, where the bar is 3:1. 
 |---|---|---|---|
 | Accent, links, H3, primary button | `--ich-blue-text` | #1A56C4 | 6.64:1 |
 | Muted text, captions | `--ich-steel-text` | #4F6472 | 6.18:1 |
-| Success | `--ich-success-text` | #1E7A3C | 5.38:1 |
-| Error | `--ich-error-text` | #C42121 | 5.90:1 |
-| Warning | `--ich-warning-text` | #8A5200 | 6.37:1 |
+| Success | `--ich-success-text` | #07765B | 5.60:1 |
+| Error | `--ich-error-text` | #A43E3C | 6.30:1 |
+| Warning | `--ich-warning-text` | #855C01 | 5.95:1 |
 
 `--text-muted`, `--link` and `--action-bg` already point at these, so anything using the
 semantic tokens is compliant by default. Blue Grey 02 survives as
@@ -324,8 +324,9 @@ Latin alone occupies 0.915 em. So marks begin to collide at **1.35**, the hard f
 air in it is **1.40** (`--leading-thai-floor`), Thai headings run **1.55**
 (`--leading-thai-tight`) and Thai body runs **1.75** (`--leading-thai`). The declared line
 box is **1.536**, unchanged across all ten weights and written to `hhea` and `sTypo` alike:
-in Word and PowerPoint keep Thai at **Multiple 1.55** or larger, because spacing set to
-"Exactly" below 1.536 clips the tone marks. Never inherit `line-height: normal` — it
+in Word, Single already gives that 1.536 box (Multiple *m* = *m* × 1.536 em, so the 1.75 em
+Thai body is Multiple 1.14); PowerPoint ignores the font and uses 1.2 em, so Thai there needs
+Multiple 1.3 or more. Never "Exactly" below 1.536 × the size — it clips the tone marks. Never inherit `line-height: normal` — it
 resolves to 1.536 where TH Aeonik is installed and 1.20 where it is not. `tokens/base.css`
 applies the right leading to `:lang(th)` and `.ich-th` automatically, and deliberately does
 **not** set `font-family` there.
@@ -381,12 +382,12 @@ is fixed; the only variable is the default WEIGHT**, chosen by the table above. 
 | Page | A4, **25 mm** margins all round |
 | Header | Wordmark 38 mm wide over a 0.75 pt Ichita Blue rule, repeating on every page |
 | Title | 26 pt Bold, centred, Blue Grey 03, over a 3 pt Ichita Blue rule |
-| H1 | 15 pt Bold, Blue Grey 03, 3 pt Ichita Blue left bar, 6 pt inset — preceded by a 0.75 pt blue rule |
-| H2 | 12 pt Bold, Ichita Blue |
-| H3 | 10.5 pt Bold Italic, Ichita Blue |
-| Body | 10 pt — **Regular 400** in an English file, **Book 350** in a bilingual one — Blue Grey 03, 2 pt before / 5 pt after, line-height 1.5 (Thai 1.75) |
+| H1 | 15 pt Bold, Blue Grey 03, 3 pt Ichita Blue left bar, 6 pt inset — 34 pt above / 10 pt below, no rule above it (design.md §9.5) |
+| H2 | 12 pt Bold, Ichita Blue text step #1A56C4 — 24 pt above / 8 pt below |
+| H3 | 10.5 pt Bold Italic, Ichita Blue text step #1A56C4 — 18 pt above / 6 pt below |
+| Body | 10 pt — **Regular 400** in an English file, **Book 350** in a bilingual one — Blue Grey 03, 8 pt after (the §9.5 rhythm ladder), line-height 1.5 (Thai 1.75) |
 | Lists | 10 pt, indent 18 pt, hanging 9 pt |
-| Table | 9 pt · header row Blue Grey 03 with white Bold type · banding #EFF2F3 · 0.5 pt #A0B0B8 hairlines · cell padding 2 pt / 5.4 pt |
+| Table | 9 pt · header row Blue Grey 03 with white Bold type · banding #F0F4F5 · 0.5 pt #A0B0B8 hairlines · cell padding 2 pt / 5.4 pt |
 | Caption | 9 pt Blue Grey 02, under the table |
 | Callout | Off White field, 4 pt Ichita Blue left bar, 10 pt italic |
 
@@ -521,6 +522,54 @@ a consultant's slide; equipment glyphs read as an equipment maker's.
 
 ---
 
+## SCHEMATIC DRAWING **[EXTENSION]**
+
+`ProcessFlow` draws one row in one direction. A real figure branches, recycles, carries
+zones and has to be read from the back of a room. `components/schematics/` is the grammar
+for those: **Figure** (the 1280×720 frame — heading, drawing, hairline legend strip),
+**Zone** (a labelled plant area), **Unit** (a `ProcessGlyph` placed in figure coordinates
+with its name and duty), **Block** (anything not physical — system, role, document,
+decision, scope owner), **Connector** (an orthogonal line with r=8 quarter-arc bends and a
+masked label), and four data-driven figures — **Sankey**, **Timeline**, **Matrix** and
+**OrgChart**. **Geometry** carries the routing helpers: `port`, `ink`, `edge`, `fan`,
+`elbow`, `route`.
+
+The connector grammar is adapted from the editorial diagram discipline in
+[cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design) and re-set
+in ICHITA type sizes, ICHITA scope colour and ICHITA's square-cornered geometry. Full
+specimen: the **Schematic drawing** card, plus nine worked figures in the *Schematics* group.
+
+**Six connector rules. Each one is an automatic fail.**
+
+1. **Orthogonal only, r=8 quarter-arc bends.** A diagonal between nodes that share neither
+   x nor y is a fail. `Connector` will not draw one.
+2. **The label never sits on its stroke.** 6–10px of visible gap between the opaque mask
+   and the line; 8px is the default.
+3. **No overlapping runs.** Two connectors never share a path; parallel runs stay ≥12px
+   apart end to end.
+4. **Fan the attach points.** Several connectors on one edge each get their own point,
+   ≥12px apart — `port(cell, side, clear, i, n)`.
+5. **Never transit behind a node that is not an endpoint.** Reroute. Where a crossing is
+   geometrically unavoidable the stroke is dashed and the label sits at the visible end.
+6. **A label mask never lands under a node drawn later.** Nodes paint after labels, so the
+   node fill clips the text. Draw connectors first, then zones, then nodes.
+
+**Type on the frame.** Figure title 36, sub-title 26, node name 24–26/600, sublabel 20,
+arrow label and legend and zone label 18/500 tracked 0.14em, quantity 20/700 tabular at
+−0.035em. Nothing below 18px. If it will not fit, cut a node or split the figure — never
+shrink the type.
+
+**Budget.** Twelve nodes at full treatment; up to 24 only as chips inside 2–4 labelled
+zones, and then only with an overview figure beside it. Sixteen connectors. **One**
+secondary hue per canvas, and only where it encodes a technology family. Betatron never
+appears in a figure.
+
+**Colour does one job per figure.** Ichita Blue marks ICHITA scope; a secondary marks a
+technology family; functional colour marks state. Never mix the vocabularies, never set
+type in a core, and never colour the product stream.
+
+---
+
 ## ICONOGRAPHY
 
 Neither the brand guidelines nor the `ichita-skills` repository defines an icon set — the
@@ -542,7 +591,7 @@ Alongside them the brand still uses:
 - **The X-mark symbol** as an endorsing mark, sign-off or favicon — only where the ICHITA
   context is already established. Never approximate it in SVG; always use
   `assets/logos/ichita-symbol-*.png`.
-- **Betatron numerals** as section and step markers.
+- **Betatron numerals** as the chapter/section divider numeral — nothing else.
 - **The four patterns** as texture and wayfinding.
 - **`ProcessGlyph`** for anything depicting equipment.
 - **No emoji, no unicode dingbats, no icon font.** Bullets are plain discs.
@@ -573,7 +622,7 @@ system has one consistent hand.
 ### `assets/`
 `logos/` — wordmark and symbol in all five approved colourways plus transparent versions ·
 `brand/` — the master content frame and the dark cover artwork ·
-`fonts/` — TH Aeonik (8 otf: Light/Regular/Medium/Bold + italics, 2026-08-05 build), Aeonik (8 otf, v1.001 desktop), Betatron, Bai Jamjuree ·
+`fonts/` — TH Aeonik (22 otf: ten weights + italics, final build 2026-08-09), Aeonik (8 otf, v1.001 desktop), Betatron, Bai Jamjuree ·
 `imagery/` — **65 images**: 49 real ICHITA photographs extracted from the company profile and the TSMC seminar (reference installations, pilot centre, people, samples, corporate) plus the earlier generic set. See the **Photo library** card.
 
 ### Components
@@ -587,6 +636,7 @@ Grouped by concern under `components/`. Every component is a named export on
 | `components/data/` | **StatCard**, **DataTable** |
 | `components/charts/` | **Chart** |
 | `components/diagrams/` | **ProcessGlyph**, **ProcessFlow**, **StreamSpec** |
+| `components/schematics/` | **Figure**, **Zone**, **Unit**, **Block**, **Connector**, **Sankey**, **Timeline**, **Matrix**, **OrgChart**, **Geometry** |
 | `components/icons/` | **Icon** |
 | `components/forms/` | **Input**, **Select** |
 
@@ -596,8 +646,10 @@ library, so there is no upstream component inventory to mirror.
 - **Direct translations of the sources** — `IchitaLogo`, `BrandPattern`, `SectionNumber`,
   `Card`, `Callout`, `StatCard`, `DataTable`, `Divider`.
 - **Defined by this system where the guidelines say "TBC" or say nothing** —
-  `ProcessGlyph` and `ProcessFlow` (illustration is marked TBC), `Icon` (no icon set
-  exists), `Chart` (no chart language exists). These follow the brand's stroke, colour and
+  `ProcessGlyph` and `ProcessFlow` (illustration is marked TBC), the `components/schematics/`
+  set — `Figure`, `Zone`, `Unit`, `Block`, `Connector`, `Sankey`, `Timeline`, `Matrix`,
+  `OrgChart`, `Geometry` — `Icon` (no icon set exists), `Chart` (no chart language exists).
+  These follow the brand's stroke, colour and
   geometry rules, but they are **new work and need ICHITA's sign-off**.
 - **No counterpart in the source material at all** — `Button`, `Tag`, `Input`, `Select`,
   added so consuming projects can prototype interactive views. Reasonable extrapolation,
@@ -608,6 +660,11 @@ Twenty-four foundation specimen cards (Colors, Type, Spacing, Brand) that render
 System tab — including **Accessible text colours** (the contrast audit above as a table)
 and **Bilingual layout** (the three sanctioned Thai/English patterns), and **Photo library**
 (the 49 real photographs, sorted by the job they do).
+
+Plus the *Schematics* group: **Schematic drawing** (the six connector rules, the node
+vocabulary, the type ramp and the budget) and nine worked figures — branching process flow,
+plant block diagram, mass balance, Sankey, scope, org chart, timeline, decision flowchart
+and comparison matrix.
 
 ### `slides/` — the standard deck kit
 Thirty layouts at 1280×720. These are the standardisation of what ICHITA already builds:
@@ -621,14 +678,14 @@ end to end, or as the reference when checking a real deck against the standard.
 | File | Layout | Use it for |
 |---|---|---|
 | `01-title.html` | Blue Grey 03 dark cover with keyword emphasis | **The cover.** Every deck opens on this |
-| `07-agenda.html` | Numbered contents, Betatron 01–04 | Slide 2 of every deck |
+| `07-agenda.html` | Numbered contents, TH Aeonik Bold 01–04 | Slide 2 of every deck |
 | `02-divider.html` | Blue Grey 01 with oversized Betatron number | Between sections |
 | `03-content.html` | Master frame, body + figure, insight bar | General content |
 | `08-process-flow.html` | Equipment glyphs + stream arrows, blue = ICHITA scope | **The signature ICHITA slide** — every proposal has one |
 | `09-data.html` | `Chart` with target line, stat column, insight | Pilot results, performance data |
 | `10-comparison.html` | Current vs proposed, verdict bar | Proposals, technology selection |
 | `04-kpi.html` | Blue Grey 02 ground, three Aeonik Bold figures | Headline numbers |
-| `05-case-cover.html` | Pattern band, Betatron number, photo | Case studies |
+| `05-case-cover.html` | Pattern band, TH Aeonik Bold number, photo | Case studies |
 | `06-closing.html` | Dark cover artwork with contact line | Last slide |
 | `11-dense.html` | Two-column high-density technical layout | Appendices, design basis, spec dumps |
 | `12-statement.html` | Blue Grey 03 field, one sentence, keyword in Ichita Blue | The position, the argument, a pivot moment |
@@ -697,8 +754,8 @@ A slide that needs 15 px body text is two slides.
 - One insight bar per content slide, at the bottom, Off White with a 6 px blue left border.
 - Process-flow boxes: white with a 2 px Blue Grey 03 outline for third-party scope, solid
   Ichita Blue for ICHITA scope, solid Blue Grey 03 for the finished product.
-- Data figures are **Aeonik Bold**, not Betatron. Betatron appears **only** as the large
-  section numeral on a divider slide — including on the agenda, whose numbers are Aeonik Bold.
+- Data figures are **TH Aeonik Bold**, not Betatron. Betatron appears **only** as the large
+  section numeral on a divider slide — including on the agenda, whose numbers are TH Aeonik Bold.
 
 ### What the existing decks get wrong
 Measured, not eyeballed — the full study with the conversion tables is `deck-audit.md`,
@@ -741,8 +798,8 @@ next touched.
 | `stationery/email-signature.html` | Outlook-safe table-based email signature — standard and short reply forms. |
 
 ### `office/` — Word and PowerPoint templates
-`ICHITA-Presentation-Template.pptx` (seven slide masters, each with a populated sample
-slide) and `ICHITA-Report-Template.docx` (A4, repeating header, the full ICHITA paragraph
+`ICHITA-Presentation-Template.pptx` (one master, seven ICHITA layouts, each with a populated
+sample slide) and `ICHITA-Report-Template.docx` (A4, repeating header, the full ICHITA paragraph
 and table styles). Generated from the same tokens as everything else, so a document made in
 Office matches one made in HTML. See `office/README.md`.
 
@@ -787,8 +844,8 @@ TH Aeonik binaries to a public repository.
 - **Fonts ship as `.otf`, not woff2** — correct while the web cut is held, but 5–8× heavier
   per face than woff2 would be. Once the licence clears, converting both families is the
   single biggest performance win available to this system.
-- **Eight of TH Aeonik's fourteen faces are here** (Light, Regular, Medium, Bold + italics).
-  A style asking for Air, Thin or Black gets a browser-synthesised weight — don't.
+- **`tokens/fonts.css` declares fourteen of the 22 faces** (Light 300 to Black 900; no
+  italics above Bold). A style asking for Air 100 or Thin 200 gets a browser-synthesised weight — don't.
 - **The 1.55 Thai leading floor is documented, not enforced.** `tokens/base.css` applies it
   to `:lang(th)`, `.ich-th` and `.th`, but any element rule with its own `line-height`
   outranks that hook and must restate it. This caused three separate regressions on

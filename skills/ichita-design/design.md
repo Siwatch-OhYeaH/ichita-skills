@@ -535,7 +535,7 @@ Fifteen application spreads. What they establish, as rules:
 The PDF shows proportions, not measurements; these are this system's fixed values.
 
 - **4 px base step** for all spacing.
-- **A4 documents** — 2 cm margins on all four sides; wordmark + reference in the header
+- **A4 documents** — 2 cm margins on all four sides *(the PDF; superseded by 25 mm — §9.5)*; wordmark + reference in the header
   above a **6 pt Ichita Blue rule**; page number bottom-right.
 - **Slides** — 1280×720 with a 64 px margin. Wordmark bottom-left on covers, top-right on
   KPI slides. **Slide type floor [EXTENSION]:** title 36 px (32 px absolute minimum),
@@ -595,6 +595,73 @@ patterns, which may animate their scale slowly; UI chrome should not.
 | Press | 1 px downward nudge plus `#1A55BF`. No scale change |
 | Focus | 2 px Ichita Blue outline at 2 px offset, or the soft blue ring on fields |
 | Disabled | 40% opacity, `not-allowed` cursor. No greying of the fill |
+
+---
+
+## 9.5 Page composition — จัดหน้ากระดาษ **[EXTENSION — the PDF sets margins, not rhythm]**
+
+The guidelines fix the A4 margin at 2 cm and stop there. **The document standard widens it to
+25 mm on all four sides [EXTENSION — supersedes the PDF's 2 cm]** (README.md, *The document standard*). Every document produced since has
+crammed: 2 pt paragraph gaps, metadata joined by `·` on one line, a hairline rule doing the
+job that space should do. The standard, applied in `templates/report` and specified on the
+**Page composition** card (`guidelines/spacing-document-page.card.html`):
+
+**Rhythm ladder** (10 pt body, multiples of 2 pt off a 6 pt base). Letterhead rule → title
+26 pt · title → 3 pt blue rule 12 pt, then 16 pt · H2 34 pt above / 10 pt below · H3 24 / 8 ·
+H4 18 / 6 · paragraph 8 pt below · lead-in to its own list 6 pt · list item 5 pt · table →
+caption 6 pt · callout 20 pt both sides. **The gap between two groups is always larger than
+any gap inside one** — that difference, not a rule, marks where a section ends.
+
+**Space, don't run it in line.** Break items onto their own row in a label/value grid when
+they carry different labels, when any value can wrap, or when there are three or more of
+them. Keep a run in line only when it reads as one sentence of the same kind — a date, a
+document number, a byline. Labels sit in a fixed first column at 8 pt uppercase, tracking
+0.12em, Blue Grey 02; values at full body size, weight 400. Never bold a whole metadata
+line to make it look like a heading.
+
+**Space separates; rules decorate.** A report page gets one hairline under the letterhead
+and one 3 pt Ichita Blue rule under the title. A section head already carrying 34 pt of air
+and a 3 pt blue bar never also gets a rule above it.
+
+**Never buy space by shrinking the type.** 10 pt body and 9 pt tables are floors. If the
+page will not hold the content, cut it or run it to a second page.
+
+---
+
+## 9.6 Pagination — when to break the page **[EXTENSION]**
+
+The page break is a structural signal, not a leftover. Decide it from the document's
+length and from what belongs together, never from what happens to fall off the bottom.
+
+**Long documents — proposals, manuals, textbooks, tender submissions (roughly 8+ pages).**
+Every chapter or numbered top-level section starts on a **new page**, always, even when the
+previous chapter ended two lines down. Consistency is the reason: the reader learns that a
+fresh sheet means a fresh chapter, and that is worth far more than the paper saved. A
+chapter opener carries its number, its title and its lead paragraph, and nothing that could
+have started before it. Front matter (cover, contents, revision table) and back matter
+(appendices, signature page) each get their own page too. Recto/verso opening is optional;
+if used, chapters open on the right-hand page and a blank verso is acceptable.
+
+**Short documents — reports, assessments, memos, datasheets (roughly 2–6 pages).** A
+section may continue on the page it starts, and running two sections onto one sheet is
+correct rather than lazy. The trade is allowed here because there is no long-range
+navigation to protect.
+
+**What may never be split, in either case.** A table and its caption. A figure and its
+caption. A heading and the first two lines under it. A lead-in sentence and the list it
+introduces. A callout or pull quote. A label/value metadata grid. A row of a comparison
+table. Fewer than two lines of a paragraph on either side of a break (no widows, no
+orphans). Enforce with `break-inside:avoid` on the group, not by nudging margins.
+
+**Order of remedies when a block will not fit.** (1) Move the whole block to the next page
+and let the current page end short — **white space at the foot of a page is not a defect.**
+(2) Cut copy. (3) Re-flow to a two-column arrangement if the content suits it. (4) Split the
+section at a natural sub-head, carrying a running head onto the next page. Never: shrink the
+type below the floors, squeeze the leading, reduce the margin, or tighten the rhythm ladder
+to buy a line — a page that ends 40 mm short reads better than one crammed to the edge.
+
+**Every page after the first** carries the letterhead with a running title, and every page
+carries a footer with `ICHITA Technology Co., Ltd. · www.ichita.co.th` and `n / total`.
 
 ---
 

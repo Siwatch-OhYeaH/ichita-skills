@@ -1,0 +1,20 @@
+<!-- @dsCard group="Type" viewport="780x630" name="Weight ladder" subtitle="Ten weights in the final build — six for documents, two for display, two held as assets" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);padding:18px 20px;box-sizing:border-box;font-size:13px}
+.row{display:grid;grid-template-columns:118px 1fr 138px 150px;gap:12px;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border-subtle)}
+.n{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:500}
+.s{font-size:21px;letter-spacing:-.02em}.t{font-size:19px;line-height:1.55}
+.tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}</style></head><body>
+<div class="row" style="border-bottom:2px solid var(--ich-blue);padding-bottom:6px"><div class="n">Weight</div><div class="n">Latin</div><div class="n">Thai</div><div class="n">Role</div></div>
+<div class="row"><div class="n">Light 300</div><div class="s" style="font-weight:300">Separation</div><div class="t" style="font-weight:300">การแยกสาร</div><div class="tag">Captions</div></div>
+<div class="row"><div class="n">Book 350</div><div class="s" style="font-weight:350">Separation</div><div class="t" style="font-weight:350">การแยกสาร</div><div class="tag" style="color:var(--ich-blue);font-weight:500">Mixed body</div></div>
+<div class="row"><div class="n">Regular 400</div><div class="s" style="font-weight:400">Separation</div><div class="t" style="font-weight:400">การแยกสาร</div><div class="tag" style="color:var(--ich-blue);font-weight:500">English body</div></div>
+<div class="row"><div class="n">Medium 500</div><div class="s" style="font-weight:500">Separation</div><div class="t" style="font-weight:500">การแยกสาร</div><div class="tag">Labels, UI</div></div>
+<div class="row"><div class="n">SemiBold 600</div><div class="s" style="font-weight:600">Separation</div><div class="t" style="font-weight:600">การแยกสาร</div><div class="tag">Emphasis · headings</div></div>
+<div class="row"><div class="n">Bold 700</div><div class="s" style="font-weight:700">Separation</div><div class="t" style="font-weight:700">การแยกสาร</div><div class="tag">Headings · figures</div></div>
+<div class="row"><div class="n">ExtraBold 800</div><div class="s" style="font-weight:800">Separation</div><div class="t" style="font-weight:800">การแยกสาร</div><div class="tag">Display only</div></div>
+<div class="row"><div class="n">Black 900</div><div class="s" style="font-weight:900">Separation</div><div class="t" style="font-weight:900">การแยกสาร</div><div class="tag">Display only</div></div>
+<div class="row" style="border-bottom:none;color:var(--text-muted)"><div class="n">Air 100 · Thin 200</div><div class="s" style="font-weight:200;color:var(--text-muted)">Separation</div><div class="t" style="font-weight:200;color:var(--text-muted)">การแยกสาร</div><div class="tag">Asset only — no rule yet</div></div>
+<div style="margin-top:12px;background:var(--surface-card);border-left:4px solid var(--ich-warning);padding:10px 14px;font-size:12px;line-height:1.6">Thai stops following the Latin above 700. Bold, ExtraBold and Black all carry Bai Jamjuree Bold at three embolden amounts — measured, they separate 2.3% in the Thai against 11% in the Latin, and at 900 the Thai stem falls to 0.76 of the Latin against 0.88 through the text weights. <strong>800 and 900 are Latin display weights; do not set a Thai line in them and expect a match.</strong></div>
+<div style="margin-top:8px;font-size:12px;color:var(--text-muted);line-height:1.6">Every weight has an italic. Three Latin weights — Book 350, SemiBold 600, ExtraBold 800 — are ICHITA interpolations, not CoType drawings; they say so in their own nameID5. All ten hold the same 1.536 line box, so changing weight never reflows a paragraph vertically.</div>
+</body></html>

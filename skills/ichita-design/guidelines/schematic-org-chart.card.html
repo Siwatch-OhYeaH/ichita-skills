@@ -1,0 +1,36 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Org chart" subtitle="Responsibility — parents centre over their children, connectors share one bus" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Org chart</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, OrgChart} = window.ICHITADesignSystem_106280;
+
+/* Four levels and twelve nodes maximum. Past that it is an operating manual, not a figure.
+   Violet is the one secondary on this canvas because the Pilot Centre IS that family. */
+function App(){return (
+<Figure eyebrow="Figure 06 · Org chart" title="Project responsibility"
+  subtitle="One point of contact — ICHITA scope in blue"
+  desc="Responsibility chart for a retrofit project: an ICHITA project director over process engineering, project management with site supervision and quality, and the Pilot Centre."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'box',tone:'ichita',fill:'var(--chart-seq-1)',label:'ICHITA · accountable'},
+    {mark:'box',tone:'client',label:'ICHITA · delivery'},
+    {mark:'box',tone:'violet',fill:'var(--ich-violet-tint)',label:'Pilot Centre · R&D'},
+    {mark:'line',tone:'default',label:'Reports to'}
+  ]}>
+  <OrgChart x={48} y={200} width={1184} align="center" nodeWidth={248} nodeHeight={96} gap={32} levelGap={48}
+    root={{
+      label:'Project director', sub:'Accountable for delivery', tag:'Single contact', kind:'ichita',
+      children:[
+        {label:'Process engineer', sub:'Design · commissioning'},
+        {label:'Project manager', sub:'Schedule · interfaces', children:[
+          {label:'Site supervisor', sub:'Installation'},
+          {label:'QA / documents', sub:'Dossier · as-builts'}
+        ]},
+        {label:'Pilot Centre', sub:'Trials · validation', hue:'violet'}
+      ]
+    }}/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

@@ -1,0 +1,54 @@
+<!-- @dsCard group="Type" viewport="820x700" name="Document standard" subtitle="The A4 document style — one face, TH Aeonik; Regular 400 in English, Book 350 when mixed" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);padding:20px;box-sizing:border-box;font-family:var(--font-sans)}
+h4{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin:0 0 8px;font-weight:500}
+.spec{font-size:12px;color:var(--text-muted);font-family:var(--font-mono)}
+</style></head><body>
+<div style="display:grid;grid-template-columns:1fr 300px;gap:24px">
+<div>
+<h4>Paragraph ladder · A4, 25 mm margins</h4>
+<div style="display:grid;gap:7px">
+<div style="text-align:center;font-size:26pt;font-weight:700;letter-spacing:-.02em;line-height:1.15">Document title</div>
+<div style="border-bottom:3pt solid var(--ich-blue)"></div>
+<div class="spec">Title · 26 pt Bold, centred, Blue Grey 03, over a 3 pt Ichita Blue rule</div>
+<div style="height:10px"></div>
+<div style="border-left:3pt solid var(--ich-blue);padding-left:6pt;font-size:15pt;font-weight:700;letter-spacing:-.02em">1. Section heading</div>
+<div class="spec">H1 · 15 pt Bold, Blue Grey 03, 3 pt blue bar · 34 pt above, 10 below, no rule above</div>
+<div style="font-size:12pt;font-weight:700;color:var(--ich-blue-text)">1.1 Sub-heading</div>
+<div class="spec">H2 · 12 pt Bold Ichita Blue (text step) · 24 / 8</div>
+<div style="font-size:10.5pt;font-weight:700;font-style:italic;color:var(--ich-blue-text)">Minor heading</div>
+<div class="spec">H3 · 10.5 pt Bold Italic Ichita Blue (text step) · 18 / 6</div>
+<div style="font-size:10pt;line-height:1.5">Body copy is 10 pt in Blue Grey 03 — Regular 400 in an English file, Book 350 in a bilingual one, 8 pt after. Bullets and numbered lists run at the same size, indented 18 pt.</div>
+<div class="spec">Body · 10 pt Regular 400 / Book 350 · list indent 18 pt</div>
+<div style="font-size:9pt;color:var(--text-muted)">Table 1. Caption text sits under the table it describes.</div>
+<div class="spec">Caption · 9 pt Blue Grey 02</div>
+</div>
+<h4 style="margin:20px 0 8px">Data table</h4>
+<table style="width:100%;border-collapse:collapse;font-size:9pt">
+<thead><tr><th style="background:var(--ich-blue-grey-03);color:#fff;font-weight:700;text-align:left;padding:2pt 5.4pt;border:.5pt solid #A0B0B8">Parameter</th><th style="background:var(--ich-blue-grey-03);color:#fff;font-weight:700;text-align:left;padding:2pt 5.4pt;border:.5pt solid #A0B0B8">Value</th><th style="background:var(--ich-blue-grey-03);color:#fff;font-weight:700;text-align:right;padding:2pt 5.4pt;border:.5pt solid #A0B0B8">Unit</th></tr></thead>
+<tbody>
+<tr style="background:#F0F4F5"><td style="padding:2pt 5.4pt;border:.5pt solid #A0B0B8">Flow rate</td><td style="padding:2pt 5.4pt;border:.5pt solid #A0B0B8;font-variant-numeric:tabular-nums">60</td><td style="padding:2pt 5.4pt;border:.5pt solid #A0B0B8;text-align:right">L/h</td></tr>
+<tr><td style="padding:2pt 5.4pt;border:.5pt solid #A0B0B8">Space velocity</td><td style="padding:2pt 5.4pt;border:.5pt solid #A0B0B8;font-variant-numeric:tabular-nums">2.4</td><td style="padding:2pt 5.4pt;border:.5pt solid #A0B0B8;text-align:right">BV/h</td></tr>
+</tbody></table>
+<div class="spec" style="margin-top:6px">9 pt · header row Blue Grey 03 with white bold type · banding #F0F4F5 · 0.5 pt #A0B0B8 hairlines · cell padding 2 pt / 5.4 pt</div>
+</div>
+<div>
+<h4>Which weight</h4>
+<div style="border-top:2px solid var(--ich-blue);padding-top:10px;margin-bottom:14px">
+<div style="font-size:20px;font-weight:400">TH Aeonik Regular <span style="font-size:13px;color:var(--text-muted);font-weight:500">400</span></div>
+<div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:4px">English-only documents — reports, international proposals, datasheets, letters. Emphasis SemiBold 600, headings Bold 700. Set <code>data-typeset="en"</code>.</div>
+</div>
+<div style="border-top:2px solid var(--ich-blue);padding-top:10px;margin-bottom:14px">
+<div style="font-size:20px;font-weight:350">TH Aeonik Book <span style="font-size:13px;color:var(--text-muted);font-weight:500">350</span></div>
+<div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:4px">Any document containing Thai. Emphasis and headings SemiBold 600 — Thai's bold is capped, so 700 shouts in the Latin and barely moves in the Thai. Set <code>data-typeset="mixed"</code>; in Word the family is <strong>TH Aeonik Book</strong>.</div>
+<div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-top:6px">One family across web, Word, PowerPoint and PDF. Line box 1.536 — always set an explicit line-height; Thai body 1.75, Latin 1.5.</div>
+</div>
+<div style="background:var(--surface-card);border-left:4px solid var(--ich-blue);padding:12px 14px;font-size:12px;line-height:1.6">
+Everything else on this card — sizes, colours, rules, spacing, table style — is fixed. <strong>The default weight is the only variable</strong>, and it is decided by whether the document contains Thai.
+</div>
+<div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-top:14px">
+Page: A4, 25 mm margins all round.<br>Header: wordmark 38 mm wide over a 0.75 pt Ichita Blue rule, repeating on every page.<br>Thai body copy sets at line-height 1.75, Latin at 1.5.
+</div>
+</div>
+</div>
+</body></html>

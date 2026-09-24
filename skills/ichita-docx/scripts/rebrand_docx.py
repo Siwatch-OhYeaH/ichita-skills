@@ -857,6 +857,7 @@ def rebrand_docx(input_path, output_path, font_name=None, logo_path=None,
     add_ichita_footer(dst_doc, brand=brand)
 
     dst_doc.save(output_path)
+    from fix_thai_docx import fix_file; fix_file(output_path)
 
     # Report
     size = os.path.getsize(output_path)

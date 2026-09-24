@@ -1,0 +1,21 @@
+<!-- @dsCard group="Colors" viewport="700x330" name="Accessible text colours" subtitle="Brand hues darkened to clear WCAG AA at body size" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);padding:20px;box-sizing:border-box}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--ich-blue-grey-03);color:#fff;text-align:left;padding:6px 9px;font-weight:700}
+td{padding:6px 9px;border-bottom:1px solid var(--border-default);font-variant-numeric:tabular-nums}
+tr:nth-child(odd) td{background:var(--surface-alt-row)}
+.f{font-weight:700;color:var(--ich-error-text)}.p{font-weight:700;color:var(--ich-success-text)}
+</style></head><body>
+<p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:var(--text-primary)">Brand colours stay as-is for <b>fills and graphics</b> (3:1). For <b>text</b> (4.5:1) use the darkened tint of the same hue.</p>
+<table>
+<thead><tr><th>Role</th><th>Brand — fills only</th><th>on white</th><th>Text token</th><th>on white</th></tr></thead>
+<tbody>
+<tr><td>Accent / links</td><td><span style="color:#2978FF;font-weight:700">Ichita Blue #2978FF</span></td><td class="f">4.02 FAIL</td><td><span style="color:var(--ich-blue-text);font-weight:700">--ich-blue-text #1A56C4</span></td><td class="p">6.64 PASS</td></tr>
+<tr><td>Muted / captions</td><td><span style="color:#788F9C;font-weight:700">Blue Grey 02 #788F9C</span></td><td class="f">3.38 FAIL</td><td><span style="color:var(--ich-steel-text);font-weight:700">--ich-steel-text #4F6472</span></td><td class="p">6.18 PASS</td></tr>
+<tr><td>Success</td><td><span style="color:#2EA885;font-weight:700">#2EA885</span></td><td class="f">2.98 FAIL</td><td><span style="color:var(--ich-success-text);font-weight:700">--ich-success-text #07765B</span></td><td class="p">5.60 PASS</td></tr>
+<tr><td>Error</td><td><span style="color:#D64545;font-weight:700">#D64545</span></td><td class="f">4.38 FAIL</td><td><span style="color:var(--ich-error-text);font-weight:700">--ich-error-text #A43E3C</span></td><td class="p">6.30 PASS</td></tr>
+<tr><td>Warning</td><td><span style="color:#E6A100;font-weight:700">#E6A100</span></td><td class="f">2.22 FAIL</td><td><span style="color:var(--ich-warning-text);font-weight:700">--ich-warning-text #855C01</span></td><td class="p">5.95 PASS</td></tr>
+</tbody></table>
+<p style="margin:12px 0 0;font-size:12px;color:var(--text-muted);line-height:1.5">Blue Grey 02 is still fine for <b>uppercase eyebrows and labels at 12px Medium or larger</b> (<code>--text-muted-decorative</code>) — it fails only as body copy. On dark grounds use Blue Grey 01 (9.05:1), never Blue Grey 02 (3.85:1).</p>
+</body></html>

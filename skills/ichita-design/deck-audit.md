@@ -52,11 +52,11 @@ Everything left of the arrow was measured in a real deck. Replace on sight.
 | `#44546A`, `#333F50`, `#203864` | Office `dk2` and its shades | `--ich-blue-grey-03` #263338 |
 | `#8497B0`, `#ADB9CA`, `#A5A5A5`, `#AFABAB`, `#D0CECE`, `#767171`, `#7F7F7F`, `#595959`, `#898989` | Office `accent3` and the grey ladder | `--ich-blue-grey-02` #788F9C · `--ich-blue-grey-01` #CFD9DB · `--ich-rule` #A0B0B8 |
 | `#D6DCE5`, `#EAEDF2` | Office light tints used as card fills | `--surface-card` #F8FAFB or `--ich-blue-grey-01` |
-| `#ED7D31`, `#FF822D`, `#FFA161`, `#F4B183`, `#F8CBAD`, `#C55A11`, `#843C0C` | Office `accent2` orange family | `--chart-2` #F08C00 in charts · `--ich-warning` #FFA000 only when it means *watch this* |
+| `#ED7D31`, `#FF822D`, `#FFA161`, `#F4B183`, `#F8CBAD`, `#C55A11`, `#843C0C` | Office `accent2` orange family | `--chart-2` #F08C00 in charts · `--ich-warning` #E6A100 only when it means *watch this* |
 | `#FFD966`, `#FFF2CC`, `#FDFADC`, `#F6F0E4` | Office `accent4` yellow tints as highlighter | delete — highlight with **Bold** or an Ichita Blue keyword, not a wash |
 | `#7030A0`, `#D1196C`, `#92D050` | ad-hoc extra series colours | `--chart-5` #7A5AF8 · `--chart-6` #00857A · `--chart-4` |
-| `#FF0000`, `#FF3300`, `#FF7C80`, `#FFB9B9`, `#FFE1E1` | red for the problem | `--ich-error` #E83E3E for marks and fills · `--ich-error-text` #C42121 for type |
-| `#00B050`, `#003300` | green for the achieved figure | `--ich-success` #34A853 · `--ich-success-text` #1E7A3C for type |
+| `#FF0000`, `#FF3300`, `#FF7C80`, `#FFB9B9`, `#FFE1E1` | red for the problem | `--ich-error` #D64545 for marks and fills · `--ich-error-text` #A43E3C for type |
+| `#00B050`, `#003300` | green for the achieved figure | `--ich-success` #2EA885 · `--ich-success-text` #07765B for type |
 | `#3B3838`, `#404040`, `#333333`, `#191919` | near-blacks | `--ich-blue-grey-03` #263338 · `--ich-blue-black` #171C21 |
 
 **Keep the semantics, change the hue.** The decks already use red for the failing figure

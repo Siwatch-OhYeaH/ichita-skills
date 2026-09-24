@@ -1251,6 +1251,7 @@ def convert_md_to_docx(input_path, output_path, logo_path=None, compact=False,
         add_header_footer(doc, logo_path)
 
     doc.save(output_path)
+    from fix_thai_docx import fix_file; fix_file(output_path)
 
     # ── Report ──
     size = os.path.getsize(output_path)

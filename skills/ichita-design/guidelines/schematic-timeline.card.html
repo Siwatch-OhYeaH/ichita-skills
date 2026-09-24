@@ -1,0 +1,36 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Timeline" subtitle="Project schedule — Attention orange is the milestone, never a status" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Timeline</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, Timeline} = window.ICHITADesignSystem_106280;
+
+/* Bars are square-cornered and sit on a hairline grid. A hollow bar is work the client's
+   contractor owns; the Attention diamond is the acceptance milestone — and because
+   Attention sits 20° from Error, no Error may appear in this figure. */
+function App(){return (
+<Figure eyebrow="Figure 07 · Timeline" title="Decolorisation retrofit — programme"
+  subtitle="Months from order · 8-month delivery"
+  desc="Project timeline over eight months: basic design, pilot trial, detail design, manufacture, installation, commissioning and an acceptance milestone in month eight."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'band',tone:'ichita',fill:'var(--ich-blue)',label:'ICHITA scope'},
+    {mark:'band',tone:'violet',fill:'var(--ich-violet)',label:'Pilot Centre'},
+    {mark:'box',tone:'default',label:"Client's contractor"},
+    {mark:'dot',tone:'attention',label:'Milestone'}
+  ]}>
+  <Timeline x={48} y={182} width={1184} labelWidth={440} rowHeight={52} barHeight={26}
+    columns={['M1','M2','M3','M4','M5','M6','M7','M8']}
+    rows={[
+      {label:'Basic design',      from:0, span:1, detail:'4 weeks',   tone:'ichita'},
+      {label:'Pilot trial',       from:1, span:1, detail:'Pilot Centre', tone:'violet'},
+      {label:'Detail design',     from:2, span:1, detail:'6 weeks',   tone:'ichita'},
+      {label:'Manufacture',       from:3, span:2, detail:'Skid build', tone:'ichita'},
+      {label:'Installation',      from:5, span:1, detail:"Client's contractor", hollow:true},
+      {label:'Commissioning',     from:6, span:1, detail:'ICHITA site team', tone:'ichita'},
+      {label:'Performance test',  milestone:7, milestoneLabel:'Acceptance', detail:'Against guarantee'}
+    ]}/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

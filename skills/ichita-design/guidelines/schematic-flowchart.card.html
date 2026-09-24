@@ -1,0 +1,39 @@
+<!-- @dsCard group="Schematics" viewport="1280x720" name="Decision flowchart" subtitle="Diamonds carry the test, connectors carry the answer" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Decision flowchart</title><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../_ds_bundle.js"></script></head><body><div id="root"></div>
+<script type="text/babel">const {Figure, Block, Connector} = window.ICHITADesignSystem_106280;
+
+/* A decision box holds a test, not a sentence: the name is the parameter, the sublabel is
+   the threshold. Every branch is answered on the connector, in a masked 18px label with an
+   8px gap to the stroke. No hue here — the selection is a decision, not a family map. */
+function App(){return (
+<Figure eyebrow="Figure 08 · Decision flowchart" title="Selecting the decolorisation route"
+  subtitle="From one feed analysis — colour, then ash"
+  desc="Decision flowchart: a feed analysis is tested for colour above 1000 IU, routing to adsorbent decolorisation; otherwise ash above 0.3 per cent routes to ion exchange, and below it to carbon polishing alone."
+  note="ICHITA Technology Co., Ltd. · www.ichita.co.th"
+  legend={[
+    {mark:'box',tone:'client',label:'Decision · test and threshold'},
+    {mark:'box',tone:'ichita',fill:'var(--chart-seq-1)',label:'ICHITA route'},
+    {mark:'box',tone:'store',fill:'var(--ich-alt-row)',label:'No ICHITA equipment'},
+    {mark:'arrow',tone:'default',label:'Answer'}
+  ]}>
+
+  <Connector from={{x:640,y:252}} to={{x:640,y:290}} arrow={true}/>
+  <Connector from={{x:790,y:355}} to={{x:890,y:355}} label="Yes"/>
+  <Connector from={{x:640,y:420}} to={{x:640,y:460}} label="No" side="right" labelAt={0.3}/>
+  <Connector from={{x:790,y:512}} to={{x:890,y:512}} label="Yes"/>
+  <Connector from={{x:490,y:512}} to={{x:390,y:512}} label="No"/>
+
+  <Block x={500} y={176} width={280} height={76} name="Feed analysis" tag="Start" kind="input" nameSize={24}/>
+  <Block x={490} y={290} width={300} height={130} name="Colour" sub="&gt; 1 000 IU?" kind="decision"/>
+  <Block x={490} y={450} width={300} height={124} name="Ash" sub="&gt; 0.3 %?" kind="decision"/>
+
+  <Block x={890} y={311} width={342} height={88} name="Adsorbent decolorisation" sub="Rose family · regenerable" kind="ichita" nameSize={24}/>
+  <Block x={890} y={468} width={342} height={88} name="Ion exchange deashing" sub="Cation / anion beds" kind="ichita" nameSize={24}/>
+  <Block x={48}  y={468} width={342} height={88} name="Carbon polish only" sub="No ICHITA equipment" kind="store" nameSize={24}/>
+</Figure>);}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);</script></body></html>

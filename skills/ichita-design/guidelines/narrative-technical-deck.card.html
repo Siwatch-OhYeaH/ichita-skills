@@ -1,0 +1,104 @@
+<!-- @dsCard group="Narrative" viewport="1180x1700" name="The technical teaching deck" subtitle="Second specimen — build a capability map, then teach the mechanism before proving it" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>html,body{margin:0}body{background:var(--surface-page);padding:36px 40px;box-sizing:border-box;color:var(--text-primary)}
+.eyebrow{font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted-decorative)}
+h1{font-size:34px;font-weight:700;letter-spacing:-.022em;margin:8px 0 6px}
+.lede{font-size:15px;line-height:1.55;color:var(--text-muted);max-width:900px;margin:0 0 26px;text-wrap:pretty}
+.sub{font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted-decorative);margin:30px 0 12px}
+.sub:first-of-type{margin-top:0}
+.parts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#DFE6E8;border-top:2px solid var(--ich-blue-grey-03)}
+.part{background:var(--surface-card);padding:14px 16px 16px;display:grid;gap:6px;align-content:start}
+.part b{font-size:15px;font-weight:700;letter-spacing:-.015em}
+.part span{font-size:13px;line-height:1.5;color:var(--text-muted)}
+.part .seq{font-size:12.5px;line-height:1.7;color:var(--text-primary);font-variant-numeric:tabular-nums}
+.moves{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.move{display:grid;gap:9px;align-content:start}
+.cap{font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted-decorative)}
+.frame{background:var(--surface-card);border-top:4px solid var(--ich-blue-grey-03);height:150px;padding:12px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px}
+.move h2{font-size:16px;font-weight:700;letter-spacing:-.015em;margin:0}
+.move p{font-size:13px;line-height:1.5;color:var(--text-muted);margin:0;text-wrap:pretty}
+.cell{display:grid;justify-items:center;gap:4px}
+.u{width:30px;height:36px;border:2px solid var(--ich-blue-grey-03);background:#fff}
+.u.blue{border-color:var(--ich-blue);background:var(--ich-blue)}
+.ar{width:11px;height:2px;background:var(--ich-blue-grey-03);flex:none;margin-bottom:14px}
+.spec{font-size:8.5px;line-height:1.5;font-weight:700;letter-spacing:-.035em;font-variant-numeric:tabular-nums;color:var(--text-muted-decorative);white-space:nowrap;text-align:left}
+.spec .hi{color:var(--ich-success-text)}
+.spec .lo{color:var(--ich-error-text)}
+.checks{display:grid;gap:4px;font-size:10.5px;line-height:1.35;align-content:center}
+.checks div{color:var(--ich-success-text);font-weight:500}
+.checks div.new{color:var(--ich-success-text)}
+.checks div.old{color:var(--text-muted-decorative)}
+.money{font-size:11px;font-weight:700;letter-spacing:-.035em;font-variant-numeric:tabular-nums;color:var(--ich-blue);margin-top:6px}
+.ports{display:grid;gap:7px}
+.portrow{display:flex;gap:3px;align-items:center}
+.p{width:15px;height:12px;border:1.5px solid var(--ich-blue-grey-03);background:#fff}
+.p.on{background:var(--ich-blue);border-color:var(--ich-blue)}
+.p.ex{background:var(--ich-attention);border-color:var(--ich-attention)}
+.rules{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:0 32px;border-top:2px solid var(--ich-blue-grey-03);padding-top:12px}
+.rules div{font-size:13.5px;line-height:1.55;padding:6px 0;border-bottom:1px solid #DFE6E8}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.panel{background:var(--surface-card);border-top:4px solid var(--ich-blue-grey-03);padding:14px 16px 16px;display:grid;gap:8px;align-content:start}
+.panel h3{font-size:16px;font-weight:700;letter-spacing:-.015em;margin:0}
+.panel p{font-size:13px;line-height:1.5;color:var(--text-muted);margin:0;text-wrap:pretty}
+.quote{font-size:13px;line-height:1.5;color:var(--text-primary);border-left:3px solid var(--ich-blue);padding-left:10px}
+table{border-collapse:collapse;width:100%;font-size:11px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+th{text-align:left;font-weight:700;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted-decorative);border-bottom:2px solid var(--ich-blue-grey-03);padding:4px 8px 4px 0}
+td{padding:4px 8px 4px 0;border-bottom:1px solid #DFE6E8;font-weight:700}
+td.l{font-weight:500;color:var(--text-muted)}
+.verdict{font-size:12.5px;font-weight:700;letter-spacing:-.02em;color:var(--ich-success-text)}
+</style>
+</head><body>
+<div class="eyebrow">Presentation method · specimen 02</div>
+<h1>The technical teaching deck</h1>
+<p class="lede">The Ecosorb webinar sells one product to a room that already has the problem. This second specimen — <em>Liquid Sugar &amp; Derivatives Technology</em>, 57 slides, internal and customer technical training — teaches a whole capability. The arc is the same skeleton; five moves are specific to teaching, and they are what this card records.</p>
+
+<div class="sub">Structure — one file, two self-contained parts</div>
+<div class="parts">
+<div class="part"><b>Part 1 · the business case</b><span>Cover with presenter name and role → three-line Topics → capability map → process &amp; specification → benefits → references → possibility map → Q&amp;A.</span><div class="seq">01 cover · 02 topics · 03–06 process · 07–10 benefits · 11–12 references · 13–33 derivatives · 34 Q&amp;A</div></div>
+<div class="part"><b>Part 2 · the mechanism</b><span>Its own cover, same presenter block, restarting numbering in the reader's mind. Two technologies taught in parallel, then compared without a winner. Thank you, then the feedback ask.</span><div class="seq">35 cover · 36–37 framing · 38–49 chromatography · 50–54 membrane · 55 comparison · 56–57 close</div></div>
+</div>
+
+<div class="sub">The five teaching moves</div>
+<div class="moves">
+<div class="move"><div class="cap">Move 01 · the map grows</div><div class="frame"><div class="cell"><div class="u"></div><div class="spec">Raw sugar</div></div><div class="ar"></div><div class="cell"><div class="u"></div><div class="spec">Refinery</div></div><div class="ar"></div><div class="cell"><div class="u blue"></div><div class="spec hi">Liquid sugar<br>plant</div></div></div><h2>Add the branch, don't redraw</h2><p>The full cane-to-packing map appears once with the pain called out on it, then reappears with the new plant grafted on. Third viewing, at the end of the section, closes the loop.</p></div>
+<div class="move"><div class="cap">Move 02 · specs travel</div><div class="frame"><div class="cell"><div class="spec">Color 150 IU<br>Ash 0.15%<br>Brix 50–55%<br>pH 7–8.5<br>Invert &lt;0.5%</div></div><div class="ar"></div><div class="cell"><div class="u"></div></div><div class="ar"></div><div class="cell"><div class="spec"><span class="hi">Color &lt;35 IU<br>Ash &lt;0.05%</span><br>Brix 67%<br>pH 6.5–8.0<br>Invert &lt;0.5%</div></div></div><h2>Specification blocks, not tables</h2><p>Every stream carries the same five-line block, in the same order, at both ends of the train. Before → after is read across the drawing. The output block gains lines as the deck goes deeper; the input block never changes.</p></div>
+<div class="move"><div class="cap">Move 03 · benefits accumulate</div><div class="frame"><div class="checks"><div>✓ Much lower production cost</div><div class="money">240 → 50 → 40 USD/ton DS</div><div>✓ More profit from liquid sugar</div><div class="money">200 × 60,000 = 12M USD/yr</div><div>✓ No sugar loss in molasses</div><div>✓ Yield +1–2% · lower CO₂e</div></div></div><h2>One check per slide, nothing removed</h2><p>Three consecutive slides, identical drawing. Each adds one line below the last, and the money is derived on screen from the two figures already shown — never asserted as a total.</p></div>
+</div>
+
+<div class="two" style="margin-top:20px">
+<div class="panel"><div class="cap">Move 04 · analogy before schematic</div><h3>Explain it in the world first</h3><p>The hardest idea in the deck — how a fixed bed simulates a moving one — is taught with a rabbit and a tortoise on an airport walkway, one slide, before any port diagram appears. The mechanism slide that follows is then just labelling.</p><div class="quote">speed of walkway &gt; speed of rabbit &gt; speed of tortoise → slow-moving group and fast-moving group separate</div><p>Use the analogy only for the mechanism the audience cannot picture. One per deck, never for something they already know.</p></div>
+<div class="panel"><div class="cap">Move 05 · motion by repetition</div><h3>Five identical slides, one step each</h3><p>The SMB cycle is animated by duplicating the slide five times and advancing the ports one position per copy. Layout, labels and scale are frozen; only the coloured ports move. It survives PDF, print and a projector with no build support.</p><div class="ports">
+<div class="portrow"><div class="p ex"></div><div class="p"></div><div class="p on"></div><div class="p"></div><div class="p"></div><div class="p"></div><div class="p"></div><div class="p"></div></div>
+<div class="portrow"><div class="p"></div><div class="p ex"></div><div class="p"></div><div class="p on"></div><div class="p"></div><div class="p"></div><div class="p"></div><div class="p"></div></div>
+<div class="portrow"><div class="p"></div><div class="p"></div><div class="p ex"></div><div class="p"></div><div class="p on"></div><div class="p"></div><div class="p"></div><div class="p"></div></div>
+<div class="portrow"><div class="p"></div><div class="p"></div><div class="p"></div><div class="p ex"></div><div class="p"></div><div class="p on"></div><div class="p"></div><div class="p"></div></div>
+</div><p style="font-size:12px">Orange (Attention) = extract port · Blue = feed port. Same rule as the carried diagram: one change per slide.</p></div>
+</div>
+
+<div class="sub">Evidence — the table, then the one-line reading</div>
+<div class="two">
+<div class="panel"><div class="cap">Pilot result · IMO-900 · 5–9 Apr 2022</div><table><tr><th>Sample</th><th>Brix</th><th>Glucose</th><th>IG2+IG3+P</th><th>IMO</th></tr>
+<tr><td class="l">Feed</td><td>32.0</td><td>26.24</td><td>45.11</td><td>69.31</td></tr>
+<tr><td class="l">Raffinate 1</td><td>7.0</td><td>1.22</td><td>52.77</td><td>91.86</td></tr>
+<tr><td class="l">Raffinate 2</td><td>8.2</td><td>1.19</td><td>52.65</td><td>92.18</td></tr>
+<tr><td class="l">Raffinate 3</td><td>8.2</td><td>0.82</td><td>48.41</td><td>93.33</td></tr></table>
+<div class="verdict">IMO &gt;90% · IG2+IG3+P &gt;45% · Glucose &lt;2% at Brix 7–8%</div>
+<p>The full table is shown unedited, with the test dates — then one line underneath reads it for the audience against the spec. Never a cleaned-up summary table with the raw data withheld; the credibility is in showing the run.</p></div>
+<div class="panel"><div class="cap">Comparison · no winner declared</div><table><tr><th>SMB chromatography</th><th>Membrane</th></tr>
+<tr><td class="l">Various separation mechanisms</td><td class="l">Molecular-weight cut-off only</td></tr>
+<tr><td class="l">Feed must be deashed</td><td class="l">Resilient to ionic impurities</td></tr>
+<tr><td class="l">Very high CAPEX</td><td class="l">High CAPEX</td></tr>
+<tr><td class="l">Low OPEX</td><td class="l">High OPEX, energy intensive</td></tr>
+<tr><td class="l">More flexible across derivatives</td><td class="l">Oligosaccharides only</td></tr></table>
+<p>Two columns, trait against trait, symmetric length, no colour and no recommendation. The engineer in the room picks; the deck's job was to make the pick possible. State the confidentiality mark — <em>For ICHITA internal training only</em> — on the slides that carry unpublished pilot data, not on the deck.</p></div>
+</div>
+
+<div class="rules">
+<div><strong>Bookend the section with its own map.</strong> The derivative-possibilities tree opens the section and closes it, identical both times — the second viewing is the recap.</div>
+<div><strong>Name the presenter.</strong> Cover carries name and role under the title; a training deck is delivered by a person, not by a company.</div>
+<div><strong>Every reference is a name, a duty and a capacity.</strong> Five plants on a grid, then one slide each for the flagship with its location.</div>
+<div><strong>State the design brief as a numbered list</strong>, then close it with a single italic thesis line the whole section has to satisfy.</div>
+<div><strong>Derive, never assert.</strong> Two figures on screen and the arithmetic between them beats one big number.</div>
+<div><strong>Close with the ask.</strong> Thank you, then the feedback slide. The last thing on screen is what you want the room to do.</div>
+</div>
+</body></html>
