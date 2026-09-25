@@ -158,23 +158,23 @@ COPYRIGHT = (
     "Thai derived from Bai Jamjuree: "
     "Copyright 2018 Bai Jamjuree (https://github.com/cadsondemak/Bai-Jamjuree), "
     "SIL Open Font License 1.1. "
-    "TH Aeonik build (c) 2026 ICHITA Technology Co., Ltd. "
+    "TH Aeonik build (c) 2026 ICHITA Co., Ltd. "
     "INTERNAL USE ONLY - NOT FOR REDISTRIBUTION."
 )
 TRADEMARK = (
-    "TH Aeonik is an internal typeface of ICHITA Technology Co., Ltd. "
+    "TH Aeonik is an internal typeface of ICHITA Co., Ltd. "
     "Aeonik is a trademark of CoType Foundry."
 )
-MANUFACTURER = "ICHITA Technology Co., Ltd."
-DESIGNER = "ICHITA Technology Co., Ltd."
+MANUFACTURER = "ICHITA Co., Ltd."
+DESIGNER = "ICHITA Co., Ltd."
 DESCRIPTION = (
     "Thai and Latin harmonised on one baseline and one set of metrics, for "
-    "ICHITA Technology Co., Ltd. Internal use only; not for redistribution."
+    "ICHITA Co., Ltd. Internal use only; not for redistribution."
 )
 VENDOR_URL = "https://ichitaglobal.com"
 LICENSE = (
     "ICHITA internal use only. Not for redistribution, resale or transfer "
-    "outside ICHITA Technology Co., Ltd. Contains components licensed from "
+    "outside ICHITA Co., Ltd. Contains components licensed from "
     "CoType Foundry and components under the SIL Open Font License 1.1; see "
     "NOTICE.txt and OFL.txt distributed with these fonts."
 )

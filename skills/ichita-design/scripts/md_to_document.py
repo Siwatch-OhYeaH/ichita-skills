@@ -326,7 +326,7 @@ def main():
                     "ichita-exe-brief/scripts/html2pdf.py).")
     ap.add_argument("input")
     ap.add_argument("output")
-    ap.add_argument("--eyebrow", default="ICHITA Technology",
+    ap.add_argument("--eyebrow", default="ICHITA",
                     help="the uppercase line above the title")
     ap.add_argument("--title", default=None,
                     help="override the title taken from the first h1")

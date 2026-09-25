@@ -1,6 +1,6 @@
 # ICHITA Design System
 
-**ICHITA Technology Co., Ltd.** is a Thai original-equipment manufacturer and process
+**ICHITA Co., Ltd.** is a Thai original-equipment manufacturer and process
 engineering house specialising in **liquid separation technologies** — ion exchange,
 membranes, adsorption and filtration for water treatment and industrial purification
 (sugar refining, food and beverage, fine chemicals). ICHITA positions itself as a

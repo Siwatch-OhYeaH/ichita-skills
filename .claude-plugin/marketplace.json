@@ -3,7 +3,7 @@
   "name": "ichita",
   "description": "Ichita document skills with brand templates and assets",
   "owner": {
-    "name": "ICHITA Technology",
+    "name": "ICHITA Co., Ltd.",
     "email": "admin@ichita.co.th"
   },
   "plugins": [
@@ -13,7 +13,7 @@
       "source": "./",
       "version": "1.2.0",
       "author": {
-        "name": "ICHITA Technology",
+        "name": "ICHITA Co., Ltd.",
         "email": "admin@ichita.co.th"
       }
     }

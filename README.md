@@ -1,6 +1,6 @@
 # ichita-skills
 
-Private Claude Code plugin for **ICHITA Technology** — brand extension layer for document creation.
+Private Claude Code plugin for **ICHITA Co., Ltd.** — brand extension layer for document creation.
 
 ## Architecture: Two-Layer Model
 
@@ -187,4 +187,4 @@ ichita-skills/
 
 ## License
 
-Proprietary — ICHITA Technology Co., Ltd.
+Proprietary — ICHITA Co., Ltd.
