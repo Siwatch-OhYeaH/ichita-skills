@@ -277,6 +277,16 @@ def assert_thai_intact(before, after):
 
 # ── Rule 8: whitespace ───────────────────────────────────────────────────────
 
+def drop_typesetting_glue(text):
+    """No-break hyphen U+2011 -> '-', no-break space -> ' '.
+
+    fix_thai_docx glues number + unit, "Mr Siwatch", "High-Value" so Word cannot break
+    them (2026-09-25). That is typesetting, not content: the record keeps what the author
+    wrote, and the next build glues it again. pandoc reads <w:noBreakHyphen/> as U+2011.
+    """
+    return text.replace('\u2011', '-').replace('\u00a0', ' ')
+
+
 def normalise_blank_lines(text):
     """At most one blank line between blocks, exactly one trailing newline."""
     text = re.sub(r'[ \t]+$', '', text, flags=re.MULTILINE)
@@ -302,6 +312,7 @@ def clean(text, source='docx', check_thai=True):
     text = tighten_lists(text)
     text = unescape_spurious(text)
     text = repair_thai_runs(text)
+    text = drop_typesetting_glue(text)
     if source == 'pdf':
         text = rejoin_split_digits(text)
     text = normalise_blank_lines(text)

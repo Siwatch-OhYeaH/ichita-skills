@@ -28,14 +28,54 @@ Result:
    Never `w:cstheme` (theme overrides the explicit font).
 3. **Complex-script twins** — `<w:szCs>` = `<w:sz>`; `<w:bCs/>` with every `<w:b/>`; `<w:iCs/>` with `<w:i/>`.
    Without them Thai ignores size and bold.
-4. **Alignment** — justified Thai paragraphs use `<w:jc w:val="thaiDistribute"/>` (Word: *Thai Distributed*, Ctrl+Shift+J), never `both`. Left-aligned is also fine.
+4. **Alignment** — justified Thai paragraphs use `<w:jc w:val="thaiDistribute"/>` (Word: *Thai Distributed*, Ctrl+Shift+J), never `both` — except a paragraph that is mostly English: there Thai Distributed stretches the one Thai word letter by letter, so it keeps `both` (seminar invitation, Word 16, 2026-09-25). Left-aligned is also fine.
 5. **Line spacing** — `w:lineRule="auto"` (Multiple). Word's Single is already TH Aeonik's 1.536 em
    box, so any Multiple ≥ 1.0 clears the marks; the 1.75 em Thai body is Multiple 1.14 (`w:line="273"`).
    Never *Exactly* below 1.536 × the size. (PowerPoint is different: fixed 1.2 em, so Thai there
    needs Multiple ≥ 1.3.)
 6. **Order** — children of `<w:rPr>` in schema order (`rFonts b bCs i iCs … color … sz szCs … cs lang`);
    an element appended out of place may be ignored.
-7. **Text** — one paragraph per paragraph: no `<w:br/>` inside running Thai; no NBSP, ZWSP or soft hyphen (TH Aeonik has no glyphs); no manual spaces to fake word breaks.
+7. **Text** — one paragraph per paragraph: no `<w:br/>` inside running Thai; no ZWSP or soft
+   hyphen (TH Aeonik has no glyphs); no manual spaces to fake word breaks.
+8. **Tracking** — `<w:spacing w:val="0"/>` on every Thai run, overriding a tracked style
+   (`fonts.md` §3: letter-spacing on Thai separates words, not letters).
+9. **Compatibility mode** — `settings.xml` declares `compatibilityMode` 15 (14 also works).
+   With none, Word uses its oldest layout and does not break Thai lines between words: the
+   rest of a Thai run drops to the next line whole and *Thai Distributed* stretches the line
+   before it letter by letter. Measured 2026-09-25 on `ICHITA-Report-Template.docx`, which
+   shipped that way until then.
+
+## Line breaks — what the reader sees
+
+Word breaks Thai at its dictionary's word boundaries and Latin at spaces, hyphens and after an
+en dash. Each of these reads wrong; each has a fix that survives a re-layout:
+
+| Break | Fix |
+|---|---|
+| number from unit `12–15 / m³/h`, `< / 10`, `Brix / 0–1`, title from name `Mr / Siwatch` | **no-break space U+00A0** — the fixer adds it (glue). TH Aeonik has no NBSP glyph, yet Word and LibreOffice both hold the join and the PDF embeds no fallback font (measured 2026-09-24) |
+| at a hyphen `High- / Value` | `<w:noBreakHyphen/>` — the fixer puts it in every letter-hyphen-letter word and for U+2011 (TH Aeonik has no U+2011 glyph); NBSP does not stop it. Measured 2026-09-25: Word moves `High-Value` down whole, hyphen drawn |
+| after an en dash `12– / 15` | nothing prevents it — widen the column, or shorten the text |
+| a name wider than its cell, NBSP-joined | breaks mid-word — seminar agenda build, 2026-09-24. Name, role, company each on their own line |
+| inside a Thai phrase `ให้เข้า / กัน`, `ผู้ / ซื้อ` | a paragraph break of your own at the phrase boundary (`\n` → new paragraph in the cell); never NBSP, never ZWSP |
+| one word alone on the last line | break the line yourself one phrase earlier |
+
+LibreOffice uses its own Thai dictionary, so its breaks differ from Word's (`(เฉลี่ย / )` only
+there). A PDF made by LibreOffice needs its own read.
+
+## QC — before anyone says "done"
+
+```bash
+python3 skills/ichita-docx/scripts/word_qc.py FILE.docx --pdf FILE.pdf --png DIR
+```
+
+Word (from WSL, hidden, alerts off): pages (`--pages N` makes any other count a FAIL) and
+every spelling flag, Thai and Latin listed; tables wider than the text block are reported. On a
+fixed file a Thai flag is a word Word does not know or a misspelling (เรซิ่น → เรซิน) — a
+person decides. Then the delivery PDF (LibreOffice: brand fonts, Thai text layer intact —
+checked), a line check on both layouts, and page images of both. **Read every image, every
+line**: Thai split mid-word is not detectable by script. Never Save as PDF from Word
+(Calibri), and never deliver Word's Print to PDF — its Thai text layer drops tone marks and ำ
+(measured 2026-09-24: ้ 76 → 47, ำ 25 → 0).
 
 ## python-docx
 
@@ -95,7 +135,7 @@ new Document({
 ## Already have a broken file?
 
 - **One click in Word:** import `office/FixThai.bas` once (Alt+F11 → File → Import File, into *Normal*), add the `FixThai` macro to the Quick Access Toolbar. It does what "paste as plain text" does — resets the language tag to Thai — but keeps formatting and fixes alignment too.
-- **Script:** `python office/fix_thai_docx.py letter.docx` → `letter.fixed.docx` (applies 0–4, 6 and 7).
+- **Script:** `python office/fix_thai_docx.py letter.docx` → `letter.fixed.docx` (applies 0–4, 6–9 and the glue).
 - **By hand in Word:** Ctrl+A → Review → Language → Set Proofing Language → **Thai** → OK;
   then Home → **Thai Distributed** (Ctrl+Shift+J). Replace any Shift+Enter inside paragraphs with Enter.
 - If Thai is still flagged after tagging, install the Thai proofing tools:
