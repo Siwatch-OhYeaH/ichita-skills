@@ -18,13 +18,13 @@ python3 scripts/pdf_bakeoff.py FIXTURE.docx OUTDIR --source FIXTURE.md --png
 |---|---|---|---|---|---|
 | Source route | DOCX | HTML | HTML | DOCX | DOCX |
 | No non-brand font | **PASS** | **PASS** | **PASS** | **fails by design** | not measured |
-| Thai NFC-identical | **PASS** 311/311 | **PASS** 132/132 | **FAIL** 135/132 | not measured | not measured |
+| Thai NFC-identical | **PASS** 311/311 | **PASS** 132/132 | **FAIL** 135/132 | not measured | **FAIL** — tone marks and ำ dropped (below) |
 | Renders scripted HTML | n/a | **PASS** | **FAIL, exit 0** | n/a | n/a |
 | Measured line pitch | 15.4 pt at 10 pt = **1.54 em** | — | 16.23 pt | — | — |
 | Font embedding | Type1C (CFF) | **Type 3** | CID Type 0C (CFF) | — | — |
 | File size, same fixture | 123 KB | 93 KB | 48 KB | — | — |
 | Keeps Word's layout | re-lays out | n/a | discards | yes | yes |
-| Scriptable | yes | yes | yes | yes | **no, see below** |
+| Scriptable | yes | yes | yes | yes | yes since 2026-09-24 (below) |
 
 **From DOCX: LibreOffice headless.** **From HTML: Chromium**, except for static
 English-only pages where weasyprint is still better. Word's Save-as-PDF is
@@ -61,7 +61,19 @@ it.
 
 **Microsoft Print to PDF is a different path.** It is a print driver, so it
 never touches Office's font-embedding subsystem, and it is the path the font
-work hardened.
+work hardened. **Its Thai text layer is wrong, though** — measured 2026-09-24 on
+the liquid-sugar mixed-bed WI (Word 16, `PrintOut` to "Microsoft Print to PDF"),
+Thai characters in the source vs the PDF's text:
+
+```
+            source   Print to PDF   LibreOffice
+ำ              25          0            25
+่              45         27            46
+้              76         47            77
+```
+
+The glyphs render right; copy, search and read-back do not. So Print to PDF is for
+page images of Word's own layout (`word_qc.py` uses it that way), never for delivery.
 
 ### weasyprint cannot render JavaScript, and says nothing
 
@@ -153,6 +165,16 @@ powershell.exe -NoProfile -Command "Get-Process WINWORD | \
 
 `pdf_bakeoff.py` therefore skips the Word engine and says why. **Run it
 attended, with Word visible**, if the Word-layout PDF has to be measured.
+
+**2026-09-24: it does run unattended now.** Over twenty hidden COM sessions from
+WSL that day (Miipan's session log) — open, spelling errors, `ComputeStatistics`,
+`PrintOut`, `Quit` — all finished, none hung; the one timed `word_qc.py` run took
+23 s including LibreOffice, and no `WINWORD.EXE` started that day was left behind
+(process list with start times, checked after). What differs from 08-06 is `DisplayAlerts = 0` and opening
+read-only with `AddToRecentFiles = false`; which of them mattered was not isolated.
+`ichita-docx/scripts/word_qc.py` records the Word it started and kills only that
+one if it overruns. The orphans listed on 2026-09-24 (six, 15–23 Sep) were from
+earlier sessions.
 
 ---
 

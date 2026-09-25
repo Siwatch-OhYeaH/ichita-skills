@@ -166,3 +166,9 @@ class EndToEnd(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+
+def test_typesetting_glue_is_dropped_from_the_record():
+    from md_clean import drop_typesetting_glue
+    assert drop_typesetting_glue("carbon\u2011only at 2569\u00a0m³/day") == "carbon-only at 2569 m³/day"

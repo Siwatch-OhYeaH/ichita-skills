@@ -86,17 +86,26 @@ it back and `convert.py reconcile` it.
 Brand CSS for any HTML output lives in `assets/brand/ichita.css`. Import it;
 never re-declare `@font-face`, colours or page geometry in a document.
 
-## Thai — mandatory final step for EVERY .docx
+## Thai — mandatory final steps for EVERY .docx
 
 Whatever produced the file (these scripts, the base docx skill, docx.js, python-docx,
 LibreOffice), finish with:
 
     python skills/ichita-docx/scripts/fix_thai_docx.py OUTPUT.docx --inplace
+    python3 skills/ichita-docx/scripts/word_qc.py OUTPUT.docx --pdf OUTPUT.pdf --png DIR
 
-Without it Word underlines every Thai word red and stretches justified lines letter by
-letter (runs are tagged ar-SA, so Word has no Thai dictionary or word breaks).
-Never hand over a .docx that has not been through it. `md_to_docx.py`, `html_to_docx.py`
-and `rebrand_docx.py` already run it after saving. Rules: `skills/ichita-design/office/thai-in-word.md`.
+The fixer: without it Word proofs every Thai word as English and stretches justified lines
+letter by letter. It tags Thai (`<w:cs/>` + `w:bidi="th-TH"`), adds the complex-script
+twins, zeroes Thai tracking, and glues number + unit, "< 10", "Brix 0–1", "Mr Siwatch" with
+no-break spaces. `md_to_docx.py`, `html_to_docx.py` and `rebrand_docx.py` already run it.
+
+The QC is the acceptance: Word's own spelling flags and pages, the delivery PDF
+(LibreOffice — never Word's Save as PDF, never its Print to PDF), a line check on both
+layouts, and page images. **Read every page image, every line, in both layouts, before
+saying done** — a split Thai word is not detectable by script. Fix a bad break in the
+source (a line break of your own at the phrase boundary, a wider column), rebuild, re-run.
+Never hand over a .docx or PDF that has not been through both. Rules:
+`skills/ichita-design/office/thai-in-word.md`.
 
 ## Bilingual Thai/Latin work
 
