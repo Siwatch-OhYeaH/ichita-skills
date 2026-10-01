@@ -11,7 +11,7 @@
       "name": "ichita-skills",
       "description": "ICHITA brand extension — ichita-docx (branded DOCX), ichita-pptx (branded PPTX), ichita-template (restyle a PPTX), ichita-exe-brief (executive briefs), ichita-convert (docx/md/html/pdf). Requires document-skills for base capabilities.",
       "source": "./",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": {
         "name": "ICHITA Co., Ltd.",
         "email": "admin@ichita.co.th"
