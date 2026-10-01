@@ -10,7 +10,7 @@
   `@ichita.co.th`. The web domain and the mail domains are different; do not derive an
   address from the website. When an address is needed and none is given, use
   `@ichitathailand.com`.
-- Company name in full: **ICHITA Technology Co., Ltd.**
+- Company name in full: **ICHITA Co., Ltd.** / **บริษัท อิชิตะ จำกัด** — never "ICHITA Technology" (OhYeaH!, 2026-09-25)
 - Brand identity contact: `wathaipan@srithepgroup.com`
 
 ## Betatron is chapter numerals only

@@ -661,7 +661,7 @@ type below the floors, squeeze the leading, reduce the margin, or tighten the rh
 to buy a line — a page that ends 40 mm short reads better than one crammed to the edge.
 
 **Every page after the first** carries the letterhead with a running title, and every page
-carries a footer with `ICHITA Technology Co., Ltd. · www.ichita.co.th` and `n / total`.
+carries a footer with `ICHITA Co., Ltd. · www.ichita.co.th` and `n / total`.
 
 ---
 

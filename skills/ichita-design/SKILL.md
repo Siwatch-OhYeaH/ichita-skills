@@ -44,7 +44,7 @@ Word and PowerPoint templates: `office/ICHITA-Report-Template.docx`,
 and hands the HTML to `ichita-exe-brief/scripts/html2pdf.py`:
 
 ```bash
-python3 scripts/md_to_document.py IN.md OUT.html --eyebrow "ICHITA Technology"
+python3 scripts/md_to_document.py IN.md OUT.html --eyebrow "ICHITA"
 python3 ../ichita-exe-brief/scripts/html2pdf.py OUT.html OUT.pdf
 ```
 

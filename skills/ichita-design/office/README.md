@@ -36,7 +36,7 @@ Multiple **1.3** or more (1.536 ÷ 1.2 = 1.28), 1.46 for the 1.75 em body leadin
 
 A4, **25 mm margins** all round — the document standard in `README.md`. Repeating header
 (wordmark over a 0.75 pt Ichita Blue rule, document reference on the right); footer
-`ICHITA Technology Co., Ltd. · www.ichita.co.th` with `n / total` bottom-right.
+`ICHITA Co., Ltd. · www.ichita.co.th` with `n / total` bottom-right.
 
 | Style | Spec (space above / below) |
 |---|---|
